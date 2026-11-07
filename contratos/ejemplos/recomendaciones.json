@@ -1,21 +1,39 @@
 {
+  "origen": "ia",
+  "lectura": "Planta valora el nuevo sistema de turnos con un 2,4 sobre 5, 0,9 puntos menos que en octubre. Los descansos pasan del 12 % al 30 % de los comentarios y la falta de comunicación del cambio aparece por primera vez (22 %). Ojo: el turno de noche (3 %) y logística (10 %) apenas han respondido, así que sus datos no son representativos.",
   "acciones": [
     {
-      "titulo": "Revisar la duración de las pausas en el turno de noche",
-      "motivo": "El tema descansos agrupa 57 respuestas y su tendencia sube respecto a octubre. Se propone a RRHH valorar una redistribución o ampliación de las pausas nocturnas.",
-      "tema": "descansos"
+      "titulo": "Revisar la duración y el reparto de las pausas en el turno de noche",
+      "motivo": "Los descansos suben del 12 % al 30 % de los comentarios y la valoración de planta cae 0,9 puntos.",
+      "tema": "descansos",
+      "responsable": "RRHH y jefes de turno",
+      "plazo": "2 semanas",
+      "indicador": "Más del 70 % responde «sí» a si le da tiempo a la pausa completa"
     },
     {
-      "titulo": "Establecer un canal oficial para comunicar cambios de turno",
-      "motivo": "El tema comunicacion_cambio aparece como nuevo con 34 respuestas (tendencia nuevo). Se sugiere que RRHH evalúe implantar un canal formal de preaviso.",
-      "tema": "comunicacion_cambio"
+      "titulo": "Sesión de 10 minutos al inicio de cada turno explicando el nuevo sistema",
+      "motivo": "La comunicación del cambio aparece como tema nuevo con el 22 % de los comentarios.",
+      "tema": "comunicacion",
+      "responsable": "Jefes de turno con apoyo de Comunicación interna",
+      "plazo": "1 semana",
+      "indicador": "Media de «¿Te han explicado bien el cambio?» ≥ 3,5 en el seguimiento"
+    },
+    {
+      "titulo": "Quiosco y cartel con QR en el turno de noche y en el muelle de logística",
+      "motivo": "Solo han respondido el 3 % del turno de noche y el 10 % de logística: sus datos no son representativos.",
+      "tema": "turnos",
+      "responsable": "RRHH",
+      "plazo": "Antes del próximo pulso",
+      "indicador": "Participación ≥ 20 % en el turno de noche y en logística"
     }
   ],
   "seguimiento": {
-    "objetivo": "Evaluar si el personal de noche nota mejora en los descansos tras los posibles ajustes",
-    "colectivo": "planta",
-    "contexto": "En noviembre se detectó que los descansos entre turnos de noche son el principal punto de mejora. Esta encuesta de seguimiento mide si las medidas adoptadas han tenido efecto.",
-    "duracion_max_seg": 90,
+    "objetivo": "Comprobar si mejoran las pausas y la información del cambio tras las acciones",
+    "colectivos": [
+      "planta"
+    ],
+    "contexto": "Seguimiento un mes después de ajustar descansos y comunicar el cambio",
+    "duracion_max_seg": 60,
     "temas_prohibidos": [
       "salario"
     ]

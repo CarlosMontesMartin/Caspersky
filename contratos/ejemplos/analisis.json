@@ -1,17 +1,370 @@
 {
-  "encuesta_id": "enc_001",
-  "n_respuestas": 312,
+  "encuesta_id": "enc_004",
+  "titulo": "Nuevos turnos: ¿cómo lo estás viviendo?",
+  "n_respuestas": 129,
+  "periodo_actual": "2026-11",
+  "periodo_anterior": "2026-10",
   "participacion": [
-    { "colectivo": "planta", "turno": "noche", "respuestas": 9, "personas": 120, "tasa": 0.075, "representativo": false }
+    {
+      "colectivo": "planta",
+      "turno": "manana",
+      "respuestas": 60,
+      "personas": 160,
+      "tasa": 0.375,
+      "representativo": true
+    },
+    {
+      "colectivo": "planta",
+      "turno": "tarde",
+      "respuestas": 56,
+      "personas": 160,
+      "tasa": 0.35,
+      "representativo": true
+    },
+    {
+      "colectivo": "planta",
+      "turno": "noche",
+      "respuestas": 4,
+      "personas": 140,
+      "tasa": 0.029,
+      "representativo": false
+    },
+    {
+      "colectivo": "logistica",
+      "turno": "sin_turno",
+      "respuestas": 9,
+      "personas": 90,
+      "tasa": 0.1,
+      "representativo": false
+    }
   ],
   "medias": [
-    { "pregunta": "p1", "colectivo": "planta", "media": 2.8, "n": 41 }
-  ],
-  "temas": [
-    { "tema": "descansos", "n": 57, "resumen": "Quejas por falta de descanso entre turnos.", "tendencia": "sube" }
+    {
+      "pregunta": "c1",
+      "colectivo": "planta",
+      "media": 2.4,
+      "n": 120
+    },
+    {
+      "pregunta": "c1",
+      "colectivo": "logistica",
+      "media": 3.1,
+      "n": 9
+    },
+    {
+      "pregunta": "c2",
+      "colectivo": "planta",
+      "media": 2.6,
+      "n": 120
+    },
+    {
+      "pregunta": "c2",
+      "colectivo": "logistica",
+      "media": 3.4,
+      "n": 9
+    },
+    {
+      "pregunta": "logistica_p1",
+      "colectivo": "logistica",
+      "media": 3.0,
+      "n": 9
+    }
   ],
   "alertas": [
-    { "tipo": "representatividad", "mensaje": "El turno de noche de planta solo ha respondido un 7,5 %." }
+    {
+      "tipo": "representatividad",
+      "mensaje": "El turno de noche de planta solo ha respondido un 3 % (4 de 140): los resultados pueden no representarle.",
+      "colectivo": "planta",
+      "turno": "noche"
+    },
+    {
+      "tipo": "representatividad",
+      "mensaje": "Logística solo ha respondido un 10 % (9 de 90): los resultados pueden no representarle.",
+      "colectivo": "logistica",
+      "turno": "sin_turno"
+    },
+    {
+      "tipo": "caida",
+      "mensaje": "«¿Cómo valoras el nuevo sistema de turnos?» baja de 3,3 a 2,4 en planta respecto al periodo anterior.",
+      "colectivo": "planta",
+      "pregunta": "c1"
+    }
   ],
-  "limites": ["Muestra pequeña en logística (n=7)."]
+  "limites": [
+    "Muestra pequeña en el turno de noche de planta (n=4): no se muestran sus medias ni temas.",
+    "Logística tiene solo 9 respuestas: sus medias son orientativas.",
+    "Los temas los clasifica una IA y pueden contener errores; precisión medida contra datos etiquetados.",
+    "Segmentos con menos de 5 respuestas ocultos.",
+    "Una correlación no demuestra una causa."
+  ],
+  "temas": [
+    {
+      "tema": "descansos",
+      "n": 34,
+      "resumen": "Las pausas del nuevo turno se perciben cortas y mal repartidas, sobre todo de noche.",
+      "tendencia": "sube",
+      "n_anterior": 18,
+      "pct": 0.301,
+      "pct_anterior": 0.124
+    },
+    {
+      "tema": "comunicacion",
+      "n": 25,
+      "resumen": "Muchas personas dicen que nadie les explicó el cambio y se enteraron por compañeros.",
+      "tendencia": "nuevo",
+      "n_anterior": 0,
+      "pct": 0.221,
+      "pct_anterior": 0.0
+    },
+    {
+      "tema": "turnos",
+      "n": 21,
+      "resumen": "La rotación rápida dificulta conciliar y saber el turno con antelación.",
+      "tendencia": "sube",
+      "n_anterior": 20,
+      "pct": 0.186,
+      "pct_anterior": 0.138
+    },
+    {
+      "tema": "herramientas",
+      "n": 9,
+      "resumen": "Quejas puntuales por equipos que fallan en el muelle.",
+      "tendencia": "baja",
+      "n_anterior": 30,
+      "pct": 0.08,
+      "pct_anterior": 0.207
+    }
+  ],
+  "n_anterior": 246,
+  "n_simuladas": 100,
+  "colectivos": [
+    "planta",
+    "logistica"
+  ],
+  "participacion_global": 0.235,
+  "medias_anterior": [
+    {
+      "pregunta": "c1",
+      "colectivo": "planta",
+      "media": 3.3,
+      "n": 140
+    },
+    {
+      "pregunta": "c1",
+      "colectivo": "logistica",
+      "media": 3.2,
+      "n": 12
+    },
+    {
+      "pregunta": "c2",
+      "colectivo": "planta",
+      "media": 3.0,
+      "n": 140
+    },
+    {
+      "pregunta": "c2",
+      "colectivo": "logistica",
+      "media": 3.3,
+      "n": 12
+    },
+    {
+      "pregunta": "logistica_p1",
+      "colectivo": "logistica",
+      "media": 3.0,
+      "n": 12
+    }
+  ],
+  "preguntas": [
+    {
+      "id": "c1",
+      "texto": "¿Cómo valoras el nuevo sistema de turnos?",
+      "tipo": "escala_1_5",
+      "dimension": "condiciones",
+      "ambito": "comun"
+    },
+    {
+      "id": "c2",
+      "texto": "¿Sientes que te han explicado bien el cambio?",
+      "tipo": "escala_1_5",
+      "dimension": "liderazgo",
+      "ambito": "comun"
+    },
+    {
+      "id": "c3",
+      "texto": "¿Qué cambiarías?",
+      "tipo": "texto",
+      "dimension": "condiciones",
+      "ambito": "comun"
+    },
+    {
+      "id": "planta_p1",
+      "texto": "¿Te da tiempo a hacer la pausa completa en tu turno?",
+      "tipo": "si_no",
+      "dimension": "bienestar",
+      "ambito": "planta"
+    },
+    {
+      "id": "planta_p2",
+      "texto": "¿Qué te cuesta más del nuevo cuadrante?",
+      "tipo": "opcion",
+      "dimension": "condiciones",
+      "ambito": "planta"
+    },
+    {
+      "id": "logistica_p1",
+      "texto": "¿Te llega a tiempo el cuadrante de rutas?",
+      "tipo": "escala_1_5",
+      "dimension": "condiciones",
+      "ambito": "logistica"
+    },
+    {
+      "id": "logistica_p2",
+      "texto": "¿Te avisan con tiempo de los cambios en el muelle?",
+      "tipo": "si_no",
+      "dimension": "liderazgo",
+      "ambito": "logistica"
+    }
+  ],
+  "distribuciones": [
+    {
+      "pregunta": "c1",
+      "texto": "¿Cómo valoras el nuevo sistema de turnos?",
+      "dimension": "condiciones",
+      "conteos": [
+        35,
+        38,
+        30,
+        18,
+        8
+      ],
+      "n": 129,
+      "media": 2.43
+    },
+    {
+      "pregunta": "c2",
+      "texto": "¿Sientes que te han explicado bien el cambio?",
+      "dimension": "liderazgo",
+      "conteos": [
+        22,
+        40,
+        35,
+        22,
+        10
+      ],
+      "n": 129,
+      "media": 2.67
+    },
+    {
+      "pregunta": "logistica_p1",
+      "texto": "¿Te llega a tiempo el cuadrante de rutas?",
+      "dimension": "condiciones",
+      "conteos": [
+        1,
+        2,
+        3,
+        2,
+        1
+      ],
+      "n": 9,
+      "media": 3.0
+    }
+  ],
+  "zonas": [
+    {
+      "colectivo": "planta",
+      "respuestas": 120,
+      "personas": 460,
+      "tasa": 0.261,
+      "representativo": false,
+      "media": 2.5,
+      "media_anterior": 3.15,
+      "variacion": -0.65,
+      "temas": [
+        {
+          "tema": "descansos",
+          "n": 30
+        },
+        {
+          "tema": "comunicacion",
+          "n": 20
+        },
+        {
+          "tema": "turnos",
+          "n": 18
+        }
+      ],
+      "alertas": [
+        "El turno de noche de planta solo ha respondido un 3 % (4 de 140): los resultados pueden no representarle.",
+        "«¿Cómo valoras el nuevo sistema de turnos?» baja de 3,3 a 2,4 en planta respecto al periodo anterior."
+      ],
+      "turnos": [
+        {
+          "colectivo": "planta",
+          "turno": "manana",
+          "respuestas": 60,
+          "personas": 160,
+          "tasa": 0.375,
+          "representativo": true,
+          "media": 2.6
+        },
+        {
+          "colectivo": "planta",
+          "turno": "tarde",
+          "respuestas": 56,
+          "personas": 160,
+          "tasa": 0.35,
+          "representativo": true,
+          "media": 2.5
+        },
+        {
+          "colectivo": "planta",
+          "turno": "noche",
+          "respuestas": 4,
+          "personas": 140,
+          "tasa": 0.029,
+          "representativo": false,
+          "media": null
+        }
+      ]
+    },
+    {
+      "colectivo": "logistica",
+      "respuestas": 9,
+      "personas": 90,
+      "tasa": 0.1,
+      "representativo": false,
+      "media": 3.17,
+      "media_anterior": 3.17,
+      "variacion": 0.0,
+      "temas": [
+        {
+          "tema": "herramientas",
+          "n": 5
+        }
+      ],
+      "alertas": [
+        "Logística solo ha respondido un 10 % (9 de 90): los resultados pueden no representarle."
+      ],
+      "turnos": [
+        {
+          "colectivo": "logistica",
+          "turno": "sin_turno",
+          "respuestas": 9,
+          "personas": 90,
+          "tasa": 0.1,
+          "representativo": false,
+          "media": 3.17
+        }
+      ]
+    }
+  ],
+  "lectura": "Planta valora el nuevo sistema de turnos con un 2,4 sobre 5, 0,9 puntos menos que en octubre. Los descansos pasan del 12 % al 30 % de los comentarios y la falta de comunicación del cambio aparece por primera vez (22 %). Ojo: el turno de noche (3 %) y logística (10 %) apenas han respondido, así que sus datos no son representativos.",
+  "estado_ia": {
+    "llm": true,
+    "pendientes": 0,
+    "comentarios_total": 113,
+    "comentarios_ia": 113,
+    "listo": true,
+    "origen_recomendaciones": "ia"
+  }
 }

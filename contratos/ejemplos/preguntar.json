@@ -1,0 +1,11 @@
+{
+  "respuesta": "Planta es el sector peor valorado: 2,4 sobre 5 en el nuevo sistema de turnos, 0,9 puntos menos que en octubre. Coincide con más comentarios sobre descansos (30 %) y sobre la falta de explicación del cambio (22 %), aunque esto no demuestra que sean la causa. El turno de noche solo tiene 4 respuestas, así que su dato no es fiable.",
+  "cifras": [
+    "Planta: 2,4 / 5 (octubre: 3,3)",
+    "Descansos: 30 % de los comentarios (antes 12 %)",
+    "Comunicación: 22 % (tema nuevo)",
+    "Turno de noche: 4 de 140 respuestas (3 %)"
+  ],
+  "confianza": "media",
+  "origen": "ia"
+}

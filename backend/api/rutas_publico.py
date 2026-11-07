@@ -1,10 +1,11 @@
-"""Rutas para quien responde · UPC 2 (ver modulos.md, sección 3)."""
+"""Rutas para quien responde · UPC 2 (modulos.md sección 3 y v2.md sección 3.3)."""
 import uuid
 from datetime import date
 
 from fastapi import APIRouter, HTTPException
 
-from backend.api.validacion import turnos_de, validar_respuesta_entrada
+from backend.api.validacion import (colectivos_de, preguntas_de, turnos_de,
+                                    turnos_por_colectivo, validar_respuesta_entrada)
 from backend.datos import almacen
 from backend.datos.anonimizar import anonimizar
 
@@ -19,17 +20,29 @@ def obtener_publicada(encuesta_id: str) -> dict:
     return encuesta
 
 
+def colectivo_de_entrada(encuesta: dict, entrada: dict) -> str:
+    """El de la entrada (obligatorio si la encuesta tiene varios) o el único de la encuesta."""
+    colectivos = colectivos_de(encuesta)
+    elegido = entrada.get("colectivo")
+    if elegido is None:
+        if len(colectivos) != 1:
+            raise HTTPException(422, f"Indica tu colectivo: esta encuesta es para {colectivos}")
+        return colectivos[0]
+    if elegido not in colectivos:
+        raise HTTPException(422, f"El colectivo {elegido!r} no es de esta encuesta")
+    return elegido
+
+
 def construir_respuesta(encuesta: dict, entrada: dict, *, colectivo: str | None = None,
                         fecha: date | None = None, tema_real: str | None = None) -> dict:
     """Valida una RespuestaEntrada y la convierte en Respuesta (anonimizada).
 
-    El texto libre (preguntas de tipo texto + campo comentario) se guarda SOLO
-    en `comentario`; `valores` queda con escalas, opciones y sí/no.
-    La usan la ruta pública y la simulación del modo demo: mismo camino para todo.
+    El texto libre (preguntas de tipo texto + campo comentario) se guarda SOLO en
+    `comentario`. La usan la ruta pública y la simulación: mismo camino para todo.
     """
-    colectivo = colectivo or encuesta["colectivo"]
+    colectivo = colectivo or colectivo_de_entrada(encuesta, entrada)
     validar_respuesta_entrada(entrada, encuesta, colectivo)
-    tipos = {p["id"]: p["tipo"] for p in encuesta["preguntas"]}
+    tipos = {p["id"]: p["tipo"] for p in preguntas_de(encuesta, colectivo)}
 
     valores, textos = {}, []
     for clave, valor in entrada.get("valores", {}).items():
@@ -65,10 +78,14 @@ def construir_respuesta(encuesta: dict, entrada: dict, *, colectivo: str | None 
 @router.get("/encuestas/{encuesta_id}")
 def ver_publica(encuesta_id: str):
     e = obtener_publicada(encuesta_id)
+    colectivos = colectivos_de(e)
     return {"id": e["id"], "titulo": e.get("titulo", ""), "intro": e.get("intro", ""),
-            "colectivo": e["colectivo"], "tiempo_estimado_seg": e.get("tiempo_estimado_seg", 0),
-            "preguntas": e["preguntas"], "turnos": turnos_de(e["colectivo"]),
-            "transparencia": almacen.leer_transparencia()}
+            "colectivo": e.get("colectivo", ""), "colectivos": colectivos,
+            "tiempo_estimado_seg": e.get("tiempo_estimado_seg", 0),
+            "transparencia": almacen.leer_transparencia(),
+            "preguntas": e["preguntas"], "preguntas_por_colectivo": e.get("preguntas_por_colectivo") or {},
+            "turnos": turnos_de(colectivos[0]) if colectivos else ["sin_turno"],
+            "turnos_por_colectivo": turnos_por_colectivo(colectivos)}
 
 
 @router.post("/encuestas/{encuesta_id}/respuestas")
@@ -77,3 +94,4 @@ def responder(encuesta_id: str, entrada: dict):
     # Solo los campos del contrato: nada de IP, user agent ni hora exacta.
     almacen.anadir_respuesta(encuesta_id, construir_respuesta(encuesta, entrada))
     return {"ok": True}
+

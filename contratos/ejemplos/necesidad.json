@@ -1,7 +1,12 @@
 {
-  "objetivo": "Saber cómo afecta el nuevo sistema de turnos",
-  "colectivo": "planta",
+  "objetivo": "Saber cómo afecta el nuevo sistema de turnos y si llega bien la información",
+  "colectivos": [
+    "planta",
+    "logistica"
+  ],
   "contexto": "Cambio de turnos desde octubre",
   "duracion_max_seg": 120,
-  "temas_prohibidos": ["salario"]
+  "temas_prohibidos": [
+    "salario"
+  ]
 }

@@ -1,13 +1,17 @@
 {
-  "id": "r_00123",
-  "encuesta_id": "enc_001",
-  "fecha": "2026-10-15",
-  "periodo": "2026-10",
+  "id": "r_3f9a01c2",
+  "encuesta_id": "enc_004",
+  "fecha": "2026-11-08",
+  "periodo": "2026-11",
   "colectivo": "planta",
   "centro_tipo": "fabrica",
   "turno": "noche",
   "canal": "qr",
-  "valores": { "p1": 2, "p2": "no hay tiempo para descansar entre turnos" },
-  "comentario": "no hay tiempo para descansar entre turnos",
-  "tema_real": "descansos"
+  "valores": {
+    "c1": 2,
+    "c2": 1,
+    "planta_p1": "no",
+    "planta_p2": "Las pausas"
+  },
+  "comentario": "el descanso de la noche es muy corto"
 }

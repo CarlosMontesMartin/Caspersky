@@ -1,0 +1,96 @@
+{
+  "id": "enc_004",
+  "titulo": "Nuevos turnos: ¿cómo lo estás viviendo?",
+  "intro": "Menos de 2 minutos. Es anónimo: solo vemos resultados de grupos de 5 personas o más.",
+  "colectivo": "varios",
+  "tiempo_estimado_seg": 90,
+  "colectivos": [
+    "planta",
+    "logistica"
+  ],
+  "preguntas": [
+    {
+      "id": "c1",
+      "texto": "¿Cómo valoras el nuevo sistema de turnos?",
+      "tipo": "escala_1_5",
+      "opciones": [],
+      "dimension": "condiciones",
+      "condicion": null
+    },
+    {
+      "id": "c2",
+      "texto": "¿Sientes que te han explicado bien el cambio?",
+      "tipo": "escala_1_5",
+      "opciones": [],
+      "dimension": "liderazgo",
+      "condicion": null
+    },
+    {
+      "id": "c3",
+      "texto": "¿Qué cambiarías?",
+      "tipo": "texto",
+      "opciones": [],
+      "dimension": "condiciones",
+      "condicion": null
+    }
+  ],
+  "preguntas_por_colectivo": {
+    "planta": [
+      {
+        "id": "planta_p1",
+        "texto": "¿Te da tiempo a hacer la pausa completa en tu turno?",
+        "tipo": "si_no",
+        "opciones": [],
+        "dimension": "bienestar",
+        "condicion": null
+      },
+      {
+        "id": "planta_p2",
+        "texto": "¿Qué te cuesta más del nuevo cuadrante?",
+        "tipo": "opcion",
+        "opciones": [
+          "Las pausas",
+          "Conciliar con mi vida personal",
+          "Saber mi turno con antelación",
+          "Otra cosa"
+        ],
+        "dimension": "condiciones",
+        "condicion": null
+      }
+    ],
+    "logistica": [
+      {
+        "id": "logistica_p1",
+        "texto": "¿Te llega a tiempo el cuadrante de rutas?",
+        "tipo": "escala_1_5",
+        "opciones": [],
+        "dimension": "condiciones",
+        "condicion": null
+      },
+      {
+        "id": "logistica_p2",
+        "texto": "¿Te avisan con tiempo de los cambios en el muelle?",
+        "tipo": "si_no",
+        "opciones": [],
+        "dimension": "liderazgo",
+        "condicion": null
+      }
+    ]
+  },
+  "transparencia": "Esta encuesta sirve para mejorar la organización de los turnos. Es anónima y solo se ven resultados de grupos de 5 personas o más.",
+  "turnos": [
+    "manana",
+    "tarde",
+    "noche"
+  ],
+  "turnos_por_colectivo": {
+    "planta": [
+      "manana",
+      "tarde",
+      "noche"
+    ],
+    "logistica": [
+      "sin_turno"
+    ]
+  }
+}

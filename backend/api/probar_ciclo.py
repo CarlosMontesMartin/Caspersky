@@ -1,4 +1,4 @@
-"""Recorre el ciclo completo por la API y dice OK o FALLO en cada comprobación · UPC 2.
+"""Recorre el ciclo completo por la API y dice OK o FALLO en cada comprobación · UPC 2 (v2.md 3.6).
 
     python -m backend.api.probar_ciclo                       # sin servidor, datos temporales
     python -m backend.api.probar_ciclo --url http://localhost:8000   # contra un servidor arrancado
@@ -7,6 +7,10 @@ Sin --url arranca la API dentro del propio script con un almacén temporal:
 no hace falta tener el servidor encendido y no ensucia backend/datos/almacen/.
 Con --url prueba el servidor de verdad (necesita MODO_DEMO=1 en su .env).
 Sale con código 1 si algo falla. Tarda unos segundos: úsalo después de cada cambio.
+
+Siempre se ejecuta SIN clave de IA (LLM_API_KEY vacío) para no gastar ni saturar
+la API del evento: todo tiene que pasar con el modo de respaldo. Los caminos con
+IA se prueban a mano, una vez por función.
 """
 import argparse
 import json
@@ -30,6 +34,15 @@ NECESIDAD_A = {"objetivo": "Saber cómo afecta el nuevo sistema de turnos", "col
                "temas_prohibidos": ["salario"]}
 DATO_PERSONAL = "Soy Ramón, llamadme al 612345678"
 TENDENCIAS = {"nuevo", "sube", "estable", "baja"}
+NECESIDAD_MULTI = {"objetivo": "Saber cómo afecta el cambio de turnos a la coordinación entre áreas",
+                   "colectivos": ["planta", "logistica"], "contexto": "Cambio de turnos desde octubre",
+                   "duracion_max_seg": 120, "temas_prohibidos": ["salario"]}
+CAMPOS_ANALISIS_V2 = {"encuesta_id", "titulo", "n_respuestas", "periodo_actual", "periodo_anterior", "participacion",
+                      "medias", "alertas", "limites", "temas", "n_anterior", "n_simuladas", "colectivos",
+                      "participacion_global", "medias_anterior", "preguntas", "distribuciones", "zonas",
+                      "lectura", "estado_ia"}
+CAMPOS_ESTADO_IA = {"llm", "pendientes", "comentarios_total", "comentarios_ia", "listo", "origen_recomendaciones"}
+NOMBRES_INVENTADOS = ("Ramón", "Ramon", "Jordi", "Montse", "Pepe", "pepe")
 
 
 class Resultado:
@@ -149,6 +162,8 @@ def recorrer(c, res: Resultado, almacen=None, local: bool = False) -> None:
     estado, a = pedir("get", f"/encuestas/{eid}/analisis")
     if not res.comprobar("GET analisis", estado == 200, f"{estado} {a}"):
         return
+    faltan = CAMPOS_ANALISIS_V2 - set(a)
+    res.comprobar("El análisis trae todos los campos v2", not faltan, f"faltan {sorted(faltan)}")
     res.comprobar("Cuenta las respuestas del periodo actual", a["n_respuestas"] >= 40, f"n={a['n_respuestas']}")
     res.comprobar("Hay periodo anterior para comparar", a.get("periodo_anterior") is not None)
     noche = next((f for f in a["participacion"] if f["colectivo"] == "planta" and f["turno"] == "noche"), None)
@@ -185,18 +200,114 @@ def recorrer(c, res: Resultado, almacen=None, local: bool = False) -> None:
         acciones = rec.get("acciones", [])
         res.comprobar("Tiene acciones con título y motivo",
                       len(acciones) >= 1 and all(x.get("titulo") and x.get("motivo") for x in acciones))
+        res.comprobar("Acciones con responsable, plazo e indicador",
+                      all(x.get("responsable") and x.get("plazo") and x.get("indicador") for x in acciones))
+        res.comprobar("Origen de las recomendaciones (ia | reglas)", rec.get("origen") in ("ia", "reglas"))
         seg = rec.get("seguimiento") or {}
-        res.comprobar("Propone encuesta de seguimiento para planta", seg.get("colectivo") == "planta", str(seg))
+        res.comprobar("Propone encuesta de seguimiento para planta",
+                      "planta" in (seg.get("colectivos") or [seg.get("colectivo")]), str(seg))
         estado, _ = pedir("post", "/encuestas/generar", json=seg)
         res.comprobar("El seguimiento se puede generar (cierra el ciclo)", estado == 200, f"devolvió {estado}")
 
-    res.seccion("7. Histórico enc_000 (escenario C)")
+    recorrer_multisector(c, res, pedir)
+
+    res.seccion("9. Histórico enc_000 (escenario C)")
     estado, lista = pedir("get", "/encuestas")
     if any(e["id"] == "enc_000" for e in lista or []):
         estado, a0 = pedir("get", "/encuestas/enc_000/analisis")
         res.comprobar("Análisis de enc_000", estado == 200 and a0.get("n_respuestas", 0) > 0, f"{estado}")
     else:
         res.omitir("Análisis de enc_000", "UPC 1 aún no ha subido datos_sinteticos/enc_000.json")
+
+
+def recorrer_multisector(c, res: Resultado, pedir) -> None:
+    res.seccion("7. Encuesta multisector (planta + logística)")
+    estado, enc = pedir("post", "/encuestas/generar", json=NECESIDAD_MULTI)
+    if not res.comprobar("Generar con colectivos [planta, logistica]", estado == 200, f"{estado} {enc}"):
+        return
+    eid, nucleo, propias = enc["id"], enc.get("preguntas", []), enc.get("preguntas_por_colectivo") or {}
+    res.comprobar("colectivo == \"varios\" y colectivos en orden",
+                  enc.get("colectivo") == "varios" and enc.get("colectivos") == ["planta", "logistica"],
+                  f"{enc.get('colectivo')} {enc.get('colectivos')}")
+    res.comprobar("origen ia | respaldo", enc.get("origen") in ("ia", "respaldo"), str(enc.get("origen")))
+    res.comprobar("Núcleo común de 1–3 preguntas", 1 <= len(nucleo) <= 3, f"{len(nucleo)}")
+    res.comprobar("Cada sector con 1–3 preguntas propias",
+                  set(propias) == {"planta", "logistica"} and all(1 <= len(v) <= 3 for v in propias.values()),
+                  json.dumps({k: len(v) for k, v in propias.items()}))
+    res.comprobar("Ninguna pregunta propia es de texto",
+                  all(p["tipo"] != "texto" for v in propias.values() for p in v))
+    ids = [p["id"] for p in nucleo] + [p["id"] for v in propias.values() for p in v]
+    res.comprobar("Ids únicos en toda la encuesta", len(ids) == len(set(ids)), str(ids))
+    res.comprobar("3–6 preguntas por sector", all(3 <= len(nucleo) + len(v) <= 6 for v in propias.values()))
+    res.comprobar("tiempo_por_colectivo de cada sector",
+                  set(enc.get("tiempo_por_colectivo") or {}) == {"planta", "logistica"})
+
+    estado, _ = pedir("post", f"/encuestas/{eid}/aprobar")
+    estado, pub = pedir("post", f"/encuestas/{eid}/publicar")
+    res.comprobar("Aprobar y publicar", estado == 200 and pub.get("estado") == "publicada", f"{estado}")
+    estado, publica = pedir("get", f"/publico/encuestas/{eid}")
+    res.comprobar("Encuesta pública con turnos por colectivo",
+                  estado == 200 and publica.get("turnos_por_colectivo") == {"planta": ["manana", "tarde", "noche"],
+                                                                             "logistica": ["sin_turno"]},
+                  str(publica and publica.get("turnos_por_colectivo")))
+    res.comprobar("Encuesta pública con preguntas_por_colectivo",
+                  estado == 200 and set(publica.get("preguntas_por_colectivo", {})) == {"planta", "logistica"})
+
+    escala = next((p["id"] for p in nucleo if p["tipo"] == "escala_1_5"), None)
+    de_logistica = propias.get("logistica", [{}])[0].get("id")
+    ruta = f"/publico/encuestas/{eid}/respuestas"
+    estado, _ = pedir("post", ruta, json={"turno": "noche", "valores": {escala: 3}})
+    res.comprobar("Responder sin colectivo → 422", estado == 422, f"devolvió {estado}")
+    estado, _ = pedir("post", ruta, json={"colectivo": "comercial", "turno": "sin_turno", "valores": {escala: 3}})
+    res.comprobar("Responder con un colectivo que no es de la encuesta → 422", estado == 422, f"devolvió {estado}")
+    estado, _ = pedir("post", ruta, json={"colectivo": "planta", "turno": "noche",
+                                          "valores": {escala: 3, de_logistica: 3 if propias["logistica"][0]["tipo"] == "escala_1_5" else "si"}})
+    res.comprobar("Planta respondiendo una pregunta de logística → 422", estado == 422, f"devolvió {estado}")
+    estado, _ = pedir("post", ruta, json={"colectivo": "logistica", "turno": "sin_turno", "valores": {escala: 4}})
+    res.comprobar("Respuesta válida de logística", estado == 200, f"devolvió {estado}")
+
+    estado, sim = pedir("post", f"/encuestas/{eid}/simular", json={"n": 40, "semilla": 3})
+    res.comprobar("Simular respuestas multisector", estado == 200 and sim.get("simuladas") == 80, f"{estado} {sim}")
+
+    res.seccion("8. Análisis multisector, maqueta y pregunta a tus datos")
+    estado, a = pedir("get", f"/encuestas/{eid}/analisis")
+    if not res.comprobar("GET analisis", estado == 200, f"{estado}"):
+        return
+    faltan = CAMPOS_ANALISIS_V2 - set(a)
+    res.comprobar("El análisis trae todos los campos v2", not faltan, f"faltan {sorted(faltan)}")
+    zonas = a.get("zonas", [])
+    res.comprobar("Una zona por sector (2)", [z["colectivo"] for z in zonas] == ["planta", "logistica"],
+                  str([z.get("colectivo") for z in zonas]))
+    res.comprobar("Hay respuestas de los dos sectores", all(z["respuestas"] > 0 for z in zonas),
+                  str([(z["colectivo"], z["respuestas"]) for z in zonas]))
+    res.comprobar("Zonas con < 5 respuestas: media null y sin temas",
+                  all(z["media"] is None and z["temas"] == [] for z in zonas if z["respuestas"] < 5))
+    res.comprobar("Turnos con < 5 respuestas: media null",
+                  all(t["media"] is None for z in zonas for t in z.get("turnos", []) if t["respuestas"] < 5))
+    res.comprobar("Distribuciones sin n < 5", all(d["n"] >= 5 and len(d["conteos"]) == 5 for d in a["distribuciones"]))
+    res.comprobar("Hay distribuciones de escalas", len(a["distribuciones"]) >= 1)
+    res.comprobar("Preguntas con ámbito común y por sector",
+                  {p["ambito"] for p in a["preguntas"]} >= {"comun", "planta", "logistica"})
+    res.comprobar("estado_ia completo", CAMPOS_ESTADO_IA <= set(a.get("estado_ia", {})), str(a.get("estado_ia")))
+    res.comprobar("Lectura ejecutiva no vacía", bool(str(a.get("lectura", "")).strip()))
+    res.comprobar("Alertas con colectivo", all(x.get("colectivo") for x in a["alertas"]))
+    res.comprobar("Temas con n_anterior, pct y pct_anterior",
+                  all({"n_anterior", "pct", "pct_anterior"} <= set(t) for t in a["temas"]))
+    res.comprobar("El análisis no expone datos personales",
+                  not any(nombre in json.dumps(a, ensure_ascii=False) for nombre in NOMBRES_INVENTADOS))
+
+    estado, r = pedir("post", f"/encuestas/{eid}/preguntar", json={"pregunta": "¿Quién se queja más del turno de noche?"})
+    res.comprobar("Preguntar «¿quién…?» → origen reglas", estado == 200 and r.get("origen") == "reglas", f"{estado} {r}")
+    res.comprobar("La respuesta no menciona a nadie",
+                  estado == 200 and not any(nombre in r.get("respuesta", "") for nombre in NOMBRES_INVENTADOS))
+    estado, r = pedir("post", f"/encuestas/{eid}/preguntar", json={"pregunta": "¿Qué sector está peor y por qué?"})
+    res.comprobar("Preguntar devuelve respuesta, cifras, confianza y origen",
+                  estado == 200 and {"respuesta", "cifras", "confianza", "origen"} <= set(r)
+                  and r["confianza"] in ("alta", "media", "baja"), f"{estado} {r}")
+    estado, rec = pedir("get", f"/encuestas/{eid}/recomendaciones")
+    seg = (rec or {}).get("seguimiento") or {}
+    res.comprobar("Recomendaciones con lectura y seguimiento con colectivos",
+                  estado == 200 and bool(rec.get("lectura")) and isinstance(seg.get("colectivos"), list), f"{estado}")
 
 
 def main() -> int:
@@ -212,6 +323,7 @@ def main() -> int:
             recorrer(c, res)
     else:
         os.environ["MODO_DEMO"] = "1"
+        os.environ["LLM_API_KEY"] = ""  # siempre sin IA (v2.md 3.6.7); load_dotenv no lo sobrescribe
         from backend.datos import almacen
         temporal = Path(tempfile.mkdtemp(prefix="probar_ciclo_"))
         almacen.BASE = temporal / "almacen"
