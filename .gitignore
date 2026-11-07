@@ -10,3 +10,4 @@ build/
 *.sqlite
 .DS_Store
 .venv/
+backend/datos/almacen/

@@ -8,22 +8,33 @@ import base64
 import copy
 import io
 import json
+import os
+import uuid
+from contextlib import asynccontextmanager
+from datetime import date
 from pathlib import Path
 
 import qrcode
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.datos import almacen
+
 RAIZ = Path(__file__).resolve().parents[2]
 EJEMPLOS = RAIZ / "contratos" / "ejemplos"
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+CENTRO_TIPO = {"planta": "fabrica", "logistica": "almacen"}  # resto -> oficina
 
-app = FastAPI(title="Damm · Escucha activa", version="0.1.0")
+@asynccontextmanager
+async def arranque(app):
+    print("[almacen]", almacen.inicializar())
+    yield
+
+
+app = FastAPI(title="Damm · Escucha activa", version="0.2.0", lifespan=arranque)
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
-
-# En memoria hasta tener la base de datos (backend/datos/).
-ENCUESTAS: dict[str, dict] = {}
 
 
 def ejemplo(nombre: str) -> dict:
@@ -34,9 +45,13 @@ def ejemplo(nombre: str) -> dict:
 
 
 def obtener(encuesta_id: str) -> dict:
-    if encuesta_id not in ENCUESTAS:
+    try:
+        encuesta = almacen.leer_encuesta(encuesta_id)
+    except ValueError:
+        encuesta = None
+    if encuesta is None:
         raise HTTPException(404, f"No existe la encuesta {encuesta_id}")
-    return ENCUESTAS[encuesta_id]
+    return encuesta
 
 
 def exigir_estado(encuesta: dict, estado: str, accion: str) -> None:
@@ -61,12 +76,16 @@ def salud():
 def generar(necesidad: dict):
     # TODO: llamar a backend.ia.generar_encuesta(necesidad, reglas) de UPC 1.
     encuesta = ejemplo("encuesta")
-    encuesta["id"] = f"enc_{len(ENCUESTAS) + 1:03d}"
+    encuesta["id"] = almacen.nuevo_id()
     encuesta["estado"] = "borrador"
     encuesta["colectivo"] = necesidad.get("colectivo", encuesta["colectivo"])
     encuesta["url"] = encuesta["qr"] = None
-    ENCUESTAS[encuesta["id"]] = encuesta
-    return encuesta
+    return almacen.guardar_encuesta(encuesta)
+
+
+@app.get("/encuestas/{encuesta_id}")
+def ver(encuesta_id: str):
+    return obtener(encuesta_id)
 
 
 @app.put("/encuestas/{encuesta_id}")
@@ -77,8 +96,7 @@ def editar(encuesta_id: str, editada: dict):
     # El cliente no puede cambiar id, estado, url ni qr.
     for campo in ("id", "estado", "url", "qr"):
         nueva[campo] = actual[campo]
-    ENCUESTAS[encuesta_id] = nueva
-    return nueva
+    return almacen.guardar_encuesta(nueva)
 
 
 @app.post("/encuestas/{encuesta_id}/aprobar")
@@ -87,24 +105,42 @@ def aprobar(encuesta_id: str):
     exigir_estado(encuesta, "borrador", "aprobar")
     encuesta["estado"] = "aprobada"
     # TODO (post-MVP): registrar quién aprobó y cuándo.
-    return encuesta
+    return almacen.guardar_encuesta(encuesta)
 
 
 @app.post("/encuestas/{encuesta_id}/publicar")
 def publicar(encuesta_id: str):
     encuesta = obtener(encuesta_id)
     exigir_estado(encuesta, "aprobada", "publicar")
-    # TODO: crear el formulario en Typeform (backend/typeform/).
-    url = f"https://form.typeform.com/to/DEMO?colectivo={encuesta['colectivo']}&canal=qr"
+    url = f"{FRONTEND_URL}/responder/{encuesta_id}?canal=qr"
     encuesta.update(estado="publicada", url=url, qr=qr_base64(url))
-    return encuesta
+    return almacen.guardar_encuesta(encuesta)
 
 
-@app.post("/encuestas/{encuesta_id}/sincronizar")
-def sincronizar(encuesta_id: str):
-    exigir_estado(obtener(encuesta_id), "publicada", "sincronizar")
-    # TODO: leer respuestas de Typeform, anonimizar y guardar.
-    return {"nuevas": 0}
+@app.post("/encuestas/{encuesta_id}/respuestas", status_code=201)
+def responder(encuesta_id: str, nueva: dict):
+    encuesta = obtener(encuesta_id)
+    exigir_estado(encuesta, "publicada", "responder")
+    valores = dict(nueva.get("valores", {}))
+    comentario = None
+    for pregunta in encuesta["preguntas"]:
+        if pregunta["tipo"] == "texto" and pregunta["id"] in valores:
+            comentario = valores.pop(pregunta["id"])  # almacen lo anonimiza
+    hoy = date.today()
+    # Solo lo del contrato: nada de IP, user agent ni hora exacta.
+    almacen.anadir_respuesta({
+        "id": f"r_{uuid.uuid4().hex[:8]}",
+        "encuesta_id": encuesta_id,
+        "fecha": hoy.isoformat(),
+        "periodo": hoy.strftime("%Y-%m"),
+        "colectivo": encuesta["colectivo"],
+        "centro_tipo": CENTRO_TIPO.get(encuesta["colectivo"], "oficina"),
+        "turno": nueva.get("turno", "sin_turno"),
+        "canal": nueva.get("canal", "qr"),
+        "valores": valores,
+        "comentario": comentario,
+    })
+    return {"ok": True}
 
 
 @app.get("/encuestas/{encuesta_id}/analisis")
