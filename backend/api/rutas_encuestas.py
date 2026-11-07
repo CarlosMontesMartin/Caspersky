@@ -109,14 +109,14 @@ def recomendaciones(encuesta_id: str):
 
 @router.post("/encuestas/{encuesta_id}/simular")
 def simular(encuesta_id: str, opciones: dict | None = None):
-    """Solo con MODO_DEMO=1. Opciones: {"n": 40, "con_periodo_anterior": true, "semilla": null}."""
+    """Solo con MODO_DEMO=1. Opciones: {"n": 150, "con_periodo_anterior": true, "semilla": null}."""
     if not modo_demo():
         raise HTTPException(403, "Solo disponible con MODO_DEMO=1 en el .env")
     encuesta = obtener(encuesta_id)
     if encuesta["estado"] != "publicada":
         raise HTTPException(409, "Solo se pueden simular respuestas de una encuesta publicada")
     opciones = opciones or {}
-    n = opciones.get("n", 40)
+    n = opciones.get("n", 150)
     if not isinstance(n, int) or not 1 <= n <= 500:
         raise HTTPException(422, "n debe ser un entero entre 1 y 500")
     respuestas = simulacion.simular(encuesta, n, bool(opciones.get("con_periodo_anterior", True)),
