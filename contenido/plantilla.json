@@ -16,18 +16,8 @@
   },
   {
     "colectivo": "logistica",
-    "turno": "manana",
-    "personas": 90
-  },
-  {
-    "colectivo": "logistica",
-    "turno": "tarde",
-    "personas": 80
-  },
-  {
-    "colectivo": "logistica",
-    "turno": "noche",
-    "personas": 60
+    "turno": "sin_turno",
+    "personas": 230
   },
   {
     "colectivo": "comercial",
