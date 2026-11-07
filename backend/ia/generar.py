@@ -5,7 +5,9 @@ Si no hay clave de modelo configurada o la llamada falla, recurre a plantillas d
 
 from __future__ import annotations
 
+import logging
 import re
+import time
 import unicodedata
 from datetime import datetime
 from pathlib import Path
@@ -31,6 +33,11 @@ REGLAS_POR_DEFECTO = {
     "oficina": "Máximo 6 preguntas. Tono profesional, claro y respetuoso, enfocado a personal de sede y puestos administrativos.",
     "manager": "Máximo 6 preguntas. Tono profesional y constructivo, enfocado a liderazgo, recursos y coordinación de equipos.",
 }
+
+# RRHH está esperando delante de la pantalla: pasado este tiempo se usa la plantilla de respaldo
+TIMEOUT_GENERAR_SEG = 15
+
+log = logging.getLogger(__name__)
 
 MAX_PREGUNTAS = {"planta": 4, "logistica": 4, "comercial": 5, "oficina": 6, "manager": 6}
 
@@ -373,10 +380,13 @@ def generar_encuesta(necesidad: dict[str, Any], reglas: str = "") -> dict[str, A
                 f"{reglas_colectivo}\n\n"
                 f"Genera el JSON de la encuesta cumpliendo todas las indicaciones."
             )
-            respuesta_json = llamar_llm_json(prompt_sistema, prompt_usuario)
+            inicio = time.monotonic()
+            respuesta_json = llamar_llm_json(prompt_sistema, prompt_usuario, TIMEOUT_GENERAR_SEG)
             if isinstance(respuesta_json, dict) and "preguntas" in respuesta_json:
                 encuesta_candidata = respuesta_json
-        except Exception:
+            log.info("Encuesta generada por el modelo en %.1f s", time.monotonic() - inicio)
+        except Exception as error:
+            log.warning("Encuesta generada con la plantilla de respaldo: %s", error)
             encuesta_candidata = None
 
     if encuesta_candidata is None:

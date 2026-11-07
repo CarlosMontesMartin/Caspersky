@@ -1,10 +1,11 @@
-"""Diagnóstico del LLM: conexión, clasificación y resumen con cada modelo.
+"""Diagnóstico del LLM: conexión, clasificación, resumen y tiempo de generación de encuestas.
 
 Uso: python3 -m backend.ia.diagnostico [modelo ...]   (por defecto ornith)
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import time
@@ -64,9 +65,46 @@ def probar(modelo: str) -> None:
         print(f"Resumen: ERROR tras {time.time() - inicio:.1f} s -> {error}")
 
 
+NECESIDADES = [
+    {"objetivo": "Saber cómo afecta a planta el nuevo sistema de turnos implantado en octubre",
+     "colectivo": "planta", "contexto": "Cambio de turnos rotativos", "duracion_max_seg": 120,
+     "temas_prohibidos": ["salario"]},
+    {"objetivo": "Detectar dificultades en la preparación de pedidos", "colectivo": "logistica",
+     "contexto": "Picos de trabajo en el almacén", "duracion_max_seg": 60, "temas_prohibidos": []},
+    {"objetivo": "Conocer la adopción de la nueva herramienta de gestión", "colectivo": "oficina",
+     "contexto": "Migración de software", "duracion_max_seg": 180, "temas_prohibidos": []},
+]
+
+
+class _Origen(logging.Handler):
+    def __init__(self):
+        super().__init__(logging.INFO)
+        self.origen = "respaldo"
+
+    def emit(self, registro):
+        if "generada por el modelo" in registro.getMessage():
+            self.origen = "modelo"
+
+
+def cronometrar_generacion() -> None:
+    from .generar import TIMEOUT_GENERAR_SEG, generar_encuesta
+    print(f"\n=== generar_encuesta (límite {TIMEOUT_GENERAR_SEG} s, si no se usa el respaldo) ===")
+    registro = logging.getLogger("backend.ia.generar")
+    registro.setLevel(logging.INFO)
+    for necesidad in NECESIDADES:
+        origen = _Origen()
+        registro.addHandler(origen)
+        inicio = time.time()
+        encuesta = generar_encuesta(necesidad, "")
+        registro.removeHandler(origen)
+        print(f"{necesidad['colectivo']:<10} {time.time() - inicio:5.1f} s  {origen.origen:<9} "
+              f"{len(encuesta['preguntas'])} preguntas · {encuesta['titulo']}")
+
+
 if __name__ == "__main__":
     if not hay_llm():
         sys.exit("No hay LLM_API_KEY en .env")
     print(f"URL: {_config()[1]}")
     for modelo in sys.argv[1:] or ["ornith"]:
         probar(modelo)
+    cronometrar_generacion()

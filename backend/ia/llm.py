@@ -107,13 +107,18 @@ def _extraer_json(texto: str) -> dict | list:
 def llamar_llm_json(sistema: str, usuario: str, timeout: float = TIMEOUT_SEG) -> dict | list:
     """Igual que llamar_llm, pero devuelve el JSON de la respuesta.
 
-    Solo reintenta, una vez, si el JSON no es válido; un fallo de red sube enseguida.
+    El timeout es el tiempo total. Solo reintenta, una vez, si el JSON no es válido y queda
+    margen; un fallo de red sube enseguida.
     """
+    inicio = time.monotonic()
     texto = llamar_llm(sistema, usuario, timeout)
     try:
         return _extraer_json(texto)
     except ValueError:
-        texto = llamar_llm(sistema, usuario + "\n\nResponde solo con JSON válido.", timeout)
+        restante = timeout - (time.monotonic() - inicio)
+        if restante < 3:
+            raise
+        texto = llamar_llm(sistema, usuario + "\n\nResponde solo con JSON válido.", restante)
         return _extraer_json(texto)
 
 
