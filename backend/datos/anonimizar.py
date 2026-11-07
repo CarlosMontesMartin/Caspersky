@@ -1,8 +1,8 @@
 """Anonimización de comentarios · UPC 2.
 
-anonimizar(texto) quita correos, teléfonos, DNI/NIE y nombres de persona
-antes de guardar cualquier comentario. Se aplica a TODO lo que entra en la
-base de datos: respuestas sintéticas y respuestas del formulario.
+anonimizar(texto) quita correos, teléfonos, DNI/NIE y nombres de persona.
+Se aplica a todo texto libre antes de guardarlo: comentarios y valores de
+texto, tanto de las respuestas sintéticas como de las del formulario.
 """
 import re
 import unicodedata
@@ -88,11 +88,21 @@ def _quitar_nombres(texto: str) -> str:
     return "".join(resultado)
 
 
-def anonimizar(texto):
-    """Devuelve el texto sin datos identificativos. None o "" se devuelven igual."""
+def anonimizar(texto: str | None) -> str:
+    """Devuelve el texto sin datos identificativos. None se convierte en ""."""
     if not texto:
-        return texto
+        return ""
     texto = CORREO.sub("[correo]", texto)
-    texto = DNI_NIE.sub("[documento]", texto)
+    texto = DNI_NIE.sub("[dni]", texto)
     texto = TELEFONO.sub("[telefono]", texto)
     return _quitar_nombres(texto)
+
+
+if __name__ == "__main__":
+    # Prueba manual: python -m backend.datos.anonimizar
+    print("Escribe un comentario y pulsa Enter (Ctrl+C para salir)")
+    while True:
+        try:
+            print("→", anonimizar(input("> ")))
+        except (KeyboardInterrupt, EOFError):
+            break

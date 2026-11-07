@@ -17,8 +17,8 @@ def test_no_borra_numeros_normales():
 
 
 def test_dni_nie():
-    assert anonimizar("mi dni es 12345678Z") == "mi dni es [documento]"
-    assert anonimizar("NIE X1234567L") == "NIE [documento]"
+    assert anonimizar("mi dni es 12345678Z") == "mi dni es [dni]"
+    assert anonimizar("NIE X1234567L") == "NIE [dni]"
 
 
 def test_nombres_con_y_sin_mayuscula_y_acentos():
@@ -39,5 +39,5 @@ def test_ambiguos_no_rompen_frases_normales():
 
 
 def test_vacios():
-    assert anonimizar(None) is None
+    assert anonimizar(None) == ""
     assert anonimizar("") == ""
