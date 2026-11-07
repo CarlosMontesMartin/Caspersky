@@ -5,6 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Damm · Dashboard de Análisis</title>
   <link rel="stylesheet" href="/css/estilos.css">
+  <style>
+    /* Estilos de la vista de instalaciones (Apartado 5.1) */
+    .zona-iso {
+      cursor: pointer;
+      transition: filter 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .zona-iso:hover, .zona-iso.activa {
+      filter: url(#sombra-activa) drop-shadow(0 4px 10px rgba(42, 26, 26, 0.18));
+    }
+    .zona-iso polygon, .zona-iso rect {
+      transition: fill 0.25s ease, stroke 0.25s ease;
+    }
+    .zona-iso.activa .iso-techo {
+      stroke: var(--text-main) !important;
+      stroke-width: 2.5px !important;
+    }
+    .zona-iso.activa .etiqueta-iso rect {
+      stroke: var(--text-main) !important;
+      stroke-width: 2px !important;
+      fill: var(--bg-surface-alt) !important;
+    }
+    .zona-iso.zona-atenuada {
+      opacity: 0.45;
+    }
+  </style>
 </head>
 <body>
 
@@ -29,7 +54,7 @@
     <div class="container">
 
       <!-- Encabezado del Dashboard -->
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
         <div>
           <div style="display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.4rem;">
             <span class="badge badge-publicada" id="badge-estado">Publicada</span>
@@ -44,6 +69,21 @@
         </div>
       </div>
 
+      <!-- Selector de Vistas (Apartado 5.1): Vista analítica / Vista de instalaciones -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color);">
+        <div style="display: inline-flex; background-color: var(--bg-surface-alt); padding: 0.35rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+          <button type="button" id="btn-vista-analitica" class="btn btn-primary" style="padding: 0.45rem 1.15rem; font-size: 0.875rem;">
+            📊 Vista analítica
+          </button>
+          <button type="button" id="btn-vista-instalaciones" class="btn btn-secondary" style="padding: 0.45rem 1.15rem; font-size: 0.875rem; border: none; background: transparent;">
+            🏭 Vista de instalaciones
+          </button>
+        </div>
+        <div class="text-muted text-small" id="texto-modo-vista">
+          Métricas numéricas y desglose temático detallado
+        </div>
+      </div>
+
       <!-- Contenedor de Error -->
       <div id="panel-error" style="display: none;" class="alerta">
         <div>
@@ -51,6 +91,285 @@
           <div class="alerta-mensaje" id="mensaje-error"></div>
         </div>
       </div>
+
+      <!-- =================================================================== -->
+      <!-- VISTA DE INSTALACIONES (APARTADO 5.1)                                -->
+      <!-- =================================================================== -->
+      <div id="vista-instalaciones" style="display: none; margin-bottom: 2.5rem;">
+        <div class="card" style="margin-bottom: 1.5rem; padding: 1.25rem 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <h3 style="margin-bottom: 0.25rem;">Complejo Industrial Damm · Mapa Isométrico</h3>
+              <p class="text-muted text-small">Haz clic o pasa el cursor sobre cada zona para consultar la participación, turnos y alertas asociadas.</p>
+            </div>
+            <!-- Leyenda de colores -->
+            <div style="display: flex; align-items: center; gap: 0.85rem; font-size: 0.8rem; flex-wrap: wrap;">
+              <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                <span style="width: 12px; height: 12px; border-radius: 3px; background: #C8E1C2; border: 1px solid #2D5E2E; display: inline-block;"></span>
+                <span>Alta (≥40%)</span>
+              </span>
+              <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                <span style="width: 12px; height: 12px; border-radius: 3px; background: #FFE6B3; border: 1px solid #C7A97B; display: inline-block;"></span>
+                <span>Media (20–40%)</span>
+              </span>
+              <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                <span style="width: 12px; height: 12px; border-radius: 3px; background: #FDE8E8; border: 1px solid var(--color-damm); display: inline-block;"></span>
+                <span>Alerta / &lt;20%</span>
+              </span>
+              <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                <span style="width: 12px; height: 12px; border-radius: 3px; background: #ECE4D6; border: 1px dashed #9B8E8E; opacity: 0.6; display: inline-block;"></span>
+                <span>Oculto (n&lt;5)</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grid de Mapa + Panel de Inspección -->
+        <div style="display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1.1fr); gap: 1.5rem; align-items: start;">
+          
+          <!-- Contenedor del SVG Isométrico -->
+          <div class="card" style="padding: 1rem; background: #FAF7F2; border: 1px solid var(--border-color); overflow: hidden; position: relative;">
+            <svg id="svg-instalaciones" viewBox="0 0 920 540" style="width: 100%; height: auto; display: block;" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <filter id="sombra-edificio" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#2A1A1A" flood-opacity="0.16"/>
+                </filter>
+                <filter id="sombra-activa" x="-30%" y="-30%" width="160%" height="160%">
+                  <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#B5121B" flood-opacity="0.25"/>
+                </filter>
+              </defs>
+
+              <!-- Terreno / Campus Base isométrico -->
+              <polygon points="460,40 880,245 460,465 40,245" fill="#F4EFE6" stroke="rgba(42,26,26,0.18)" stroke-width="2"/>
+              <!-- Vías de circulación interna -->
+              <polygon points="460,245 560,195 460,145 360,195" fill="#E8DEC8" opacity="0.7"/>
+              <polygon points="360,195 460,245 460,375 360,325" fill="#E8DEC8" opacity="0.7"/>
+              <polygon points="560,195 460,245 460,375 560,325" fill="#E8DEC8" opacity="0.7"/>
+              <polygon points="460,375 580,315 640,345 520,405" fill="#E8DEC8" opacity="0.6"/>
+
+              <!-- ============================================================= -->
+              <!-- ZONA 2: ALMACÉN (Logística) - Fondo Norte                      -->
+              <!-- ============================================================= -->
+              <g class="zona-iso" id="zona-logistica" data-colectivo="logistica" style="cursor: pointer;">
+                <!-- Sombra proyectada -->
+                <polygon points="340,185 470,250 580,195 580,205 470,260 340,195" fill="rgba(42,26,26,0.12)"/>
+                <!-- Pared izquierda -->
+                <polygon class="iso-pared-izq" points="340,130 470,195 470,250 340,185" fill="#D6C8B2" stroke="rgba(42,26,26,0.25)" stroke-width="1.2"/>
+                <!-- Pared derecha (muelles de carga) -->
+                <polygon class="iso-pared-der" points="470,195 580,140 580,195 470,250" fill="#BEB09A" stroke="rgba(42,26,26,0.25)" stroke-width="1.2"/>
+                <!-- Techo del almacén -->
+                <polygon class="iso-techo" id="techo-logistica" points="450,75 580,140 470,195 340,130" fill="#EFE8DA" stroke="rgba(42,26,26,0.3)" stroke-width="1.5"/>
+                
+                <!-- Puertas de muelles de carga -->
+                <polygon points="490,205 515,192 515,225 490,238" fill="#3D2A2A"/>
+                <polygon points="525,187 550,174 550,207 525,220" fill="#3D2A2A"/>
+                <polygon points="555,172 575,162 575,192 555,202" fill="#3D2A2A"/>
+
+                <!-- Etiqueta Flotante SVG -->
+                <g class="etiqueta-iso" transform="translate(460, 95)">
+                  <rect x="-75" y="-14" width="150" height="28" rx="14" fill="#FFFFFF" stroke="rgba(42,26,26,0.18)" stroke-width="1.2"/>
+                  <text x="0" y="4" text-anchor="middle" font-family="'Inter', sans-serif" font-size="12" font-weight="600" fill="#2A1A1A">
+                    📦 Almacén <tspan id="tag-tasa-logistica" font-weight="700" fill="#B5121B">10%</tspan>
+                  </text>
+                </g>
+              </g>
+
+              <!-- ============================================================= -->
+              <!-- ZONA 1: FÁBRICA (Planta) - Centro Izquierda                    -->
+              <!-- ============================================================= -->
+              <g class="zona-iso" id="zona-planta" data-colectivo="planta" style="cursor: pointer;">
+                <!-- Sombra proyectada -->
+                <polygon points="190,290 300,345 430,280 430,290 300,355 190,300" fill="rgba(42,26,26,0.14)"/>
+                <!-- Pared izquierda nave -->
+                <polygon class="iso-pared-izq" points="200,210 300,260 300,340 200,290" fill="#C5B59C" stroke="rgba(42,26,26,0.25)" stroke-width="1.2"/>
+                <!-- Pared derecha nave -->
+                <polygon class="iso-pared-der" points="300,260 430,195 430,275 300,340" fill="#AAA08E" stroke="rgba(42,26,26,0.25)" stroke-width="1.2"/>
+                
+                <!-- Techo industrial en diente de sierra (sawtooth) -->
+                <polygon class="iso-techo" id="techo-planta" points="200,210 330,145 370,165 240,230" fill="#E8DEC8" stroke="rgba(42,26,26,0.3)" stroke-width="1.2"/>
+                <polygon points="240,230 370,165 410,185 280,250" fill="#E2D6BE" stroke="rgba(42,26,26,0.3)" stroke-width="1.2"/>
+                <polygon points="280,250 410,185 430,195 300,260" fill="#DFD2BA" stroke="rgba(42,26,26,0.3)" stroke-width="1.2"/>
+
+                <!-- Silos cilíndricos de elaboración Damm en primer plano -->
+                <!-- Silo 1 -->
+                <ellipse cx="185" cy="315" rx="18" ry="9" fill="#BFAF96"/>
+                <rect x="167" y="260" width="36" height="55" fill="#B8A487"/>
+                <ellipse cx="185" cy="260" rx="18" ry="9" fill="#D9C7AA" stroke="rgba(42,26,26,0.2)" stroke-width="1"/>
+                <!-- Silo 2 -->
+                <ellipse cx="225" cy="335" rx="18" ry="9" fill="#BFAF96"/>
+                <rect x="207" y="280" width="36" height="55" fill="#B8A487"/>
+                <ellipse cx="225" cy="280" rx="18" ry="9" fill="#D9C7AA" stroke="rgba(42,26,26,0.2)" stroke-width="1"/>
+
+                <!-- Ventanales de la nave -->
+                <polygon points="315,265 350,248 350,265 315,282" fill="#EBF2FA" opacity="0.8"/>
+                <polygon points="365,240 400,223 400,240 365,257" fill="#EBF2FA" opacity="0.8"/>
+
+                <!-- Etiqueta Flotante SVG -->
+                <g class="etiqueta-iso" transform="translate(290, 160)">
+                  <rect x="-75" y="-14" width="150" height="28" rx="14" fill="#FFFFFF" stroke="rgba(42,26,26,0.18)" stroke-width="1.2"/>
+                  <text x="0" y="4" text-anchor="middle" font-family="'Inter', sans-serif" font-size="12" font-weight="600" fill="#2A1A1A">
+                    🏭 Fábrica <tspan id="tag-tasa-planta" font-weight="700" fill="#B5121B">25% ⚠️</tspan>
+                  </text>
+                </g>
+              </g>
+
+              <!-- ============================================================= -->
+              <!-- ZONA 3: OFICINAS (Oficina) - Plantas 1 a 3                    -->
+              <!-- ============================================================= -->
+              <g class="zona-iso" id="zona-oficina" data-colectivo="oficina" style="cursor: pointer;">
+                <!-- Pared izquierda (fachada continua) -->
+                <polygon class="iso-pared-izq" points="570,235 680,290 680,380 570,325" fill="#C5BDB0" stroke="rgba(42,26,26,0.25)" stroke-width="1.2"/>
+                <!-- Pared derecha -->
+                <polygon class="iso-pared-der" points="680,290 770,245 770,335 680,380" fill="#B2A99B" stroke="rgba(42,26,26,0.25)" stroke-width="1.2"/>
+                <!-- Techo planta 3 / terraza -->
+                <polygon class="iso-techo" id="techo-oficina" points="660,190 770,245 680,290 570,235" fill="#E8E2D5" stroke="rgba(42,26,26,0.3)" stroke-width="1.2"/>
+
+                <!-- Bandas horizontales de ventanas (plantas 1, 2 y 3) -->
+                <!-- Planta 3 -->
+                <polygon points="585,250 665,290 665,298 585,258" fill="#88A3BC" opacity="0.85"/>
+                <polygon points="690,285 755,252 755,260 690,293" fill="#6A859E" opacity="0.85"/>
+                <!-- Planta 2 -->
+                <polygon points="585,275 665,315 665,323 585,283" fill="#88A3BC" opacity="0.85"/>
+                <polygon points="690,310 755,277 755,285 690,318" fill="#6A859E" opacity="0.85"/>
+                <!-- Planta 1 / Entrada -->
+                <polygon points="585,300 665,340 665,348 585,308" fill="#88A3BC" opacity="0.85"/>
+                <polygon points="690,335 755,302 755,310 690,343" fill="#6A859E" opacity="0.85"/>
+
+                <!-- Etiqueta Flotante SVG -->
+                <g class="etiqueta-iso" transform="translate(680, 310)">
+                  <rect x="-65" y="-14" width="130" height="28" rx="14" fill="#FFFFFF" stroke="rgba(42,26,26,0.18)" stroke-width="1.2"/>
+                  <text x="0" y="4" text-anchor="middle" font-family="'Inter', sans-serif" font-size="12" font-weight="600" fill="#2A1A1A">
+                    🏢 Oficinas <tspan id="tag-tasa-oficina" font-weight="700" fill="#2D5E2E">45% ✓</tspan>
+                  </text>
+                </g>
+              </g>
+
+              <!-- ============================================================= -->
+              <!-- ZONA 4: DIRECCIÓN (Manager) - Planta Superior de Oficinas     -->
+              <!-- ============================================================= -->
+              <g class="zona-iso" id="zona-manager" data-colectivo="manager" style="cursor: pointer;">
+                <!-- Pared izquierda ático de cristal -->
+                <polygon class="iso-pared-izq" points="600,150 680,190 680,235 600,195" fill="#759CB8" stroke="rgba(42,26,26,0.35)" stroke-width="1.4"/>
+                <!-- Pared derecha ático de cristal -->
+                <polygon class="iso-pared-der" points="680,190 740,160 740,205 680,235" fill="#5A829E" stroke="rgba(42,26,26,0.35)" stroke-width="1.4"/>
+                <!-- Techo pérgola ejecutiva / Ático Dirección -->
+                <polygon class="iso-techo" id="techo-manager" points="660,115 740,155 680,185 600,145" fill="#D5C5B0" stroke="#B5121B" stroke-width="1.5"/>
+
+                <!-- Remate superior / terraza ejecutiva -->
+                <line x1="600" y1="145" x2="600" y2="135" stroke="#B5121B" stroke-width="2"/>
+                <line x1="680" y1="185" x2="680" y2="175" stroke="#B5121B" stroke-width="2"/>
+                <line x1="740" y1="155" x2="740" y2="145" stroke="#B5121B" stroke-width="2"/>
+
+                <!-- Etiqueta Flotante SVG -->
+                <g class="etiqueta-iso" transform="translate(680, 135)">
+                  <rect x="-75" y="-14" width="150" height="28" rx="14" fill="#FFFFFF" stroke="rgba(42,26,26,0.18)" stroke-width="1.2"/>
+                  <text x="0" y="4" text-anchor="middle" font-family="'Inter', sans-serif" font-size="12" font-weight="600" fill="#2A1A1A">
+                    💼 Dirección <tspan id="tag-tasa-manager" font-weight="700" fill="#2D5E2E">60% ✓</tspan>
+                  </text>
+                </g>
+              </g>
+
+              <!-- ============================================================= -->
+              <!-- ZONA 5: FURGONETAS (Comercial) - Dársena y Flota Sur          -->
+              <!-- ============================================================= -->
+              <g class="zona-iso" id="zona-comercial" data-colectivo="comercial" style="cursor: pointer;">
+                <!-- Dársena / Parking pintado -->
+                <polygon points="360,400 520,320 600,360 440,440" fill="#DFD6C5" stroke="rgba(42,26,26,0.2)" stroke-width="1"/>
+                
+                <!-- Líneas de aparcamiento en dársena -->
+                <line x1="400" y1="380" x2="430" y2="395" stroke="#FFFFFF" stroke-width="2"/>
+                <line x1="450" y1="355" x2="480" y2="370" stroke="#FFFFFF" stroke-width="2"/>
+                <line x1="500" y1="330" x2="530" y2="345" stroke="#FFFFFF" stroke-width="2"/>
+
+                <!-- Furgoneta 1 (izq) -->
+                <g transform="translate(0, 0)">
+                  <polygon points="390,380 430,360 450,370 410,390" fill="#FFFFFF" stroke="rgba(42,26,26,0.3)"/>
+                  <polygon points="390,380 410,390 410,408 390,398" fill="#B5121B"/>
+                  <polygon points="410,390 450,370 450,388 410,408" fill="#DFDFDF"/>
+                  <circle cx="400" cy="405" r="4" fill="#2A1A1A"/>
+                  <circle cx="435" cy="388" r="4" fill="#2A1A1A"/>
+                </g>
+
+                <!-- Furgoneta 2 (centro) -->
+                <g transform="translate(45, -22)">
+                  <polygon points="390,380 430,360 450,370 410,390" fill="#FFFFFF" stroke="rgba(42,26,26,0.3)"/>
+                  <polygon points="390,380 410,390 410,408 390,398" fill="#B5121B"/>
+                  <polygon points="410,390 450,370 450,388 410,408" fill="#DFDFDF"/>
+                  <circle cx="400" cy="405" r="4" fill="#2A1A1A"/>
+                  <circle cx="435" cy="388" r="4" fill="#2A1A1A"/>
+                </g>
+
+                <!-- Furgoneta 3 (der) -->
+                <g transform="translate(90, -45)">
+                  <polygon points="390,380 430,360 450,370 410,390" fill="#FFFFFF" stroke="rgba(42,26,26,0.3)"/>
+                  <polygon points="390,380 410,390 410,408 390,398" fill="#B5121B"/>
+                  <polygon points="410,390 450,370 450,388 410,408" fill="#DFDFDF"/>
+                  <circle cx="400" cy="405" r="4" fill="#2A1A1A"/>
+                  <circle cx="435" cy="388" r="4" fill="#2A1A1A"/>
+                </g>
+
+                <!-- Etiqueta Flotante SVG -->
+                <g class="etiqueta-iso" transform="translate(470, 420)">
+                  <rect x="-80" y="-14" width="160" height="28" rx="14" fill="#FFFFFF" stroke="rgba(42,26,26,0.18)" stroke-width="1.2"/>
+                  <text x="0" y="4" text-anchor="middle" font-family="'Inter', sans-serif" font-size="12" font-weight="600" fill="#2A1A1A">
+                    🚐 Furgonetas <tspan id="tag-tasa-comercial" font-weight="700" fill="#2A1A1A">30% ✓</tspan>
+                  </text>
+                </g>
+              </g>
+
+            </svg>
+            
+            <div style="margin-top: 0.5rem; text-align: center; font-size: 0.8rem; color: var(--text-muted);">
+              💡 Consejo: Selecciona cualquier zona del plano para actualizar el panel de inspección.
+            </div>
+          </div>
+
+          <!-- Panel de Inspección de Colectivo / Instalación -->
+          <div class="card" id="panel-detalle-colectivo" style="padding: 1.5rem; background: #FFFFFF; border: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; gap: 0.5rem;">
+              <div>
+                <span class="badge badge-colectivo" id="zona-detalle-centro" style="margin-bottom: 0.35rem;">Fábrica</span>
+                <h3 id="zona-detalle-titulo" style="font-size: 1.35rem;">Fábrica (Planta)</h3>
+              </div>
+              <span class="badge badge-no-representativo" id="zona-detalle-badge">No representativo</span>
+            </div>
+
+            <!-- Métricas clave de la zona -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.25rem; background: var(--bg-surface-alt); padding: 1rem; border-radius: var(--radius-md);">
+              <div>
+                <span class="text-muted text-small" style="font-size: 0.75rem; text-transform: uppercase;">Tasa global</span>
+                <div style="font-size: 1.5rem; font-weight: 700;" id="zona-detalle-tasa">25.3 %</div>
+              </div>
+              <div>
+                <span class="text-muted text-small" style="font-size: 0.75rem; text-transform: uppercase;">Muestra / Censo</span>
+                <div style="font-size: 1.15rem; font-weight: 600; margin-top: 0.25rem;" id="zona-detalle-recuentos">79 / 400</div>
+              </div>
+            </div>
+
+            <!-- Desglose de turnos (si la encuesta tiene turnos para este colectivo) -->
+            <div id="zona-seccion-turnos" style="margin-bottom: 1.25rem;">
+              <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Desglose de turnos de trabajo</h4>
+              <div id="zona-lista-turnos" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <!-- Filas de turnos dinámicas -->
+              </div>
+            </div>
+
+            <!-- Alertas específicas de la zona -->
+            <div id="zona-seccion-alertas">
+              <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Alertas específicas</h4>
+              <div id="zona-lista-alertas">
+                <!-- Alertas dinámicas -->
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- VISTA ANALÍTICA (ORIGINAL, SIN TOCAR)                                -->
+      <!-- =================================================================== -->
+      <div id="vista-analitica">
 
       <!-- 1. ALERTAS ARRIBA -->
       <section id="seccion-alertas" style="margin-bottom: 2rem;">
@@ -183,6 +502,7 @@
           </div>
         </div>
       </section>
+      </div> <!-- /vista-analitica -->
 
     </div>
   </main>
@@ -234,11 +554,13 @@
 
     async function cargarDashboard() {
       badgeId.textContent = encuestaId;
+      let encuestaCargada = null;
 
       // Intentar obtener definición de la encuesta para tener títulos de preguntas
       try {
         const enc = await obtenerEncuesta(encuestaId);
         if (enc) {
+          encuestaCargada = enc;
           tituloEncuesta.textContent = enc.titulo || `Análisis de ${encuestaId}`;
           if (enc.intro) subtituloEncuesta.textContent = enc.intro;
           badgeColectivo.textContent = formatearColectivo(enc.colectivo);
@@ -271,6 +593,9 @@
         renderizarTemas(analisis.temas || []);
         renderizarLimites(analisis.limites || []);
         renderizarRecomendaciones(recomendaciones);
+
+        // Configuración de la vista de instalaciones (Apartado 5.1)
+        configurarVistaInstalaciones(analisis, encuestaCargada);
 
       } catch (err) {
         console.error('Error al cargar dashboard:', err);
@@ -470,6 +795,259 @@
         };
       } else {
         bloqueSeguimiento.style.display = 'none';
+      }
+    }
+
+    // =========================================================================
+    // VISTA DE INSTALACIONES (APARTADO 5.1)
+    // =========================================================================
+    const btnVistaAnalitica = document.getElementById('btn-vista-analitica');
+    const btnVistaInstalaciones = document.getElementById('btn-vista-instalaciones');
+    const vistaAnalitica = document.getElementById('vista-analitica');
+    const vistaInstalaciones = document.getElementById('vista-instalaciones');
+    const textoModoVista = document.getElementById('texto-modo-vista');
+
+    if (btnVistaAnalitica && btnVistaInstalaciones) {
+      btnVistaAnalitica.addEventListener('click', () => {
+        vistaAnalitica.style.display = 'block';
+        vistaInstalaciones.style.display = 'none';
+        btnVistaAnalitica.className = 'btn btn-primary';
+        btnVistaAnalitica.style.background = '';
+        btnVistaAnalitica.style.border = '';
+        btnVistaInstalaciones.className = 'btn btn-secondary';
+        btnVistaInstalaciones.style.background = 'transparent';
+        btnVistaInstalaciones.style.border = 'none';
+        textoModoVista.textContent = 'Métricas numéricas y desglose temático detallado';
+      });
+
+      btnVistaInstalaciones.addEventListener('click', () => {
+        vistaAnalitica.style.display = 'none';
+        vistaInstalaciones.style.display = 'block';
+        btnVistaInstalaciones.className = 'btn btn-primary';
+        btnVistaInstalaciones.style.background = '';
+        btnVistaInstalaciones.style.border = '';
+        btnVistaAnalitica.className = 'btn btn-secondary';
+        btnVistaAnalitica.style.background = 'transparent';
+        btnVistaAnalitica.style.border = 'none';
+        textoModoVista.textContent = 'Mapa isométrico interactivo de instalaciones';
+      });
+    }
+
+    const zonaDetalleCentro = document.getElementById('zona-detalle-centro');
+    const zonaDetalleTitulo = document.getElementById('zona-detalle-titulo');
+    const zonaDetalleBadge = document.getElementById('zona-detalle-badge');
+    const zonaDetalleTasa = document.getElementById('zona-detalle-tasa');
+    const zonaDetalleRecuentos = document.getElementById('zona-detalle-recuentos');
+    const zonaSeccionTurnos = document.getElementById('zona-seccion-turnos');
+    const zonaListaTurnos = document.getElementById('zona-lista-turnos');
+    const zonaListaAlertas = document.getElementById('zona-lista-alertas');
+
+    const ZONAS_MAPA = {
+      planta: {
+        nombre: 'Fábrica (Planta)',
+        centro: 'Fábrica',
+        techoId: 'techo-planta',
+        tagId: 'tag-tasa-planta',
+        grupoId: 'zona-planta'
+      },
+      logistica: {
+        nombre: 'Almacén (Logística)',
+        centro: 'Almacén',
+        techoId: 'techo-logistica',
+        tagId: 'tag-tasa-logistica',
+        grupoId: 'zona-logistica'
+      },
+      oficina: {
+        nombre: 'Oficinas (Corporativo)',
+        centro: 'Oficina',
+        techoId: 'techo-oficina',
+        tagId: 'tag-tasa-oficina',
+        grupoId: 'zona-oficina'
+      },
+      manager: {
+        nombre: 'Dirección (Managers)',
+        centro: 'Dirección (Planta Sup.)',
+        techoId: 'techo-manager',
+        tagId: 'tag-tasa-manager',
+        grupoId: 'zona-manager'
+      },
+      comercial: {
+        nombre: 'Furgonetas (Comercial)',
+        centro: 'Distribución',
+        techoId: null,
+        tagId: 'tag-tasa-comercial',
+        grupoId: 'zona-comercial'
+      }
+    };
+
+    function configurarVistaInstalaciones(analisis, encuesta) {
+      if (!analisis) return;
+
+      Object.keys(ZONAS_MAPA).forEach(colKey => {
+        const info = ZONAS_MAPA[colKey];
+        const filas = (analisis.participacion || []).filter(f => f.colectivo === colKey);
+        const respuestas = filas.reduce((acc, f) => acc + (f.respuestas || 0), 0);
+        const personas = filas.reduce((acc, f) => acc + (f.personas || 0), 0);
+        const tasa = personas > 0 ? (respuestas / personas) : (filas[0]?.tasa || 0);
+        const tieneNoRep = filas.some(f => !f.representativo) || tasa < 0.20;
+
+        const tagEl = document.getElementById(info.tagId);
+        const techoEl = info.techoId ? document.getElementById(info.techoId) : null;
+        const grupoEl = document.getElementById(info.grupoId);
+
+        if (respuestas < 5) {
+          if (tagEl) {
+            tagEl.textContent = 'Oculto (n<5)';
+            tagEl.setAttribute('fill', '#6E5F5F');
+          }
+          if (grupoEl) grupoEl.classList.add('zona-atenuada');
+          if (techoEl) {
+            techoEl.setAttribute('fill', '#ECE4D6');
+            techoEl.setAttribute('stroke', '#9B8E8E');
+            techoEl.setAttribute('stroke-dasharray', '4 2');
+          }
+        } else if (tieneNoRep) {
+          if (tagEl) {
+            tagEl.textContent = `${Math.round(tasa * 100)}% ⚠️`;
+            tagEl.setAttribute('fill', '#B5121B');
+          }
+          if (techoEl) {
+            techoEl.setAttribute('fill', '#FDE8E8');
+            techoEl.setAttribute('stroke', '#B5121B');
+            techoEl.setAttribute('stroke-width', '2');
+          }
+        } else if (tasa >= 0.40) {
+          if (tagEl) {
+            tagEl.textContent = `${Math.round(tasa * 100)}% ✓`;
+            tagEl.setAttribute('fill', '#2D5E2E');
+          }
+          if (techoEl) {
+            techoEl.setAttribute('fill', '#C8E1C2');
+            techoEl.setAttribute('stroke', '#2D5E2E');
+            techoEl.setAttribute('stroke-width', '1.5');
+          }
+        } else {
+          if (tagEl) {
+            tagEl.textContent = `${Math.round(tasa * 100)}%`;
+            tagEl.setAttribute('fill', '#2A1A1A');
+          }
+          if (techoEl) {
+            techoEl.setAttribute('fill', '#FFE6B3');
+            techoEl.setAttribute('stroke', '#C7A97B');
+            techoEl.setAttribute('stroke-width', '1.5');
+          }
+        }
+
+        if (grupoEl) {
+          grupoEl.onmouseenter = () => seleccionarZona(colKey, analisis, encuesta);
+          grupoEl.onclick = () => seleccionarZona(colKey, analisis, encuesta);
+        }
+      });
+
+      // Selección inicial de zona
+      const colInicial = (encuesta && encuesta.colectivo && ZONAS_MAPA[encuesta.colectivo])
+        ? encuesta.colectivo
+        : 'planta';
+      seleccionarZona(colInicial, analisis, encuesta);
+    }
+
+    function seleccionarZona(colKey, analisis, encuesta) {
+      const info = ZONAS_MAPA[colKey];
+      if (!info) return;
+
+      // Resaltado visual en el SVG
+      document.querySelectorAll('.zona-iso').forEach(z => z.classList.remove('activa'));
+      document.getElementById(info.grupoId)?.classList.add('activa');
+
+      // Actualizar cabecera del panel de detalles
+      zonaDetalleCentro.textContent = info.centro;
+      zonaDetalleTitulo.textContent = info.nombre;
+
+      const filas = (analisis.participacion || []).filter(f => f.colectivo === colKey);
+      const respuestas = filas.reduce((acc, f) => acc + (f.respuestas || 0), 0);
+      const personas = filas.reduce((acc, f) => acc + (f.personas || 0), 0);
+      const tasa = personas > 0 ? (respuestas / personas) : (filas[0]?.tasa || 0);
+      const tieneNoRep = filas.some(f => !f.representativo) || tasa < 0.20;
+
+      // Si el colectivo tiene menos de 5 respuestas -> regla de privacidad
+      if (respuestas < 5) {
+        zonaDetalleBadge.className = 'badge badge-borrador';
+        zonaDetalleBadge.textContent = 'Oculto por privacidad (n<5)';
+        zonaDetalleTasa.textContent = 'Oculto';
+        zonaDetalleRecuentos.textContent = `< 5 / ${personas}`;
+        zonaListaTurnos.innerHTML = `
+          <div class="aviso-ia" style="margin-top:0.4rem;">
+            🔒 Información atenuada: segmento con menos de 5 respuestas.
+          </div>
+        `;
+      } else {
+        if (tieneNoRep) {
+          zonaDetalleBadge.className = 'badge badge-no-representativo';
+          zonaDetalleBadge.textContent = 'No representativo';
+        } else {
+          zonaDetalleBadge.className = 'badge badge-aprobada';
+          zonaDetalleBadge.textContent = 'Representativo';
+        }
+        zonaDetalleTasa.textContent = `${(tasa * 100).toFixed(1)} %`;
+        zonaDetalleRecuentos.textContent = `${respuestas} / ${personas}`;
+
+        // Mostrar turnos si la encuesta es de este colectivo o tiene turnos desglosados
+        if (filas.length > 0) {
+          const tieneVariosTurnos = filas.some(f => f.turno !== 'sin_turno');
+          if (tieneVariosTurnos) {
+            zonaSeccionTurnos.style.display = 'block';
+            zonaListaTurnos.innerHTML = filas.map(f => {
+              const fTasaPct = ((f.tasa || 0) * 100).toFixed(1);
+              const esNoRep = !f.representativo;
+              return `
+                <div style="background: var(--bg-surface-alt); padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; font-size: 0.85rem;">
+                    <div>
+                      <strong>${formatearTurno(f.turno)}</strong>
+                      <span class="text-muted text-small" style="margin-left: 0.4rem;">(${f.respuestas} / ${f.personas})</span>
+                    </div>
+                    <span style="font-weight: 700; ${esNoRep ? 'color: var(--color-damm);' : ''}">${fTasaPct} %</span>
+                  </div>
+                  <div class="progress-track" style="height: 6px;">
+                    <div class="progress-fill ${esNoRep ? 'fill-damm' : ''}" style="width: ${Math.min(100, Math.round((f.tasa || 0) * 100))}%;"></div>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          } else {
+            zonaSeccionTurnos.style.display = 'block';
+            zonaListaTurnos.innerHTML = `
+              <p class="text-muted text-small" style="padding: 0.25rem 0;">Jornada continua / sin turnos rotativos para este centro.</p>
+            `;
+          }
+        } else {
+          zonaSeccionTurnos.style.display = 'none';
+        }
+      }
+
+      // Alertas específicas de la zona
+      const alertasColectivo = (analisis.alertas || []).filter(a => {
+        const msg = (a.mensaje || '').toLowerCase();
+        return msg.includes(colKey) ||
+               (colKey === 'planta' && msg.includes('noche')) ||
+               (colKey === 'logistica' && msg.includes('almacén'));
+      });
+
+      if (alertasColectivo.length > 0) {
+        zonaListaAlertas.innerHTML = alertasColectivo.map(a => `
+          <div class="alerta" style="margin-bottom: 0.5rem; padding: 0.65rem 0.85rem;">
+            <div>
+              <div class="alerta-tipo" style="font-size: 0.7rem;">${a.tipo}</div>
+              <div class="alerta-mensaje" style="font-size: 0.85rem;">${a.mensaje}</div>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        zonaListaAlertas.innerHTML = `
+          <div class="aviso-ia" style="margin-top: 0.25rem; font-size: 0.825rem;">
+            ✓ Sin incidencias registradas en este colectivo.
+          </div>
+        `;
       }
     }
 
