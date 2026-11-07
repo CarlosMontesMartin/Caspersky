@@ -12,6 +12,7 @@ No usamos Typeform ni base de datos SQL: todo se guarda en archivos JSON.
 1. modulos.md: archivos, funciones, firmas, rutas y qué hace cada cosa. Si algo no está ahí, se pregunta.
 2. contratos/formatos.md y contratos/ejemplos/: formatos JSON exactos.
 3. contratos/api.md: resumen de la API (detalle en modulos.md, sección 3).
+4. Diseño del frontend: contratos/diseno.md
 
 ## Reglas no negociables
 - Solo datos sintéticos. Nunca nombres, correos, teléfonos ni datos reales.

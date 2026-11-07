@@ -283,3 +283,54 @@ el modo de respaldo, se deja de añadir cosas y solo se arregla.
 6. Activar la IA real en `backend/ia/` sin cambiar ninguna firma.
 7. Lo marcado [Después], por orden de la sección "Alcance".
 8. Cualquier campo nuevo → se pide al Tech Lead, que actualiza `contratos/` y este documento.
+
+---
+
+## 9. Simulación de respuestas y prueba automática del ciclo · [MVP]
+
+Objetivo: poder comprobar el análisis sin responder encuestas a mano. Todo lo simulado son
+datos sintéticos (la guía lo permite) y lleva `tema_real`, que es lo que lo distingue de una
+respuesta real.
+
+### `datos_sinteticos/simular.py` · UPC 1
+
+| Función | Entrada | Salida | Qué hace |
+|---|---|---|---|
+| `simular_respuestas(encuesta, plantilla, n=80, periodos=2, semilla=None)` | `dict` Encuesta publicada, `list` Plantilla, `int`, `int` (1 o 2), `int\|None` | `list` Respuesta | Genera `n` respuestas por periodo. Periodo actual = `encuesta["periodo"]`; si `periodos == 2`, también el mes anterior. Reparte por turno según la plantilla del colectivo con tasas desiguales (turno de noche ~7 %). Rellena **todas** las preguntas: `escala_1_5` (en el periodo actual, más bajas en dimensiones `condiciones` y `bienestar` para planta), `opcion` y `si_no` con pesos realistas, y la pregunta `texto` en `comentario` (~70 % rellena, con el mismo banco de frases por tema que `generar.py`: en el periodo actual suben descansos y turnos, y aparece comunicacion; ~5 % con datos personales falsos). `canal` mezcla qr y quiosco. Pone `id`, `fecha` dentro del mes, `colectivo`, `centro_tipo` y `tema_real`. |
+
+### Endpoint · UPC 2 (`rutas_encuestas.py`)
+
+| Método y ruta | Recibe | Devuelve | Errores | Qué hace |
+|---|---|---|---|---|
+| `POST /encuestas/{id}/simular` | `{"n": 80, "periodos": 2}` | `{"anadidas": int}` | 403 si `MODO_DEMO` no es `1` en `.env`; 404; 409 si no está publicada | Llama a `simular_respuestas`, pasa cada `comentario` por `anonimizar()` y las añade con `almacen.anadir_respuesta`. |
+| `GET /escenarios` | — | `list` de `{"id", "nombre", "necesidad"}` | | Lee `contenido/escenarios.json` (UAB 2). |
+| `GET /salud` | — | `{"ok", "llm", "modo_demo"}` | | `modo_demo` = `MODO_DEMO == "1"`. |
+
+`.env.example` añade `MODO_DEMO=1`.
+
+### `backend/api/probar_ciclo.py` · UPC 2
+Con el servidor arrancado: `python3 -m backend.api.probar_ciclo`. Solo librería estándar (`urllib`).
+Recorre el ciclo por la API y escribe `OK` o `FALLO` en cada comprobación:
+1. `/salud` responde.
+2. Generar una encuesta con el primer escenario de `/escenarios` → 3–6 preguntas, máximo 1 `texto`.
+3. Publicar sin aprobar → 409. Aprobar y publicar → `url` y `qr`.
+4. Simular 80 respuestas en 2 periodos.
+5. Análisis: `temas` no vacío; hay al menos un tema `sube` o `nuevo`; hay alerta de `representatividad`
+   del turno de noche; ninguna media con `n < 5`; ningún `comentario` contiene `@` ni 9 cifras seguidas.
+6. Recomendaciones: 2–3 acciones y un `seguimiento` con el mismo colectivo.
+7. Lo mismo con `enc_000` (sin generar ni simular).
+
+### `contenido/escenarios.json` · UAB 2
+Lista de 3 escenarios (uno por escenario de la guía de Damm), con la Necesidad completa:
+```json
+[ { "id": "turnos_planta", "nombre": "Nuevo sistema de turnos en planta",
+    "necesidad": { "objetivo": "", "colectivo": "planta", "contexto": "",
+                   "duracion_max_seg": 120, "temas_prohibidos": ["salario"] } } ]
+```
+
+### Frontend · UAB 1
+- `api.js` añade: `obtenerSalud()` → `GET /salud`, `listarEscenarios()` → `GET /escenarios`,
+  `simularRespuestas(id, n = 80, periodos = 2)` → `POST /encuestas/{id}/simular`.
+- `crear.html`, paso 1: selector "Empezar desde un escenario" que rellena el formulario.
+- `dashboard.html`: si `modo_demo`, botón secundario "Simular respuestas" (abre un pequeño diálogo con
+  n y periodos) y después recarga el análisis.
