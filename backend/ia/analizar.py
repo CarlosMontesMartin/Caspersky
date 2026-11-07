@@ -1,7 +1,7 @@
 """Clasificación temática, generación de resúmenes y cálculo de tendencias de comentarios.
 
-Las palabras clave clasifican al instante; el modelo solo interviene en los comentarios que no
-encajan en ninguna regla. Los resúmenes del modelo se generan en segundo plano.
+Las palabras clave clasifican al instante. Con modelo, todos los comentarios se clasifican
+además en segundo plano y, en cuanto hay resultado, sustituye al de las palabras clave.
 """
 
 from __future__ import annotations
@@ -9,8 +9,9 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
+import time
 import unicodedata
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -27,12 +28,15 @@ TEMAS = [
 UMBRAL_MINIMO = 5
 TAMANO_LOTE = 25  # Lotes pequeños para que cada llamada quede lejos del timeout de 30 s
 MAX_MUESTRA_RESUMEN = 30
-HILOS_IA = 6
 
 _PROMPTS = Path(__file__).resolve().parent / "prompts"
 
 # Evita llamadas repetidas durante la sesión del servidor
-_CACHE_TEMA: dict[str, str] = {}
+_CACHE_IA: dict[str, str] = {}      # Texto -> tema asignado por el modelo
+_EN_CURSO: set[str] = set()         # Textos en un lote que aún no ha terminado
+_FALLIDOS: dict[str, float] = {}    # Texto -> momento del fallo, para no reintentar en bucle
+_BLOQUEO = threading.Lock()
+REINTENTO_FALLIDOS_SEG = 120
 
 # Raíces sin tildes, en castellano y catalán
 
@@ -161,37 +165,61 @@ def _extraer_temas(datos, n: int) -> list[str | None]:
     return [_normalizar_tema(v) for v in datos]
 
 
-def _clasificar_lote_ia(lote: list[str]) -> list[str]:
-    try:
-        usuario = (
-            f"Temas permitidos: {', '.join(TEMAS)}\n\n"
+def _usuario_clasificar(lote: list[str]) -> str:
+    return (f"Temas permitidos: {', '.join(TEMAS)}\n\n"
             f"Clasifica estos {len(lote)} comentarios. Devuelve exactamente {len(lote)} temas "
             f"en el mismo orden, con el formato {{\"temas\": [...]}}.\n\n"
-            + "\n".join(f"{i}. {txt}" for i, txt in enumerate(lote, start=1))
-        )
-        temas = _extraer_temas(llamar_llm_json(_leer_prompt("clasificar.md"), usuario), len(lote))
-        return [t or clasificar_por_palabras(txt) for t, txt in zip(temas, lote)]
+            + "\n".join(f"{i}. {txt}" for i, txt in enumerate(lote, start=1)))
+
+
+def _clasificar_lote_ia(lote: list[str]) -> dict[str, str]:
+    # Devuelve solo lo que el modelo ha clasificado con un tema válido
+    try:
+        datos = llamar_llm_json(_leer_prompt("clasificar.md"), _usuario_clasificar(lote),
+                                segundo_plano.TIMEOUT_SEG)
+        resultado = {txt: tema for txt, tema in zip(lote, _extraer_temas(datos, len(lote))) if tema}
     except Exception as error:
-        log.warning("Lote de %d comentarios clasificado por palabras clave: %s", len(lote), error)
-        return [clasificar_por_palabras(txt) for txt in lote]
+        log.warning("Lote de %d comentarios sin clasificar por el modelo: %s", len(lote), error)
+        resultado = {}
+    with _BLOQUEO:
+        _CACHE_IA.update(resultado)
+        ahora = time.monotonic()
+        for txt in lote:
+            _EN_CURSO.discard(txt)
+            if txt not in resultado:
+                _FALLIDOS[txt] = ahora
+    return resultado
 
 
 def clasificar_comentarios(textos: list[str]) -> list[str]:
     """Asigna a cada comentario un tema de la lista cerrada, en el mismo orden.
 
-    Las palabras clave resuelven la mayoría al instante; el modelo clasifica solo los que no
-    encajan en ninguna regla, en lotes y con caché.
+    Responde al momento: usa el tema del modelo si ya está y, si no, el de las palabras clave.
+    Con modelo, lanza en segundo plano lotes de 25 con los comentarios que aún no tiene.
     """
-    por_reglas = [_tema_por_palabras(t) for t in textos]
     if hay_llm():
-        dudosos = list(dict.fromkeys(t for t, tema in zip(textos, por_reglas)
-                                     if tema is None and t not in _CACHE_TEMA))
-        lotes = [dudosos[i:i + TAMANO_LOTE] for i in range(0, len(dudosos), TAMANO_LOTE)]
-        if lotes:
-            with ThreadPoolExecutor(max_workers=HILOS_IA) as pool:
-                for lote, temas in zip(lotes, pool.map(_clasificar_lote_ia, lotes)):
-                    _CACHE_TEMA.update(zip(lote, temas))
-    return [tema or _CACHE_TEMA.get(t) or "otros" for t, tema in zip(textos, por_reglas)]
+        ahora = time.monotonic()
+        with _BLOQUEO:
+            nuevos = sorted({t for t in textos if t and t not in _CACHE_IA and t not in _EN_CURSO
+                             and ahora - _FALLIDOS.get(t, -1e9) > REINTENTO_FALLIDOS_SEG})
+            _EN_CURSO.update(nuevos)
+        for i in range(0, len(nuevos), TAMANO_LOTE):
+            lote = nuevos[i:i + TAMANO_LOTE]
+            segundo_plano.obtener(("clasificar", hash(tuple(lote))),
+                                  lambda lote=lote: _clasificar_lote_ia(lote))
+    return [_CACHE_IA.get(t) or clasificar_por_palabras(t) for t in textos]
+
+
+def estado_clasificacion(textos: list[str]) -> dict[str, int]:
+    """Cuántos comentarios distintos hay y cuántos tienen ya el tema asignado por el modelo."""
+    unicos = {t for t in textos if t}
+    return {"total": len(unicos), "por_ia": sum(1 for t in unicos if t in _CACHE_IA)}
+
+
+def clasificacion_en_curso() -> bool:
+    """Indica si quedan lotes de comentarios pendientes de clasificar por el modelo."""
+    with _BLOQUEO:
+        return bool(_EN_CURSO)
 
 
 def _resumen_respaldo(tema: str, n: int) -> str:
@@ -207,7 +235,8 @@ def resumir_tema(tema: str, textos: list[str]) -> str:
     if not textos:
         return ""
     respaldo = _resumen_respaldo(tema, len(textos))
-    if not hay_llm():
+    # Mientras la clasificación avanza los grupos cambian; se resume al terminar
+    if not hay_llm() or clasificacion_en_curso():
         return respaldo
     clave = ("resumen", tema, len(textos), hash(tuple(sorted(textos))))
     return segundo_plano.obtener(clave, lambda: _resumir_con_ia(tema, textos)) or respaldo
@@ -313,6 +342,10 @@ def analizar_comentarios(respuestas_actual: list[dict[str, Any]],
             "resumen": resumenes[tema],
             "tendencia": calcular_tendencia(len(txt), len(actuales),
                                             cuenta_ant.get(tema, 0), len(anteriores)),
+            "n_anterior": cuenta_ant.get(tema, 0),
+            "pct": round(len(txt) / len(actuales), 3),
+            "pct_anterior": (round(cuenta_ant.get(tema, 0) / len(anteriores), 3)
+                             if anteriores else None),
         }
         for tema, txt in visibles.items()
     ]

@@ -59,13 +59,31 @@ def _dias(periodo: str) -> list[str]:
     return dias or [f"{periodo}-01"]
 
 
-def _segmentos(encuesta: dict[str, Any], plantilla: list[dict[str, Any]]) -> list[dict]:
+def colectivos_de(encuesta: dict[str, Any]) -> list[str]:
+    """Colectivos de la encuesta en orden fijo: colectivos (v2) o colectivo (todos o uno)."""
+    lista = [c for c in base.COLECTIVOS if c in (encuesta.get("colectivos") or [])]
+    if lista:
+        return lista
     colectivo = encuesta.get("colectivo")
-    filas = [f for f in plantilla if colectivo in (None, "todos") or f["colectivo"] == colectivo]
-    filas = [f for f in filas if f.get("colectivo") in base.COLECTIVOS and f.get("personas", 0) > 0]
-    if not filas and colectivo in base.COLECTIVOS:
-        turnos = base.TURNOS_PLANTA if colectivo == "planta" else ["sin_turno"]
-        filas = [{"colectivo": colectivo, "turno": t, "personas": 100} for t in turnos]
+    if colectivo in (None, "todos", "varios"):
+        return list(base.COLECTIVOS)
+    return [colectivo] if colectivo in base.COLECTIVOS else []
+
+
+def preguntas_de(encuesta: dict[str, Any], colectivo: str) -> list[dict[str, Any]]:
+    """Preguntas que ve un colectivo: el núcleo común más las propias de su sector."""
+    return (encuesta.get("preguntas") or []) + (
+        encuesta.get("preguntas_por_colectivo") or {}).get(colectivo, [])
+
+
+def _segmentos(encuesta: dict[str, Any], plantilla: list[dict[str, Any]]) -> list[dict]:
+    colectivos = colectivos_de(encuesta)
+    filas = [f for f in plantilla if f.get("colectivo") in colectivos and f.get("personas", 0) > 0]
+    # Colectivos sin filas en la plantilla: una fila por defecto para que también respondan
+    for c in colectivos:
+        if not any(f["colectivo"] == c for f in filas):
+            turnos = base.TURNOS_PLANTA if c == "planta" else ["sin_turno"]
+            filas += [{"colectivo": c, "turno": t, "personas": 100} for t in turnos]
     return filas
 
 
@@ -169,8 +187,9 @@ def _simular(encuesta: dict[str, Any], plantilla: list[dict[str, Any]], n: int,
     segmentos = _segmentos(encuesta, plantilla)
     if not segmentos:
         return []
-    preguntas = encuesta.get("preguntas") or []
-    hay_texto = any(p.get("tipo") == "texto" for p in preguntas)
+    # Solo el núcleo puede tener la pregunta de texto (las propias de un sector nunca la tienen)
+    hay_texto = any(p.get("tipo") == "texto" for c in colectivos_de(encuesta)
+                    for p in preguntas_de(encuesta, c))
 
     # Huecos por periodo y segmento, proporcionales a personas por tasa de respuesta
     pesos = [f["personas"] * base.tasa_de(f["colectivo"], f["turno"])[0] for f in segmentos]
@@ -198,7 +217,7 @@ def _simular(encuesta: dict[str, Any], plantilla: list[dict[str, Any]], n: int,
     respuestas = []
     for h in huecos:
         valores: dict[str, Any] = {}
-        for p in preguntas:
+        for p in preguntas_de(encuesta, h["colectivo"]):
             if p.get("tipo") == "texto" or not _condicion_cumplida(p, valores):
                 continue
             valor = _valor(p, h["tema"], h["colectivo"], h["periodo"] == actual, rng)
