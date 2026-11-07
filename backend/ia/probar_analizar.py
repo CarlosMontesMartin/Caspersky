@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from collections import Counter
 from pathlib import Path
 
+from backend.ia import segundo_plano
 from backend.ia.analizar import TEMAS, analizar_comentarios, clasificar_comentarios
 from backend.ia.llm import hay_llm
 from backend.ia.recomendar import recomendar
@@ -43,7 +45,14 @@ def main() -> int:
         print("  Confusiones más frecuentes (real → predicho):",
               ", ".join(f"{a}→{b} ×{n}" for (a, b), n in fallos.most_common(4)))
 
+    inicio = time.time()
     temas = analizar_comentarios(actual, anterior)
+    print(f"\nPrimera carga del análisis: {time.time() - inicio:.1f} s")
+    if hay_llm():
+        inicio = time.time()
+        segundo_plano.esperar()
+        temas = analizar_comentarios(actual, anterior)
+        print(f"Resúmenes del modelo listos en segundo plano tras {time.time() - inicio:.1f} s")
     print("\nTemas (n ≥ 5):")
     for t in temas:
         flecha = "↑" if t["tendencia"] in ("nuevo", "sube") else "↓" if t["tendencia"] == "baja" else "·"
@@ -61,6 +70,9 @@ def main() -> int:
                 "participacion": participacion, "medias": [], "temas": temas,
                 "alertas": [], "limites": []}
     rec = recomendar(analisis, encuesta)
+    if hay_llm():
+        segundo_plano.esperar()
+        rec = recomendar(analisis, encuesta)
     print("\nRecomendaciones (propuestas):")
     for a in rec["acciones"]:
         print(f"  - {a['titulo']}  [{a['tema']}]\n      {a['motivo']}")

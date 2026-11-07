@@ -5,9 +5,12 @@ Si no hay clave de modelo disponible o la llamada falla, recurre a reglas fijas 
 
 from __future__ import annotations
 
+import json
+
 from pathlib import Path
 from typing import Any
 
+from . import segundo_plano
 from .llm import hay_llm, llamar_llm_json
 
 COLECTIVOS = ["planta", "logistica", "comercial", "oficina", "manager"]
@@ -137,35 +140,41 @@ def _recomendar_respaldo(analisis: dict[str, Any], encuesta: dict[str, Any]) -> 
 def recomendar(analisis: dict[str, Any], encuesta: dict[str, Any]) -> dict[str, Any]:
     """Genera recomendaciones de acción y una propuesta de encuesta de seguimiento.
 
-    Prioriza segmentos con baja representación y temas nuevos o en aumento.
+    Prioriza segmentos con baja representación y temas nuevos o en aumento. Responde al
+    momento con la redacción de respaldo y pide al modelo una redacción mejor en segundo plano.
     """
     analisis = analisis or {}
     base = _recomendar_respaldo(analisis, encuesta or {})
     if not hay_llm() or not analisis.get("temas"):
         return base
-    try:
-        resumen_datos = {
-            "temas": [{k: t.get(k) for k in ("tema", "n", "tendencia", "resumen")}
-                      for t in _temas_prioritarios(analisis)[:5]],
-            "alertas": analisis.get("alertas") or [],
-            "limites": analisis.get("limites") or [],
-            "acciones_base": base["acciones"],
-        }
-        import json
-        prompt = (_PROMPTS / "recomendar.md").read_text(encoding="utf-8")
-        datos = llamar_llm_json(prompt, json.dumps(resumen_datos, ensure_ascii=False))
-        nuevas = datos.get("acciones") if isinstance(datos, dict) else None
-        if not isinstance(nuevas, list) or len(nuevas) != len(base["acciones"]):
-            return base
-        acciones = []
-        for propuesta, original in zip(nuevas, base["acciones"]):
-            titulo = str(propuesta.get("titulo", "")).strip()
-            motivo = str(propuesta.get("motivo", "")).strip()
-            acciones.append({
-                "titulo": titulo if 5 <= len(titulo) <= 120 else original["titulo"],
-                "motivo": motivo if 10 <= len(motivo) <= 300 else original["motivo"],
-                "tema": original["tema"],  # La asignación temática procede de las reglas de negocio
-            })
-        return {"acciones": acciones, "seguimiento": base["seguimiento"]}
-    except Exception:
-        return base
+    datos = {
+        "temas": [{k: t.get(k) for k in ("tema", "n", "tendencia", "resumen")}
+                  for t in _temas_prioritarios(analisis)[:5]],
+        "alertas": analisis.get("alertas") or [],
+        "limites": analisis.get("limites") or [],
+        "acciones_base": base["acciones"],
+    }
+    # Los resúmenes cambian cuando llega la versión del modelo; no forman parte de la clave
+    clave = ("recomendar", json.dumps([[t["tema"], t["n"], t["tendencia"]] for t in datos["temas"]]
+                                      + [datos["alertas"], base["acciones"]], ensure_ascii=False))
+    acciones = segundo_plano.obtener(clave, lambda: _redactar_con_ia(datos, base["acciones"]))
+    return {"acciones": acciones, "seguimiento": base["seguimiento"]} if acciones else base
+
+
+def _redactar_con_ia(datos: dict[str, Any], originales: list[dict[str, str]]) -> list | None:
+    prompt = (_PROMPTS / "recomendar.md").read_text(encoding="utf-8")
+    respuesta = llamar_llm_json(prompt, json.dumps(datos, ensure_ascii=False))
+    nuevas = respuesta.get("acciones") if isinstance(respuesta, dict) else None
+    if not isinstance(nuevas, list) or len(nuevas) != len(originales):
+        return None
+    acciones = []
+    for propuesta, original in zip(nuevas, originales):
+        propuesta = propuesta if isinstance(propuesta, dict) else {}
+        titulo = str(propuesta.get("titulo", "")).strip()
+        motivo = str(propuesta.get("motivo", "")).strip()
+        acciones.append({
+            "titulo": titulo if 5 <= len(titulo) <= 120 else original["titulo"],
+            "motivo": motivo if 10 <= len(motivo) <= 300 else original["motivo"],
+            "tema": original["tema"],  # El tema lo deciden las reglas, no el modelo
+        })
+    return acciones

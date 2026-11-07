@@ -1,6 +1,7 @@
 """Clasificación temática, generación de resúmenes y cálculo de tendencias de comentarios.
 
-Si no hay clave de modelo disponible o la llamada falla, recurre a reglas por palabras clave.
+Las palabras clave clasifican al instante; el modelo solo interviene en los comentarios que no
+encajan en ninguna regla. Los resúmenes del modelo se generan en segundo plano.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
+from . import segundo_plano
 from .llm import hay_llm, llamar_llm_json
 
 log = logging.getLogger(__name__)
@@ -31,7 +33,6 @@ _PROMPTS = Path(__file__).resolve().parent / "prompts"
 
 # Evita llamadas repetidas durante la sesión del servidor
 _CACHE_TEMA: dict[str, str] = {}
-_CACHE_RESUMEN: dict[tuple, str] = {}
 
 # Raíces sin tildes, en castellano y catalán
 
@@ -102,12 +103,14 @@ TEMAS_CONTEXTO = {"turnos"}
 
 
 def clasificar_por_palabras(texto: str) -> str:
-    """Clasifica un comentario asignándole un tema mediante reglas de palabras clave.
+    """Clasifica un comentario mediante palabras clave; sin coincidencias devuelve otros."""
+    return _tema_por_palabras(texto) or "otros"
 
-    Prioriza la primera coincidencia en el texto y la palabra clave más larga.
-    """
+
+def _tema_por_palabras(texto: str) -> str | None:
+    # Prioriza la primera coincidencia en el texto y, en la misma posición, la más larga
     t = _normalizar(texto)
-    mejor, mejor_clave = "otros", None
+    mejor, mejor_clave = None, None
     for tema, patrones in _PATRONES.items():
         coincidencias = [(m.start(), -(m.end() - m.start())) for p in patrones for m in p.finditer(t)]
         if not coincidencias:
@@ -174,20 +177,21 @@ def _clasificar_lote_ia(lote: list[str]) -> list[str]:
 
 
 def clasificar_comentarios(textos: list[str]) -> list[str]:
-    """Clasifica una lista de comentarios asignando a cada uno un tema de la lista cerrada.
+    """Asigna a cada comentario un tema de la lista cerrada, en el mismo orden.
 
-    Procesa en lotes con el modelo de lenguaje y recurre a palabras clave si no hay servicio.
+    Las palabras clave resuelven la mayoría al instante; el modelo clasifica solo los que no
+    encajan en ninguna regla, en lotes y con caché.
     """
-    if not hay_llm():
-        return [clasificar_por_palabras(t) for t in textos]
-
-    pendientes = list(dict.fromkeys(t for t in textos if t not in _CACHE_TEMA))
-    lotes = [pendientes[i:i + TAMANO_LOTE] for i in range(0, len(pendientes), TAMANO_LOTE)]
-    if lotes:
-        with ThreadPoolExecutor(max_workers=HILOS_IA) as pool:
-            for lote, temas in zip(lotes, pool.map(_clasificar_lote_ia, lotes)):
-                _CACHE_TEMA.update(zip(lote, temas))
-    return [_CACHE_TEMA.get(t) or clasificar_por_palabras(t) for t in textos]
+    por_reglas = [_tema_por_palabras(t) for t in textos]
+    if hay_llm():
+        dudosos = list(dict.fromkeys(t for t, tema in zip(textos, por_reglas)
+                                     if tema is None and t not in _CACHE_TEMA))
+        lotes = [dudosos[i:i + TAMANO_LOTE] for i in range(0, len(dudosos), TAMANO_LOTE)]
+        if lotes:
+            with ThreadPoolExecutor(max_workers=HILOS_IA) as pool:
+                for lote, temas in zip(lotes, pool.map(_clasificar_lote_ia, lotes)):
+                    _CACHE_TEMA.update(zip(lote, temas))
+    return [tema or _CACHE_TEMA.get(t) or "otros" for t, tema in zip(textos, por_reglas)]
 
 
 def _resumen_respaldo(tema: str, n: int) -> str:
@@ -195,40 +199,38 @@ def _resumen_respaldo(tema: str, n: int) -> str:
 
 
 def resumir_tema(tema: str, textos: list[str]) -> str:
-    """Genera un resumen breve y anónimo sobre los comentarios agrupados en un tema.
+    """Devuelve un resumen breve y anónimo de los comentarios de un tema.
 
-    Utiliza una muestra de comentarios y omite citas literales para preservar el anonimato.
+    Responde al momento con el resumen de respaldo y pide el del modelo en segundo plano;
+    las siguientes consultas ya reciben el del modelo.
     """
     if not textos:
         return ""
-    clave = (tema, len(textos), hash(tuple(sorted(textos))))
-    if clave in _CACHE_RESUMEN:
-        return _CACHE_RESUMEN[clave]
+    respaldo = _resumen_respaldo(tema, len(textos))
+    if not hay_llm():
+        return respaldo
+    clave = ("resumen", tema, len(textos), hash(tuple(sorted(textos))))
+    return segundo_plano.obtener(clave, lambda: _resumir_con_ia(tema, textos)) or respaldo
 
-    resumen = _resumen_respaldo(tema, len(textos))
-    if hay_llm():
-        try:
-            muestra = textos[:MAX_MUESTRA_RESUMEN]
-            usuario = (
-                f"Tema: {tema} ({DESCRIPCION_TEMA.get(tema, '')})\n"
-                f"Número total de comentarios del tema: {len(textos)}\n"
-                f"Muestra de {len(muestra)} comentarios:\n"
-                + "\n".join(f"- {t}" for t in muestra)
-            )
-            datos = llamar_llm_json(_leer_prompt("resumir.md"), usuario)
-            texto = str(datos.get("resumen", "") if isinstance(datos, dict) else "").strip()
-            texto = _recortar(texto)
-            # Por anonimato se descarta cualquier resumen con citas o frases copiadas
-            if not texto:
-                log.warning("Resumen de '%s' vacío; se usa el texto de respaldo", tema)
-            elif '"' in texto or "«" in texto or _copia_literal(texto, muestra):
-                log.warning("Resumen de '%s' descartado por contener una cita literal", tema)
-            else:
-                resumen = texto
-        except Exception as error:
-            log.warning("Resumen de '%s' no disponible: %s", tema, error)
-    _CACHE_RESUMEN[clave] = resumen
-    return resumen
+
+def _resumir_con_ia(tema: str, textos: list[str]) -> str | None:
+    muestra = textos[:MAX_MUESTRA_RESUMEN]
+    usuario = (
+        f"Tema: {tema} ({DESCRIPCION_TEMA.get(tema, '')})\n"
+        f"Número total de comentarios del tema: {len(textos)}\n"
+        f"Muestra de {len(muestra)} comentarios:\n"
+        + "\n".join(f"- {t}" for t in muestra)
+    )
+    datos = llamar_llm_json(_leer_prompt("resumir.md"), usuario)
+    texto = _recortar(str(datos.get("resumen", "") if isinstance(datos, dict) else "").strip())
+    # Por anonimato se descarta cualquier resumen con citas o frases copiadas
+    if not texto:
+        log.warning("Resumen de '%s' vacío; se mantiene el de respaldo", tema)
+        return None
+    if '"' in texto or "«" in texto or _copia_literal(texto, muestra):
+        log.warning("Resumen de '%s' descartado por contener una cita literal", tema)
+        return None
+    return texto
 
 
 def _recortar(texto: str, max_frases: int = 2, max_palabras: int = 45) -> str:
@@ -299,8 +301,7 @@ def analizar_comentarios(respuestas_actual: list[dict[str, Any]],
         cuenta_ant[tema] = cuenta_ant.get(tema, 0) + 1
 
     visibles = {t: txt for t, txt in por_tema.items() if len(txt) >= UMBRAL_MINIMO}
-    with ThreadPoolExecutor(max_workers=HILOS_IA) as pool:
-        resumenes = dict(zip(visibles, pool.map(lambda t: resumir_tema(t, visibles[t]), visibles)))
+    resumenes = {tema: resumir_tema(tema, txt) for tema, txt in visibles.items()}
 
     resultado = [
         {
