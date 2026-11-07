@@ -1,0 +1,17 @@
+{
+  "encuesta_id": "enc_001",
+  "n_respuestas": 312,
+  "participacion": [
+    { "colectivo": "planta", "turno": "noche", "respuestas": 9, "personas": 120, "tasa": 0.075, "representativo": false }
+  ],
+  "medias": [
+    { "pregunta": "p1", "colectivo": "planta", "media": 2.8, "n": 41 }
+  ],
+  "temas": [
+    { "tema": "descansos", "n": 57, "resumen": "Quejas por falta de descanso entre turnos.", "tendencia": "sube" }
+  ],
+  "alertas": [
+    { "tipo": "representatividad", "mensaje": "El turno de noche de planta solo ha respondido un 7,5 %." }
+  ],
+  "limites": ["Muestra pequeña en logística (n=7)."]
+}

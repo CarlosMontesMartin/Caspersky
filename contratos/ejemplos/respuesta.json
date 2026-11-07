@@ -1,0 +1,13 @@
+{
+  "id": "r_00123",
+  "encuesta_id": "enc_001",
+  "fecha": "2026-10-15",
+  "periodo": "2026-10",
+  "colectivo": "planta",
+  "centro_tipo": "fabrica",
+  "turno": "noche",
+  "canal": "qr",
+  "valores": { "p1": 2, "p2": "no hay tiempo para descansar entre turnos" },
+  "comentario": "no hay tiempo para descansar entre turnos",
+  "tema_real": "descansos"
+}

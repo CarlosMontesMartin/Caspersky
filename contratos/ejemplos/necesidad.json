@@ -1,0 +1,7 @@
+{
+  "objetivo": "Saber cómo afecta el nuevo sistema de turnos",
+  "colectivo": "planta",
+  "contexto": "Cambio de turnos desde octubre",
+  "duracion_max_seg": 120,
+  "temas_prohibidos": ["salario"]
+}

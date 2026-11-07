@@ -1,0 +1,8 @@
+[
+  { "colectivo": "planta", "turno": "manana", "personas": 150 },
+  { "colectivo": "planta", "turno": "noche", "personas": 120 },
+  { "colectivo": "logistica", "turno": "sin_turno", "personas": 90 },
+  { "colectivo": "comercial", "turno": "sin_turno", "personas": 60 },
+  { "colectivo": "oficina", "turno": "sin_turno", "personas": 80 },
+  { "colectivo": "manager", "turno": "sin_turno", "personas": 25 }
+]

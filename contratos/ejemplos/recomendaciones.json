@@ -1,0 +1,12 @@
+{
+  "acciones": [
+    { "titulo": "Revisar pausas del turno de noche", "motivo": "El tema descansos crece un 40 % respecto al periodo anterior.", "tema": "descansos" }
+  ],
+  "seguimiento": {
+    "objetivo": "Comprobar si las nuevas pausas mejoran el descanso",
+    "colectivo": "planta",
+    "contexto": "Seguimiento tras ajustar las pausas",
+    "duracion_max_seg": 60,
+    "temas_prohibidos": ["salario"]
+  }
+}

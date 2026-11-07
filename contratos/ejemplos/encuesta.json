@@ -1,0 +1,29 @@
+{
+  "id": "enc_001",
+  "estado": "borrador",
+  "titulo": "¿Qué tal con los nuevos turnos?",
+  "intro": "2 minutos, anónimo. Nos ayuda a mejorar la organización de turnos.",
+  "colectivo": "planta",
+  "periodo": "2026-11",
+  "tiempo_estimado_seg": 90,
+  "url": null,
+  "qr": null,
+  "preguntas": [
+    {
+      "id": "p1",
+      "texto": "¿Cómo valoras el nuevo sistema de turnos?",
+      "tipo": "escala_1_5",
+      "opciones": [],
+      "dimension": "condiciones",
+      "condicion": null
+    },
+    {
+      "id": "p2",
+      "texto": "¿Qué es lo que más te cuesta del cambio?",
+      "tipo": "texto",
+      "opciones": [],
+      "dimension": "condiciones",
+      "condicion": { "pregunta": "p1", "valor_max": 2 }
+    }
+  ]
+}
