@@ -1,11 +1,4 @@
-"""Prueba de analizar.py y recomendar.py con los datos sintéticos (UPC 1).
-
-Ejecutar desde la raíz del repo:
-    python3 -m backend.ia.probar_analizar
-
-Funciona sin clave de IA (modo de respaldo). La participación se calcula aquí de
-forma simplificada solo para la prueba: la real la calcula backend/datos/metricas.py.
-"""
+"""Pruebas de integración para análisis temático y recomendaciones sobre datos sintéticos."""
 
 from __future__ import annotations
 
@@ -27,6 +20,7 @@ def _cargar(ruta: Path):
 
 
 def main() -> int:
+    """Ejecuta la validación de análisis temático, cálculo de tendencias y recomendaciones."""
     respuestas = _cargar(RAIZ / "datos_sinteticos" / "respuestas.json")
     encuesta = _cargar(RAIZ / "datos_sinteticos" / "enc_000.json")
     plantilla_ruta = RAIZ / "contenido" / "plantilla.json"
@@ -39,7 +33,6 @@ def main() -> int:
     print(f"Respuestas: {len(actual)} en {periodos[-1]} · {len(anterior)} en "
           f"{periodos[-2] if len(periodos) > 1 else '-'}")
 
-    # 1. Precisión de la clasificación frente a tema_real
     con_texto = [r for r in respuestas if r.get("comentario")]
     predichos = clasificar_comentarios([r["comentario"] for r in con_texto])
     aciertos = sum(p == r["tema_real"] for p, r in zip(predichos, con_texto))
@@ -50,14 +43,12 @@ def main() -> int:
         print("  Confusiones más frecuentes (real → predicho):",
               ", ".join(f"{a}→{b} ×{n}" for (a, b), n in fallos.most_common(4)))
 
-    # 2. Temas del periodo actual
     temas = analizar_comentarios(actual, anterior)
     print("\nTemas (n ≥ 5):")
     for t in temas:
         flecha = "↑" if t["tendencia"] in ("nuevo", "sube") else "↓" if t["tendencia"] == "baja" else "·"
         print(f"  {flecha} {t['tema']:<15}{t['n']:>4}  {t['tendencia']:<8} {t['resumen']}")
 
-    # 3. Recomendaciones con un Analisis mínimo
     participacion = []
     for fila in plantilla:
         n = sum(1 for r in actual if r["colectivo"] == fila["colectivo"] and r["turno"] == fila["turno"])
@@ -75,7 +66,6 @@ def main() -> int:
         print(f"  - {a['titulo']}  [{a['tema']}]\n      {a['motivo']}")
     print("Encuesta de seguimiento:", json.dumps(rec["seguimiento"], ensure_ascii=False))
 
-    # 4. Comprobaciones del contrato
     errores = []
     if any(t["tema"] not in TEMAS or t["n"] < 5 for t in temas):
         errores.append("tema fuera de la lista o con n < 5")

@@ -1,7 +1,6 @@
 """Generación y validación de encuestas adaptadas al colectivo.
 
-Implementación de UPC 1 para Antigravity / Damm Escucha Activa.
-Funciona siempre en modo de respaldo si no hay clave LLM configurada o si esta falla.
+Si no hay clave de modelo configurada o la llamada falla, recurre a plantillas de respaldo.
 """
 
 from __future__ import annotations
@@ -14,7 +13,6 @@ from typing import Any
 
 from .llm import hay_llm, llamar_llm_json
 
-# Valores cerrados según contratos/formatos.md
 COLECTIVOS_VALIDOS = {"planta", "logistica", "comercial", "oficina", "manager"}
 DIMENSIONES_VALIDAS = {
     "bienestar",
@@ -26,7 +24,6 @@ DIMENSIONES_VALIDAS = {
 }
 TIPOS_VALIDOS = {"escala_1_5", "opcion", "si_no", "texto"}
 
-# Reglas por defecto si no existen en contenido/reglas_colectivos.md
 REGLAS_POR_DEFECTO = {
     "planta": "Máximo 4 preguntas. Frases de menos de 12 palabras. Tono cercano y directo, pensado para operarios de fábrica desde el móvil.",
     "logistica": "Máximo 4 preguntas. Frases de menos de 12 palabras. Tono cercano, adaptado a personal de almacén en movimiento.",
@@ -35,11 +32,9 @@ REGLAS_POR_DEFECTO = {
     "manager": "Máximo 6 preguntas. Tono profesional y constructivo, enfocado a liderazgo, recursos y coordinación de equipos.",
 }
 
-# Máximo de preguntas por colectivo (además del límite general de 3–6)
 MAX_PREGUNTAS = {"planta": 4, "logistica": 4, "comercial": 5, "oficina": 6, "manager": 6}
 
-# Raíces de palabra para temas prohibidos frecuentes. Se buscan como inicio de
-# palabra, así "salari" bloquea salario, salarios, salarial…
+# Raíces de palabras bloqueadas por reglas de negocio
 SINONIMOS_PROHIBIDOS = {
     "salario": ["salari", "sueld", "nomina", "dinero", "retribu", "remunera",
                 "paga", "pagan", "pagar", "cobr", "plus", "incentivo", "bonus"],
@@ -49,7 +44,6 @@ SINONIMOS_PROHIBIDOS = {
 
 
 def _normalizar_texto(texto: str) -> str:
-    """Elimina tildes y convierte a minúsculas para comparaciones robustas."""
     texto_lower = texto.lower()
     return "".join(
         c for c in unicodedata.normalize("NFD", texto_lower)
@@ -58,7 +52,6 @@ def _normalizar_texto(texto: str) -> str:
 
 
 def _extraer_reglas_colectivo(reglas_texto: str, colectivo: str) -> str:
-    """Extrae la sección '## <colectivo>' de un texto markdown de reglas."""
     if not reglas_texto:
         return ""
     patron = rf"^##\s+{re.escape(colectivo)}\b([\s\S]*?)(?=^##\s+|\Z)"
@@ -69,7 +62,6 @@ def _extraer_reglas_colectivo(reglas_texto: str, colectivo: str) -> str:
 
 
 def _cargar_prompt_sistema() -> str:
-    """Carga el prompt de sistema desde prompts/generar.md."""
     prompt_path = Path(__file__).resolve().parent / "prompts" / "generar.md"
     if prompt_path.exists():
         return prompt_path.read_text(encoding="utf-8")
@@ -79,8 +71,7 @@ def _cargar_prompt_sistema() -> str:
     )
 
 
-# Respaldo: preguntas cortas (menos de 12 palabras) por tema detectado en la
-# necesidad. Nunca se pega el objetivo literal de RRHH dentro de una pregunta.
+# Preguntas predefinidas para el modo de respaldo
 _TEMAS_RESPALDO: list[dict[str, Any]] = [
     {
         "claves": ["turno", "horario", "cuadrante", "rotacion", "jornada"],
@@ -153,13 +144,6 @@ _RESPALDO_GENERAL: dict[str, Any] = {
 
 def _plantilla_respaldo_colectivo(colectivo: str, objetivo: str,
                                   contexto: str = "") -> dict[str, Any]:
-    """Respaldo sin IA: 3 escala_1_5 + 1 texto sobre el tema de la necesidad.
-
-    Detecta el tema por palabras clave en objetivo + contexto (turnos,
-    herramienta, carga, comunicación, formación) y si no encuentra ninguno usa
-    un pulso general. Mismas preguntas para todos los colectivos: son cortas y
-    sirven tanto en planta como en oficina.
-    """
     texto = _normalizar_texto(f"{objetivo} {contexto}")
     elegido = next((t for t in _TEMAS_RESPALDO
                     if any(clave in texto for clave in t["claves"])), _RESPALDO_GENERAL)
@@ -180,11 +164,6 @@ def _plantilla_respaldo_colectivo(colectivo: str, objetivo: str,
 
 
 def _construir_terminos_prohibidos(temas_prohibidos: list[str]) -> set[str]:
-    """Raíces normalizadas de los temas prohibidos (y sus sinónimos conocidos).
-
-    Cada término se busca como INICIO de palabra: "salari" bloquea "salarial".
-    Para palabras largas se usa la raíz sin la última letra (salario → salari).
-    """
     terminos = set()
     for tema in temas_prohibidos or []:
         norm = _normalizar_texto(str(tema).strip())
@@ -198,12 +177,11 @@ def _construir_terminos_prohibidos(temas_prohibidos: list[str]) -> set[str]:
 
 
 def _texto_contiene_prohibido(texto: str, terminos_prohibidos: set[str]) -> bool:
-    """Comprueba si un texto contiene algún término prohibido como palabra completa."""
     if not terminos_prohibidos:
         return False
     texto_norm = _normalizar_texto(texto)
     for term in terminos_prohibidos:
-        # Usar límite de palabra para no capturar subcadenas casuales
+        # Límite de palabra para evitar falsos positivos
         patron = rf"\b{re.escape(term)}"
         if re.search(patron, texto_norm):
             return True
@@ -211,17 +189,7 @@ def _texto_contiene_prohibido(texto: str, terminos_prohibidos: set[str]) -> bool
 
 
 def validar_encuesta(encuesta: dict[str, Any], necesidad: dict[str, Any]) -> dict[str, Any]:
-    """Corrige y asegura la coherencia de una encuesta según las reglas del MVP.
-
-    - Fuerza colectivo = necesidad['colectivo']
-    - Renumera preguntas como p1, p2...
-    - Corrige tipos y dimensiones a valores cerrados
-    - opciones = [] salvo en 'opcion' (si tiene <2 opciones pasa a escala_1_5)
-    - condicion = None siempre (MVP)
-    - Elimina preguntas con temas prohibidos (con sinónimos de salario)
-    - Calcula tiempo_estimado_seg (15 s cortas, 30 s texto) y recorta si supera duracion_max_seg
-    - Asegura entre 3 y 6 preguntas (completa con respaldo si quedan < 3)
-    """
+    """Valida y ajusta la estructura de una encuesta a los requisitos del colectivo y duración."""
     colectivo = necesidad.get("colectivo", encuesta.get("colectivo", "planta"))
     if colectivo not in COLECTIVOS_VALIDOS:
         colectivo = "planta"
@@ -243,7 +211,6 @@ def validar_encuesta(encuesta: dict[str, Any], necesidad: dict[str, Any]) -> dic
             or _texto_contiene_prohibido(intro, terminos_prohibidos)):
         intro = respaldo_textos["intro"]
 
-    # Procesar y limpiar preguntas recibidas
     preguntas_raw = encuesta.get("preguntas", [])
     if not isinstance(preguntas_raw, list):
         preguntas_raw = []
@@ -257,7 +224,6 @@ def validar_encuesta(encuesta: dict[str, Any], necesidad: dict[str, Any]) -> dic
         if not texto:
             continue
 
-        # Descartar si la pregunta o alguna de sus opciones toca un tema prohibido
         opciones_txt = " ".join(str(o) for o in p.get("opciones") or [])
         if _texto_contiene_prohibido(texto + " " + opciones_txt, terminos_prohibidos):
             continue
@@ -291,30 +257,24 @@ def validar_encuesta(encuesta: dict[str, Any], necesidad: dict[str, Any]) -> dic
             "condicion": None,
         })
 
-    # Regla: como mucho una pregunta de texto y siempre al final
+    # Máximo una pregunta abierta y ubicada al final
     preguntas_no_texto = [p for p in preguntas_limpias if p["tipo"] != "texto"]
     preguntas_texto = [p for p in preguntas_limpias if p["tipo"] == "texto"]
 
     if preguntas_texto:
-        # Conservar solo la última pregunta de texto y colocarla al final
         preguntas_filtradas = preguntas_no_texto + [preguntas_texto[-1]]
     else:
         preguntas_filtradas = preguntas_no_texto
 
-    # Función auxiliar de cálculo de tiempo
     def _calcular_tiempo(pregs: list[dict[str, Any]]) -> int:
         return sum(30 if p["tipo"] == "texto" else 15 for p in pregs)
 
-    # Si supera duracion_max_seg, recortar (primero la de texto, luego desde el final)
     while preguntas_filtradas and _calcular_tiempo(preguntas_filtradas) > duracion_max:
-        # Si la última es texto, la quitamos primero
         if preguntas_filtradas[-1]["tipo"] == "texto":
             preguntas_filtradas.pop()
         else:
             preguntas_filtradas.pop()
 
-    # Máximo de preguntas: 6 en general y menos según el colectivo
-    # (manteniendo la de texto al final si la hay)
     maximo = min(6, MAX_PREGUNTAS.get(colectivo, 6))
     if len(preguntas_filtradas) > maximo:
         tiene_texto = preguntas_filtradas[-1]["tipo"] == "texto"
@@ -323,24 +283,19 @@ def validar_encuesta(encuesta: dict[str, Any], necesidad: dict[str, Any]) -> dic
         else:
             preguntas_filtradas = preguntas_filtradas[:maximo]
 
-    # Si quedan menos de 3 preguntas, completar con preguntas del respaldo
     if len(preguntas_filtradas) < 3:
         respaldo = respaldo_textos
         for p_resp in respaldo["preguntas"]:
             if len(preguntas_filtradas) >= 3:
                 break
-            # Verificar tema prohibido
             if _texto_contiene_prohibido(p_resp["texto"], terminos_prohibidos):
                 continue
-            # Evitar textos idénticos
             if any(p["texto"] == p_resp["texto"] for p in preguntas_filtradas):
                 continue
 
-            # Priorizar preguntas cortas (15 s) si el tiempo es ajustado
             tiempo_actual = _calcular_tiempo(preguntas_filtradas)
             coste = 30 if p_resp["tipo"] == "texto" else 15
             if tiempo_actual + coste <= duracion_max or len(preguntas_filtradas) < 3:
-                # Si es de texto y ya hay una, no añadirla
                 if p_resp["tipo"] == "texto" and any(p["tipo"] == "texto" for p in preguntas_filtradas):
                     continue
                 preguntas_filtradas.append({
@@ -351,19 +306,16 @@ def validar_encuesta(encuesta: dict[str, Any], necesidad: dict[str, Any]) -> dic
                     "condicion": None,
                 })
 
-        # Reordenar para que texto quede al final si lo hubiera
         no_txt = [p for p in preguntas_filtradas if p["tipo"] != "texto"]
         txt = [p for p in preguntas_filtradas if p["tipo"] == "texto"]
         preguntas_filtradas = no_txt + txt[:1]
 
-    # Si tras completar aún superase duracion_max pero tiene > 3 preguntas, ajustar
     while len(preguntas_filtradas) > 3 and _calcular_tiempo(preguntas_filtradas) > duracion_max:
         if preguntas_filtradas[-1]["tipo"] == "texto":
             preguntas_filtradas.pop()
         else:
             preguntas_filtradas.pop()
 
-    # Renumerar preguntas como p1, p2, p3...
     preguntas_finales: list[dict[str, Any]] = []
     for idx, p in enumerate(preguntas_filtradas, start=1):
         preguntas_finales.append({
@@ -391,17 +343,14 @@ def validar_encuesta(encuesta: dict[str, Any], necesidad: dict[str, Any]) -> dic
 
 
 def generar_encuesta(necesidad: dict[str, Any], reglas: str = "") -> dict[str, Any]:
-    """Genera una Encuesta (borrador) sin 'id' a partir de una Necesidad.
+    """Genera una encuesta en borrador adaptada a la necesidad planteada.
 
-    Si hay clave LLM configurada, consulta al modelo de IA con prompts/generar.md.
-    Si no hay clave o ante cualquier error, usa el modo de respaldo.
-    Siempre valida el resultado final con validar_encuesta.
+    Usa el modelo de lenguaje si está disponible y recurre a plantillas de respaldo ante fallos.
     """
     colectivo = necesidad.get("colectivo", "planta")
     if colectivo not in COLECTIVOS_VALIDOS:
         colectivo = "planta"
 
-    # Extraer reglas específicas del colectivo o recurrir a las reglas por defecto
     reglas_colectivo = _extraer_reglas_colectivo(reglas, colectivo)
     if not reglas_colectivo:
         reglas_colectivo = REGLAS_POR_DEFECTO.get(
@@ -428,7 +377,6 @@ def generar_encuesta(necesidad: dict[str, Any], reglas: str = "") -> dict[str, A
             if isinstance(respuesta_json, dict) and "preguntas" in respuesta_json:
                 encuesta_candidata = respuesta_json
         except Exception:
-            # Ante CUALQUIER fallo de la IA se pasa transparentemente a respaldo
             encuesta_candidata = None
 
     if encuesta_candidata is None:

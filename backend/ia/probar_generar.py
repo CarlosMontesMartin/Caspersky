@@ -1,9 +1,4 @@
-"""Pruebas de generación y validación de encuestas (UPC 1).
-
-Ejecutable con:
-    python3 -m backend.ia.probar_generar
-Funciona completamente en modo de respaldo (sin clave LLM).
-"""
+"""Pruebas de generación y validación de encuestas."""
 
 from __future__ import annotations
 
@@ -25,25 +20,21 @@ from backend.ia.generar import (
 def verificar_cumplimiento(
     encuesta: dict[str, Any], necesidad: dict[str, Any]
 ) -> tuple[bool, list[str]]:
-    """Verifica si la encuesta generada cumple todos los requisitos exigidos."""
+    """Verifica si la encuesta generada cumple los requisitos de estructura y contenido."""
     errores = []
 
-    # 1. Sin id en la raíz
     if "id" in encuesta:
         errores.append("La encuesta no debe tener 'id' en la raíz (lo añade la API).")
 
-    # 2. Número de preguntas (3-6)
     preguntas = encuesta.get("preguntas", [])
     if not (3 <= len(preguntas) <= 6):
         errores.append(f"Número de preguntas fuera de rango (3-6): {len(preguntas)}")
 
-    # 3. Tiempo estimado <= duracion_max_seg
     dur_max = necesidad.get("duracion_max_seg", 120)
     tiempo = encuesta.get("tiempo_estimado_seg", 0)
     if tiempo > dur_max:
         errores.append(f"Tiempo estimado ({tiempo}s) supera el máximo ({dur_max}s)")
 
-    # 4. Sin temas prohibidos
     terminos_prohibidos = _construir_terminos_prohibidos(
         necesidad.get("temas_prohibidos", [])
     )
@@ -52,12 +43,10 @@ def verificar_cumplimiento(
         if _texto_contiene_prohibido(texto, terminos_prohibidos):
             errores.append(f"Pregunta {p.get('id')} contiene tema prohibido: '{texto}'")
 
-    # 5. Condición null en todas
     for p in preguntas:
         if p.get("condicion") is not None:
             errores.append(f"Pregunta {p.get('id')} tiene condicion != null")
 
-    # 6. Valores cerrados
     if encuesta.get("colectivo") not in COLECTIVOS_VALIDOS:
         errores.append(f"Colectivo inválido: {encuesta.get('colectivo')}")
     if encuesta.get("estado") != "borrador":
@@ -76,7 +65,6 @@ def verificar_cumplimiento(
         if p.get("tipo") == "opcion" and len(p.get("opciones", [])) < 2:
             errores.append(f"Pregunta opcion {p.get('id')} tiene menos de 2 opciones")
 
-    # Como mucho una de texto y al final
     textos = [p for p in preguntas if p.get("tipo") == "texto"]
     if len(textos) > 1:
         errores.append(f"Hay más de 1 pregunta de texto ({len(textos)})")
@@ -87,7 +75,7 @@ def verificar_cumplimiento(
 
 
 def imprimir_encuesta(encuesta: dict[str, Any]) -> None:
-    """Imprime el contenido de la encuesta de forma formateada."""
+    """Imprime por consola la estructura detallada de una encuesta."""
     print(f"  Título: {encuesta.get('titulo')}")
     print(f"  Intro: {encuesta.get('intro')}")
     print(f"  Colectivo: {encuesta.get('colectivo')} | Estado: {encuesta.get('estado')} | Periodo: {encuesta.get('periodo')}")
@@ -99,7 +87,7 @@ def imprimir_encuesta(encuesta: dict[str, Any]) -> None:
 
 
 def probar_tres_necesidades() -> bool:
-    """Ejecuta y valida las 3 necesidades requeridas."""
+    """Ejecuta y valida la generación sobre tres casos representativos."""
     casos = [
         (
             "Caso 1: Planta - Nuevo sistema de turnos (120 s, prohibido salario)",
@@ -162,7 +150,7 @@ def probar_tres_necesidades() -> bool:
 
 
 def probar_encuesta_mala() -> bool:
-    """Prueba validar_encuesta con una encuesta deliberadamente defectuosa."""
+    """Comprueba que el validador corrija una encuesta con errores estructurales."""
     print(f"\n{'='*70}")
     print("  Caso 4: Prueba con encuesta 'MALA' (7 preguntas, tipo inválido, pregunta sobre sueldo)")
     print(f"{'='*70}")
@@ -213,6 +201,7 @@ def probar_encuesta_mala() -> bool:
 
 
 def main() -> int:
+    """Ejecuta el conjunto completo de pruebas de generación."""
     print("=" * 70)
     print("  SUITE DE PRUEBAS: backend.ia.probar_generar (Modo Respaldo / Sin Clave)")
     print("=" * 70)
@@ -233,4 +222,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

@@ -1,8 +1,6 @@
-"""Recomendaciones: 2–3 acciones propuestas y una Necesidad de seguimiento.
+"""Generación de propuestas de acción y definición de encuestas de seguimiento.
 
-UPC 1 · MODULOS.md §4 (backend/ia/recomendar.py).
-Las recomendaciones son PROPUESTAS para que RRHH decida: nunca hablan de personas
-concretas. Funciona siempre: sin IA (o si falla) usa reglas fijas por tema.
+Si no hay clave de modelo disponible o la llamada falla, recurre a reglas fijas por tema.
 """
 
 from __future__ import annotations
@@ -19,9 +17,8 @@ NOMBRE_TURNO = {"manana": "de mañana", "tarde": "de tarde", "noche": "de noche"
 DURACION_SEGUIMIENTO = 60
 _PROMPTS = Path(__file__).resolve().parent / "prompts"
 
-# Respaldo: una acción concreta por tema (siempre sobre procesos, nunca sobre personas)
+# Acciones fijas por tema orientadas a procesos y organización
 ACCION_POR_TEMA: dict[str, tuple[str, str]] = {
-    # tema: (titulo, objetivo de la encuesta de seguimiento)
     "descansos": ("Revisar con los equipos la duración y el momento de las pausas",
                   "Saber qué cambios en las pausas ayudarían a descansar mejor"),
     "turnos": ("Abrir un espacio para recoger propuestas sobre el sistema de turnos",
@@ -56,13 +53,8 @@ NOMBRE_TEMA = {
 TEXTO_TENDENCIA = {"nuevo": "aparece como tema nuevo", "sube": "gana peso respecto al periodo anterior",
                    "estable": "se mantiene estable", "baja": "pierde peso"}
 
-# ---------------------------------------------------------------------------
-# Ayudas
-# ---------------------------------------------------------------------------
-
 
 def _temas_prioritarios(analisis: dict[str, Any]) -> list[dict[str, Any]]:
-    """Primero los temas nuevos, después los que suben y luego el resto por n ('otros' al final)."""
     temas = [t for t in analisis.get("temas") or [] if t.get("tema") in ACCION_POR_TEMA]
     prioridad = {"nuevo": 0, "sube": 1, "estable": 2, "baja": 3}
     temas.sort(key=lambda t: (prioridad.get(t.get("tendencia"), 1), t.get("tema") == "otros",
@@ -76,7 +68,6 @@ def _segmento_menos_representado(analisis: dict[str, Any]) -> dict[str, Any] | N
 
 
 def _colectivo_seguimiento(analisis: dict[str, Any], encuesta: dict[str, Any]) -> str:
-    """El de la encuesta; si es 'todos', el colectivo menos representado (o planta)."""
     colectivo = (encuesta or {}).get("colectivo")
     if colectivo in COLECTIVOS:
         return colectivo
@@ -142,17 +133,11 @@ def _recomendar_respaldo(analisis: dict[str, Any], encuesta: dict[str, Any]) -> 
             "seguimiento": _seguimiento(tema_principal, _colectivo_seguimiento(analisis, encuesta),
                                         analisis)}
 
-# ---------------------------------------------------------------------------
-# Función del módulo
-# ---------------------------------------------------------------------------
-
 
 def recomendar(analisis: dict[str, Any], encuesta: dict[str, Any]) -> dict[str, Any]:
-    """Recomendaciones {acciones: [{titulo, motivo, tema}], seguimiento: Necesidad}.
+    """Genera recomendaciones de acción y una propuesta de encuesta de seguimiento.
 
-    2–3 acciones concretas que priorizan alertas y temas nuevo/sube. La IA solo
-    redacta mejor los títulos y motivos; los temas, el número de acciones y la
-    encuesta de seguimiento los decide siempre el código.
+    Prioriza segmentos con baja representación y temas nuevos o en aumento.
     """
     analisis = analisis or {}
     base = _recomendar_respaldo(analisis, encuesta or {})
@@ -179,7 +164,7 @@ def recomendar(analisis: dict[str, Any], encuesta: dict[str, Any]) -> dict[str, 
             acciones.append({
                 "titulo": titulo if 5 <= len(titulo) <= 120 else original["titulo"],
                 "motivo": motivo if 10 <= len(motivo) <= 300 else original["motivo"],
-                "tema": original["tema"],  # el tema no lo cambia la IA
+                "tema": original["tema"],  # La asignación temática procede de las reglas de negocio
             })
         return {"acciones": acciones, "seguimiento": base["seguimiento"]}
     except Exception:

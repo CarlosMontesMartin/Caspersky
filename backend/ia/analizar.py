@@ -1,8 +1,6 @@
-"""Análisis de comentarios: clasificar por tema, resumir y calcular tendencias.
+"""Clasificación temática, generación de resúmenes y cálculo de tendencias de comentarios.
 
-UPC 1 · MODULOS.md §4 (backend/ia/analizar.py).
-Funciona siempre: si no hay clave de IA o la IA falla, usa el modo de respaldo
-(palabras clave para clasificar y un resumen descriptivo fijo por tema).
+Si no hay clave de modelo disponible o la llamada falla, recurre a reglas por palabras clave.
 """
 
 from __future__ import annotations
@@ -16,27 +14,23 @@ from typing import Any
 
 from .llm import hay_llm, llamar_llm_json
 
-# Valores cerrados (MODULOS.md §0)
 TEMAS = [
     "descansos", "turnos", "carga_trabajo", "comunicacion", "liderazgo",
     "herramientas", "formacion", "reconocimiento", "seguridad", "ambiente",
     "conciliacion", "otros",
 ]
-UMBRAL_MINIMO = 5        # mismo valor que backend/datos/metricas.py
-TAMANO_LOTE = 50         # comentarios por llamada a la IA
+UMBRAL_MINIMO = 5
+TAMANO_LOTE = 50
 MAX_MUESTRA_RESUMEN = 30
-HILOS_IA = 4             # llamadas a la IA en paralelo
+HILOS_IA = 4
 
 _PROMPTS = Path(__file__).resolve().parent / "prompts"
 
-# Cachés en memoria (duran lo que dura el servidor): el dashboard puede pedir el
-# análisis muchas veces y así solo se llama a la IA la primera.
+# Evita llamadas repetidas durante la sesión del servidor
 _CACHE_TEMA: dict[str, str] = {}
 _CACHE_RESUMEN: dict[tuple, str] = {}
 
-# ---------------------------------------------------------------------------
-# Respaldo: palabras clave (raíces sin tildes, castellano y catalán)
-# ---------------------------------------------------------------------------
+# Raíces sin tildes, en castellano y catalán
 
 PALABRAS_CLAVE: dict[str, list[str]] = {
     "descansos": ["descans", "pausa", "desconect", "desconnect", "recuper", "agotad",
@@ -78,7 +72,6 @@ _PATRONES = {
     for tema, claves in PALABRAS_CLAVE.items()
 }
 
-# Para el resumen de respaldo: de qué suele hablar cada tema (texto neutro).
 DESCRIPCION_TEMA = {
     "descansos": "las pausas y el tiempo para descansar o desconectar",
     "turnos": "la organización de los turnos y los cambios de horario",
@@ -101,16 +94,15 @@ def _normalizar(texto: str) -> str:
     return re.sub(r"\s+", " ", texto)
 
 
-# "turnos" suele ser el CONTEXTO del comentario, no su tema ("con los nuevos turnos
-# no veo a mis hijos" habla de conciliación). Si aparece otro tema, gana el otro.
+# Turnos suele ser el contexto, no el tema: si aparece otro tema, prevalece
 TEMAS_CONTEXTO = {"turnos"}
 
 
 def clasificar_por_palabras(texto: str) -> str:
-    """Respaldo sin IA. Gana el tema cuya palabra clave aparece ANTES en el texto
-    (en un comentario que mezcla temas, el principal suele ir primero), salvo
-    "turnos", que solo gana si no hay otro tema. En la misma posición gana la
-    coincidencia más larga ("maquina de cafe" frente a "maquin"). Sin coincidencias → otros."""
+    """Clasifica un comentario asignándole un tema mediante reglas de palabras clave.
+
+    Prioriza la primera coincidencia en el texto y la palabra clave más larga.
+    """
     t = _normalizar(texto)
     mejor, mejor_clave = "otros", None
     for tema, patrones in _PATRONES.items():
@@ -122,10 +114,6 @@ def clasificar_por_palabras(texto: str) -> str:
             mejor, mejor_clave = tema, clave
     return mejor
 
-# ---------------------------------------------------------------------------
-# Funciones del módulo
-# ---------------------------------------------------------------------------
-
 
 def _leer_prompt(nombre: str) -> str:
     ruta = _PROMPTS / nombre
@@ -133,7 +121,6 @@ def _leer_prompt(nombre: str) -> str:
 
 
 def _clasificar_lote_ia(lote: list[str]) -> list[str]:
-    """Una llamada a la IA para un lote. Si algo falla, respaldo para ese lote."""
     try:
         usuario = (
             f"Temas permitidos: {', '.join(TEMAS)}\n\n"
@@ -152,9 +139,9 @@ def _clasificar_lote_ia(lote: list[str]) -> list[str]:
 
 
 def clasificar_comentarios(textos: list[str]) -> list[str]:
-    """Un tema de la lista cerrada por texto, en el mismo orden.
+    """Clasifica una lista de comentarios asignando a cada uno un tema de la lista cerrada.
 
-    Con IA: lotes de 50 en paralelo, con caché por texto. Sin IA: palabras clave.
+    Procesa en lotes con el modelo de lenguaje y recurre a palabras clave si no hay servicio.
     """
     if not hay_llm():
         return [clasificar_por_palabras(t) for t in textos]
@@ -173,8 +160,10 @@ def _resumen_respaldo(tema: str, n: int) -> str:
 
 
 def resumir_tema(tema: str, textos: list[str]) -> str:
-    """1–2 frases sobre lo que dicen los comentarios de un tema, sin citas literales
-    ni nada que identifique. Usa una muestra de hasta 30 comentarios. Con caché."""
+    """Genera un resumen breve y anónimo sobre los comentarios agrupados en un tema.
+
+    Utiliza una muestra de comentarios y omite citas literales para preservar el anonimato.
+    """
     if not textos:
         return ""
     clave = (tema, len(textos), hash(tuple(sorted(textos))))
@@ -194,7 +183,7 @@ def resumir_tema(tema: str, textos: list[str]) -> str:
             datos = llamar_llm_json(_leer_prompt("resumir.md"), usuario)
             texto = datos.get("resumen", "") if isinstance(datos, dict) else ""
             texto = str(texto).strip()
-            # Sin citas literales: si aparece un fragmento largo de un comentario, se descarta
+            # Descarta el resumen si contiene citas textuales para proteger el anonimato
             if texto and '"' not in texto and "«" not in texto and not _copia_literal(texto, muestra):
                 resumen = texto
         except Exception:
@@ -204,7 +193,6 @@ def resumir_tema(tema: str, textos: list[str]) -> str:
 
 
 def _copia_literal(resumen: str, textos: list[str], palabras: int = 6) -> bool:
-    """True si el resumen copia 6 o más palabras seguidas de algún comentario."""
     r = _normalizar(resumen)
     for t in textos:
         w = _normalizar(t).split()
@@ -216,8 +204,11 @@ def _copia_literal(resumen: str, textos: list[str], palabras: int = 6) -> bool:
 
 def calcular_tendencia(n_actual: int, total_actual: int,
                        n_anterior: int, total_anterior: int) -> str:
-    """nuevo si antes 0 y ahora ≥ 5; sube/baja si el porcentaje cambia ±30 % o más;
-    si no, estable. Sin periodo anterior → estable."""
+    """Devuelve nuevo, sube, baja o estable comparando el peso del tema entre periodos.
+
+    Sube o baja con una variación relativa del 30 %; nuevo si antes no aparecía y ahora
+    tiene al menos 5 comentarios.
+    """
     if total_anterior <= 0:
         return "estable"
     if n_anterior == 0:
@@ -239,11 +230,9 @@ def _textos(respuestas: list[dict[str, Any]]) -> list[str]:
 
 def analizar_comentarios(respuestas_actual: list[dict[str, Any]],
                          respuestas_anterior: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Lista de Tema {tema, n, resumen, tendencia} del periodo actual.
+    """Analiza los comentarios del periodo actual y calcula su evolución respecto al anterior.
 
-    Clasifica los comentarios no vacíos de ambos periodos, cuenta por tema, resume
-    y calcula la tendencia. Omite los temas con n < 5. Orden: primero nuevo y sube,
-    después por n de mayor a menor.
+    Omite temas con menos de 5 comentarios y ordena primero por tendencias activas.
     """
     actuales = _textos(respuestas_actual or [])
     anteriores = _textos(respuestas_anterior or [])

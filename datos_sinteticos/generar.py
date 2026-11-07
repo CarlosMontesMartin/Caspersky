@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
-"""Generador de datos sintéticos (UPC 1) · según MODULOS.md, sección 5.
-
-Uso:
-    python datos_sinteticos/generar.py            # busca una semilla con la historia del demo
-    python datos_sinteticos/generar.py --seed 42  # semilla fija
-
-Escribe:
-    datos_sinteticos/enc_000.json      Encuesta "Pulso de clima general"
-    datos_sinteticos/respuestas.json   ~600 Respuesta (periodos 2026-09 y 2026-10)
-
-Solo librería estándar. Datos 100 % ficticios.
-"""
+"""Generación de encuestas y respuestas sintéticas para pruebas locales."""
 
 import argparse
 import calendar
@@ -28,10 +17,6 @@ PLANTILLA_PATH = os.path.join(PROJECT_ROOT, "contenido", "plantilla.json")
 SALIDA_ENCUESTA = os.path.join(SCRIPT_DIR, "enc_000.json")
 SALIDA_RESPUESTAS = os.path.join(SCRIPT_DIR, "respuestas.json")
 
-# ---------------------------------------------------------------------------
-# VALORES CERRADOS (MODULOS.md §0 y contratos/formatos.md)
-# ---------------------------------------------------------------------------
-
 COLECTIVOS = ["planta", "logistica", "comercial", "oficina", "manager"]
 TURNOS_PLANTA = ["manana", "tarde", "noche"]
 CENTRO_MAP = {"planta": "fabrica", "logistica": "almacen",
@@ -43,11 +28,6 @@ PERIODO_ANTERIOR, PERIODO_ACTUAL = "2026-09", "2026-10"
 PERIODOS = [PERIODO_ANTERIOR, PERIODO_ACTUAL]
 ENCUESTA_ID = "enc_000"
 
-# ---------------------------------------------------------------------------
-# PLANTILLA Y PARTICIPACIÓN
-# ---------------------------------------------------------------------------
-
-# Por defecto, si contenido/plantilla.json no existe o no es válido.
 PLANTILLA_DEFAULT = [
     {"colectivo": "planta", "turno": "manana", "personas": 300},
     {"colectivo": "planta", "turno": "tarde", "personas": 280},
@@ -58,14 +38,13 @@ PLANTILLA_DEFAULT = [
     {"colectivo": "manager", "turno": "sin_turno", "personas": 50},
 ]
 
-# Tasas de respuesta por periodo (MODULOS.md §5)
 TASAS = {
     ("planta", "manana"): 0.25, ("planta", "tarde"): 0.25, ("planta", "noche"): 0.07,
     ("logistica", "sin_turno"): 0.10, ("comercial", "sin_turno"): 0.30,
     ("oficina", "sin_turno"): 0.45, ("manager", "sin_turno"): 0.60,
 }
 
-CANAL_PROBS = {  # canal: qr | quiosco | teams
+CANAL_PROBS = {
     "planta": [("qr", 0.6), ("quiosco", 0.4)],
     "logistica": [("qr", 0.6), ("quiosco", 0.4)],
     "comercial": [("teams", 0.8), ("qr", 0.2)],
@@ -73,18 +52,13 @@ CANAL_PROBS = {  # canal: qr | quiosco | teams
     "manager": [("teams", 0.8), ("qr", 0.2)],
 }
 
-# ---------------------------------------------------------------------------
-# HISTORIA DEL DEMO
-# ---------------------------------------------------------------------------
-
-# Peso de cada tema por periodo y tipo de colectivo (se normaliza).
-# En 2026-10, en planta suben descansos y turnos y aparece comunicacion.
+# Ponderación temática por colectivo y periodo
 PESOS_TEMA = {
     ("planta", PERIODO_ANTERIOR): {
         "descansos": 8, "turnos": 7, "carga_trabajo": 13, "comunicacion": 0,
         "liderazgo": 10, "herramientas": 11, "formacion": 8, "reconocimiento": 9,
         "seguridad": 10, "ambiente": 8, "conciliacion": 10, "otros": 6},
-    ("planta", PERIODO_ACTUAL): {   # igual que septiembre + los temas que suben
+    ("planta", PERIODO_ACTUAL): {
         "descansos": 19, "turnos": 16, "carga_trabajo": 13, "comunicacion": 8,
         "liderazgo": 10, "herramientas": 11, "formacion": 8, "reconocimiento": 9,
         "seguridad": 10, "ambiente": 8, "conciliacion": 10, "otros": 6},
@@ -98,15 +72,12 @@ PESOS_TEMA = {
         "seguridad": 3, "ambiente": 10, "conciliacion": 11, "otros": 6},
 }
 
-# Tendencias que deben salir (regla de calcular_tendencia en MODULOS.md §4).
 TENDENCIAS_ESPERADAS = {"descansos": "sube", "turnos": "sube", "comunicacion": "nuevo"}
 
-# Media base de las escalas por colectivo
 MEDIA_BASE = {"planta": 3.2, "logistica": 3.0, "comercial": 3.4,
               "oficina": 3.6, "manager": 3.8}
 
-# Qué pregunta penaliza cada tema (p1 bienestar, p2 liderazgo, p3 desarrollo,
-# p4 condiciones: carga y turnos, p5 entorno)
+# Impacto de cada tema en las dimensiones evaluadas
 EFECTO_TEMA = {
     "descansos": {"p1": -0.6, "p4": -0.8}, "turnos": {"p1": -0.4, "p4": -0.9},
     "carga_trabajo": {"p1": -0.5, "p4": -0.7}, "comunicacion": {"p2": -0.7},
@@ -115,14 +86,9 @@ EFECTO_TEMA = {
     "seguridad": {"p5": -0.6}, "ambiente": {"p5": -0.8},
     "conciliacion": {"p1": -0.5, "p4": -0.3}, "otros": {},
 }
-CAIDA_P4_PLANTA = -1.2  # p4 de planta en 2026-10 (debe bajar >= 0,8 de media)
+CAIDA_P4_PLANTA = -1.2  # Caída en condiciones para el colectivo de planta
 
-# ---------------------------------------------------------------------------
-# BANCO DE COMENTARIOS
-# "P" = solo planta/logistica (habla de turnos, planta, almacén, máquinas, quiosco...)
-# "N" = neutra, vale para cualquier colectivo
-# ---------------------------------------------------------------------------
-
+# Comentarios etiquetados para planta y logística (P) o neutros (N)
 COMENTARIOS = {
     "descansos": [
         ("P", "entre turno y turno no da tiempo ni a comer bien"),
@@ -311,7 +277,7 @@ COMENTARIOS = {
     ],
 }
 
-# Datos personales INVENTADOS para demostrar anonimizar() (~5 %)
+# Datos personales simulados para verificar la anonimización
 DATOS_FICTICIOS_PLANTA = [
     "preguntale a Manolo q el lo sabe bien",
     "Carlos del turno de noche tb lo dice",
@@ -338,10 +304,6 @@ ABREVIATURAS = {"que": "q", "porque": "xq", "también": "tb", "por": "x",
                 "para": "pa", "muy": "mu", "nada": "na", "todos": "tos"}
 _ABREV = [(re.compile(r"\b" + re.escape(l) + r"\b"), c) for l, c in ABREVIATURAS.items()]
 EMOJIS = ["😤", "😞", "🤦", "💪", "👎", "😡", "🙄", "😩", "🤷", "👀"]
-
-# ---------------------------------------------------------------------------
-# UTILIDADES
-# ---------------------------------------------------------------------------
 
 
 def quitar_tildes(texto):
@@ -372,7 +334,7 @@ def aplicar_ruido(texto, rng):
 
 
 def elegir_ponderado(pesos, rng):
-    """pesos: dict clave -> peso (>= 0). Devuelve una clave."""
+    """Devuelve una clave según los pesos relativos proporcionados."""
     total = sum(pesos.values())
     r = rng.random() * total
     acum = 0.0
@@ -400,8 +362,7 @@ def tasa_de(colectivo, turno):
 
 
 def cargar_plantilla():
-    """contenido/plantilla.json si existe y es válido; si no, PLANTILLA_DEFAULT.
-    Normaliza mayúsculas/tildes y corrige turnos imposibles."""
+    """Carga la plantilla de colectivos y turnos desde disco o usa la predeterminada."""
     if not os.path.exists(PLANTILLA_PATH):
         print(f"  Plantilla: {PLANTILLA_PATH} no existe → se usa la plantilla por defecto")
         return [dict(s) for s in PLANTILLA_DEFAULT]
@@ -434,13 +395,9 @@ def cargar_plantilla():
         print(f"  Plantilla no válida ({e}) → se usa la plantilla por defecto")
         return [dict(s) for s in PLANTILLA_DEFAULT]
 
-# ---------------------------------------------------------------------------
-# FUNCIONES DEL MÓDULO (MODULOS.md §5)
-# ---------------------------------------------------------------------------
-
 
 def generar_encuesta_base():
-    """enc_000: "Pulso de clima general", colectivo todos, publicada, 2026-10."""
+    """Genera la estructura inicial de la encuesta general de clima."""
     def pregunta(pid, texto, tipo, dimension):
         return {"id": pid, "texto": texto, "tipo": tipo, "opciones": [],
                 "dimension": dimension, "condicion": None}
@@ -478,7 +435,7 @@ def _comentario(tema, colectivo, rng, con_dato_ficticio):
         return [txt for marca, txt in COMENTARIOS[t] if planta_like or marca == "N"]
 
     texto = rng.choice(frases(tema))
-    if rng.random() < 0.10:  # mezcla con un segundo tema
+    if rng.random() < 0.10:
         otro = rng.choice([t for t in TEMAS if t not in (tema, "otros")])
         texto += ", y " + rng.choice(frases(otro))
     if con_dato_ficticio:
@@ -495,7 +452,6 @@ def _comentario(tema, colectivo, rng, con_dato_ficticio):
 
 
 def _reparto_exacto(pesos, n, rng):
-    """Lista de n temas con las proporciones exactas de 'pesos' (mayor resto), barajada."""
     total = sum(pesos.values())
     cuotas = {t: n * w / total for t, w in pesos.items()}
     cuenta = {t: int(q) for t, q in cuotas.items()}
@@ -508,16 +464,15 @@ def _reparto_exacto(pesos, n, rng):
 
 
 def generar_respuestas(semilla=42, plantilla=None):
-    """~600 Respuesta en 2026-09 y 2026-10 para enc_000, con tema_real.
+    """Genera respuestas sintéticas distribuidas por colectivo y periodo temporal.
 
-    Los temas de los comentarios se reparten con proporciones exactas por periodo y
-    grupo (planta / resto), así la historia del demo no depende del azar."""
+    Mantiene proporciones controladas de temas para simular tendencias representativas.
+    """
     rng = random.Random(semilla)
     if plantilla is None:
         with contextlib.redirect_stdout(io.StringIO()):
             plantilla = cargar_plantilla()
 
-    # 1. Huecos de respuesta por periodo y segmento
     huecos = []
     for periodo in PERIODOS:
         for seg in plantilla:
@@ -526,7 +481,6 @@ def generar_respuestas(semilla=42, plantilla=None):
             n = max(1, round(seg["personas"] * tasa * (1 + rng.uniform(-0.1, 0.1))))
             huecos += [{"periodo": periodo, "colectivo": c, "turno": t} for _ in range(n)]
 
-    # 2. Comentario vacío (15 %) y tema: reparto exacto entre los que comentan
     for periodo in PERIODOS:
         for grupo in ("planta", "resto"):
             del_grupo = [h for h in huecos if h["periodo"] == periodo
@@ -539,7 +493,6 @@ def generar_respuestas(semilla=42, plantilla=None):
                 h["vacio"] = i < n_vacios
                 h["tema"] = elegir_ponderado(pesos, rng) if h["vacio"] else temas[i - n_vacios]
 
-    # 3. Construir cada Respuesta
     ids = set()
     dias = {p: dias_laborables(p) for p in PERIODOS}
     respuestas = []
@@ -566,19 +519,15 @@ def generar_respuestas(semilla=42, plantilla=None):
             "centro_tipo": CENTRO_MAP[c],
             "turno": t,
             "canal": elegir_ponderado(dict(CANAL_PROBS[c]), rng),
-            "valores": valores,          # p6 (texto) va en "comentario"
+            "valores": valores,
             "comentario": comentario,
             "tema_real": tema,
         })
     return respuestas
 
-# ---------------------------------------------------------------------------
-# COMPROBACIONES DE LA HISTORIA
-# ---------------------------------------------------------------------------
-
 
 def calcular_tendencia(n_actual, total_actual, n_anterior, total_anterior):
-    """Misma regla que backend/ia/analizar.py (MODULOS.md §4)."""
+    """Devuelve nuevo, sube, baja o estable comparando el peso del tema entre periodos."""
     if total_anterior == 0:
         return "estable"
     if n_anterior == 0:
@@ -594,7 +543,7 @@ def calcular_tendencia(n_actual, total_actual, n_anterior, total_anterior):
 
 
 def resumen_temas(respuestas):
-    """Solo comentarios no vacíos (como hará analizar_comentarios). Temas con n < 5 se omiten."""
+    """Agrupa y calcula la tendencia de los temas presentes en las respuestas."""
     cont = {}
     totales = {p: 0 for p in PERIODOS}
     for r in respuestas:
@@ -611,6 +560,7 @@ def resumen_temas(respuestas):
 
 
 def caida_p4_planta(respuestas):
+    """Devuelve la media de valoración de condiciones en planta para ambos periodos."""
     def media(periodo):
         v = [r["valores"]["p4"] for r in respuestas
              if r["colectivo"] == "planta" and r["periodo"] == periodo]
@@ -619,6 +569,7 @@ def caida_p4_planta(respuestas):
 
 
 def historia_ok(respuestas):
+    """Verifica si las respuestas cumplen las tendencias esperadas para la simulación."""
     for tema, (_, _, tend) in resumen_temas(respuestas).items():
         esperada = TENDENCIAS_ESPERADAS.get(tema)
         if esperada and tend != esperada:
@@ -628,12 +579,9 @@ def historia_ok(respuestas):
     antes, ahora = caida_p4_planta(respuestas)
     return antes - ahora >= 0.8
 
-# ---------------------------------------------------------------------------
-# MAIN
-# ---------------------------------------------------------------------------
-
 
 def imprimir_resumen(respuestas, plantilla, semilla):
+    """Muestra por consola la distribución de respuestas, temas y medias calculadas."""
     print(f"\n{'=' * 66}\n  DATOS SINTÉTICOS · semilla {semilla} · {len(respuestas)} respuestas\n{'=' * 66}")
     print(f"\n  {'Periodo':<9}{'Colectivo':<11}{'Turno':<11}{'Resp':>5}{'Pers':>6}{'Tasa':>8}")
     for periodo in PERIODOS:
@@ -646,7 +594,7 @@ def imprimir_resumen(respuestas, plantilla, semilla):
     for tema, (n_ant, n_act, tend) in resumen_temas(respuestas).items():
         esperada = TENDENCIAS_ESPERADAS.get(tema, "estable")
         aviso = "" if tend in (esperada, "oculto") or (tema not in TENDENCIAS_ESPERADAS
-                                                      and tend == "oculto") else "   <-- no esperada"
+                                                       and tend == "oculto") else "   <-- no esperada"
         print(f"    {tema:<16}{n_ant:>4} → {n_act:<4} {tend}{aviso}")
     antes, ahora = caida_p4_planta(respuestas)
     print(f"\n  p4 planta: {antes:.2f} → {ahora:.2f} (baja {antes - ahora:.2f}; debe ser ≥ 0.80)")
@@ -660,6 +608,7 @@ def imprimir_resumen(respuestas, plantilla, semilla):
 
 
 def main():
+    """Punto de entrada para la generación de datos sintéticos."""
     parser = argparse.ArgumentParser(description="Genera enc_000.json y respuestas.json")
     parser.add_argument("--seed", type=int, default=None,
                         help="Semilla fija. Sin ella, busca desde 42 una que cuente la historia del demo.")
