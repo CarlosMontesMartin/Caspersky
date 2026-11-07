@@ -1,0 +1,28 @@
+{
+  "temas": [
+    {
+      "tema": "descansos",
+      "n": 57,
+      "resumen": "Una parte importante del personal de planta considera que el tiempo de descanso entre turnos es insuficiente, especialmente en el turno de noche.",
+      "tendencia": "sube"
+    },
+    {
+      "tema": "comunicacion_cambio",
+      "n": 34,
+      "resumen": "Varias personas indican que no recibieron información oficial sobre el cambio de turnos y se enteraron por canales informales.",
+      "tendencia": "nuevo"
+    },
+    {
+      "tema": "conciliacion",
+      "n": 21,
+      "resumen": "Parte del equipo señala dificultades para compaginar el nuevo horario con su vida personal y familiar.",
+      "tendencia": "estable"
+    },
+    {
+      "tema": "carga_trabajo",
+      "n": 12,
+      "resumen": "Algunas personas perciben un aumento de carga en determinadas franjas horarias tras la reorganización de turnos.",
+      "tendencia": "baja"
+    }
+  ]
+}

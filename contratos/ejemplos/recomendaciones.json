@@ -1,12 +1,23 @@
 {
   "acciones": [
-    { "titulo": "Revisar pausas del turno de noche", "motivo": "El tema descansos crece un 40 % respecto al periodo anterior.", "tema": "descansos" }
+    {
+      "titulo": "Revisar la duración de las pausas en el turno de noche",
+      "motivo": "El tema descansos agrupa 57 respuestas y su tendencia sube respecto a octubre. Se propone a RRHH valorar una redistribución o ampliación de las pausas nocturnas.",
+      "tema": "descansos"
+    },
+    {
+      "titulo": "Establecer un canal oficial para comunicar cambios de turno",
+      "motivo": "El tema comunicacion_cambio aparece como nuevo con 34 respuestas (tendencia nuevo). Se sugiere que RRHH evalúe implantar un canal formal de preaviso.",
+      "tema": "comunicacion_cambio"
+    }
   ],
   "seguimiento": {
-    "objetivo": "Comprobar si las nuevas pausas mejoran el descanso",
+    "objetivo": "Evaluar si el personal de noche nota mejora en los descansos tras los posibles ajustes",
     "colectivo": "planta",
-    "contexto": "Seguimiento tras ajustar las pausas",
-    "duracion_max_seg": 60,
-    "temas_prohibidos": ["salario"]
+    "contexto": "En noviembre se detectó que los descansos entre turnos de noche son el principal punto de mejora. Esta encuesta de seguimiento mide si las medidas adoptadas han tenido efecto.",
+    "duracion_max_seg": 90,
+    "temas_prohibidos": [
+      "salario"
+    ]
   }
 }

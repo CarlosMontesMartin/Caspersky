@@ -2,16 +2,16 @@
   "id": "enc_001",
   "estado": "borrador",
   "titulo": "¿Qué tal con los nuevos turnos?",
-  "intro": "2 minutos, anónimo. Nos ayuda a mejorar la organización de turnos.",
+  "intro": "Queremos saber cómo te está yendo con el nuevo sistema de turnos. Es anónima y dura menos de 1 minuto.",
   "colectivo": "planta",
   "periodo": "2026-11",
-  "tiempo_estimado_seg": 90,
+  "tiempo_estimado_seg": 59,
   "url": null,
   "qr": null,
   "preguntas": [
     {
       "id": "p1",
-      "texto": "¿Cómo valoras el nuevo sistema de turnos?",
+      "texto": "¿Cómo valoras el nuevo sistema de turnos en general?",
       "tipo": "escala_1_5",
       "opciones": [],
       "dimension": "condiciones",
@@ -19,11 +19,43 @@
     },
     {
       "id": "p2",
-      "texto": "¿Qué es lo que más te cuesta del cambio?",
+      "texto": "¿Qué es lo que más te cuesta del cambio de turnos?",
+      "tipo": "opcion",
+      "opciones": [
+        "Los descansos entre turnos",
+        "La comunicación de los cambios",
+        "La conciliación con mi vida personal",
+        "No me cuesta nada en especial"
+      ],
+      "dimension": "entorno",
+      "condicion": null
+    },
+    {
+      "id": "p3",
+      "texto": "¿Te avisaron con tiempo suficiente antes del cambio de turnos?",
+      "tipo": "si_no",
+      "opciones": [],
+      "dimension": "cultura",
+      "condicion": null
+    },
+    {
+      "id": "p4",
+      "texto": "¿Cómo valoras el tiempo de descanso que tienes ahora entre turnos?",
+      "tipo": "escala_1_5",
+      "opciones": [],
+      "dimension": "bienestar",
+      "condicion": {
+        "pregunta": "p1",
+        "valor_max": 2
+      }
+    },
+    {
+      "id": "p5",
+      "texto": "¿Quieres contarnos algo más sobre los turnos?",
       "tipo": "texto",
       "opciones": [],
       "dimension": "condiciones",
-      "condicion": { "pregunta": "p1", "valor_max": 2 }
+      "condicion": null
     }
   ]
 }

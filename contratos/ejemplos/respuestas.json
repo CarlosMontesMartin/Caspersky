@@ -1,0 +1,73 @@
+[
+  {
+    "id": "r_04821",
+    "encuesta_id": "enc_001",
+    "fecha": "2026-10-18",
+    "periodo": "2026-10",
+    "colectivo": "planta",
+    "centro_tipo": "fabrica",
+    "turno": "noche",
+    "canal": "qr",
+    "valores": {
+      "p1": 2,
+      "p2": "Los descansos entre turnos",
+      "p3": "no",
+      "p4": 1
+    },
+    "comentario": "entre turno y turno no da tiempo ni a comer bien, es una pasada lo justo q vamos",
+    "tema_real": "descansos"
+  },
+  {
+    "id": "r_17390",
+    "encuesta_id": "enc_001",
+    "fecha": "2026-10-22",
+    "periodo": "2026-10",
+    "colectivo": "planta",
+    "centro_tipo": "fabrica",
+    "turno": "manana",
+    "canal": "quiosco",
+    "valores": {
+      "p1": 3,
+      "p2": "La comunicación de los cambios",
+      "p3": "no"
+    },
+    "comentario": "",
+    "tema_real": "comunicacion_cambio"
+  },
+  {
+    "id": "r_58214",
+    "encuesta_id": "enc_001",
+    "fecha": "2026-11-03",
+    "periodo": "2026-11",
+    "colectivo": "planta",
+    "centro_tipo": "fabrica",
+    "turno": "tarde",
+    "canal": "qr",
+    "valores": {
+      "p1": 1,
+      "p2": "Los descansos entre turnos",
+      "p3": "no",
+      "p4": 2
+    },
+    "comentario": "nos enteramos del cambio x el grupo de wasa, nadie nos dijo nada oficial",
+    "tema_real": "comunicacion_cambio"
+  },
+  {
+    "id": "r_63047",
+    "encuesta_id": "enc_001",
+    "fecha": "2026-11-06",
+    "periodo": "2026-11",
+    "colectivo": "planta",
+    "centro_tipo": "fabrica",
+    "turno": "noche",
+    "canal": "quiosco",
+    "valores": {
+      "p1": 2,
+      "p2": "Los descansos entre turnos",
+      "p3": "si",
+      "p4": 2
+    },
+    "comentario": "el descanso de noche se queda corto, sobre todo cuando empalmas dos noches seguidas",
+    "tema_real": "descansos"
+  }
+]
