@@ -1,35 +1,36 @@
 # API · contrato (Tech Lead)
 
-Base: http://localhost:8000 · JSON en todas las peticiones y respuestas.
-Errores: 404 si la encuesta no existe, 409 si el estado no permite la acción.
-Estados de una Encuesta: borrador -> aprobada -> publicada (solo hacia delante).
+La referencia completa de la API está en **modulos.md, sección 3**
+(rutas, qué recibe y devuelve cada una, errores). Este archivo solo resume.
 
-| Endpoint | Recibe | Devuelve | Quién lo usa |
-|---|---|---|---|
-| POST /encuestas/generar | Necesidad | Encuesta en borrador | Pantalla 1 → 2 |
-| GET /encuestas/{id} | — | Encuesta | Pantalla 2 y /responder/{id} |
-| PUT /encuestas/{id} | Encuesta editada (solo en borrador) | Encuesta | Pantalla 2 |
-| POST /encuestas/{id}/aprobar | — | Encuesta aprobada (solo desde borrador) | Pantalla 2 |
-| POST /encuestas/{id}/publicar | — | Encuesta con url y qr (solo si está aprobada) | Pantalla 3 |
-| POST /encuestas/{id}/respuestas | RespuestaNueva (solo si está publicada) | {"ok": true} | /responder/{id} |
-| GET /encuestas/{id}/analisis | — | Analisis | Pantalla 4 |
-| GET /encuestas/{id}/recomendaciones | — | Recomendaciones | Pantalla 5 |
+Base: http://localhost:8000 · Documentación interactiva: http://localhost:8000/docs
+Errores: `{"detail": "mensaje"}` con 404 (no existe), 409 (estado no permite la acción)
+o 422 (datos no válidos).
 
-Eliminado: POST /encuestas/{id}/sincronizar (ya no hay Typeform).
+## Pantallas de RRHH
 
-## Detalles
+| Método y ruta | Recibe | Devuelve |
+|---|---|---|
+| GET /salud | — | `{"ok": true, "llm": bool}` |
+| GET /encuestas | — | lista de ResumenEncuesta |
+| POST /encuestas/generar | Necesidad | Encuesta en borrador |
+| GET /encuestas/{id} | — | Encuesta |
+| PUT /encuestas/{id} | Encuesta | Encuesta (409 si está publicada; si estaba aprobada vuelve a borrador) |
+| POST /encuestas/{id}/aprobar | — | Encuesta aprobada (422 si no tiene 1–6 preguntas válidas) |
+| POST /encuestas/{id}/publicar | — | Encuesta con url y qr (409 si no está aprobada) |
+| GET /encuestas/{id}/analisis | — | Analisis (con periodo_actual y periodo_anterior) |
+| GET /encuestas/{id}/recomendaciones | — | Recomendaciones |
 
-PUT: el servidor ignora id, estado, url y qr que lleguen en el cuerpo.
+## Quien responde
 
-publicar: url = http://<host>/responder/{id}?canal=qr · qr = imagen PNG como
-data URL ("data:image/png;base64,...") que el frontend pinta con <img src=...>.
+| Método y ruta | Recibe | Devuelve |
+|---|---|---|
+| GET /publico/encuestas/{id} | — | EncuestaPublica (404 si no está publicada) |
+| POST /publico/encuestas/{id}/respuestas | RespuestaEntrada | `{"ok": true}` |
 
-RespuestaNueva (lo que envía la pantalla /responder/{id}):
-{ "turno": "noche", "canal": "qr", "valores": { "p1": 2, "p2": "no", "p3": "Los descansos", "p4": "texto libre" } }
-- turno: lo elige la persona en una primera pantalla fija del formulario (no es una pregunta de la Encuesta).
-- canal: se lee del parámetro ?canal= de la URL (qr | quiosco | teams).
-- El servidor añade id, encuesta_id, fecha, periodo, colectivo y centro_tipo,
-  pasa el texto de la pregunta de tipo "texto" por anonimizar() y lo guarda en comentario.
-- centro_tipo se deriva del colectivo: planta -> fabrica, logistica -> almacen, resto -> oficina.
+## Páginas servidas por el backend
 
-Analisis: representativo = respuestas >= 5 y tasa >= 0.20.
+- `/` → `frontend/` (index.html por defecto)
+- `/responder/{id}` → `frontend/responder.html` (canal por `?canal=quiosco`, por defecto qr)
+- `/ejemplos/…` → `contratos/ejemplos/`
+- `url` de una encuesta publicada = `BASE_URL` (en `.env`, por defecto http://localhost:8000) + `/responder/{id}`

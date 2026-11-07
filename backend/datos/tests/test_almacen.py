@@ -57,8 +57,8 @@ def test_cargar_sinteticos_anonimiza_comentario_y_textos(rutas_temporales):
                                        encoding="utf-8")
     assert almacen.cargar_sinteticos() == 2
     r = almacen.leer_respuestas("enc_000")[0]
-    assert r["comentario"] == "soy [nombre]"
-    assert r["valores"] == {"p1": 3, "p6": "llamad al [telefono]"}
+    assert r["comentario"] == "llamad al [telefono] / soy [nombre]"
+    assert r["valores"] == {"p1": 3}  # el texto libre va solo a comentario
 
 
 def test_inicializar_solo_carga_si_vacio(rutas_temporales):

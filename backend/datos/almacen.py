@@ -60,13 +60,24 @@ def _escribir(ruta: Path, datos) -> None:
 
 
 def _anonimizar_textos(respuesta: dict, tipos: dict[str, str]) -> dict:
-    """Anonimiza el comentario y los valores de las preguntas de tipo texto."""
-    valores = {}
+    """Mueve el texto libre a `comentario` y lo anonimiza.
+
+    Las respuestas de preguntas de tipo texto salen de `valores` y se unen al
+    comentario: el texto libre se guarda SOLO en `comentario`.
+    """
+    valores, textos = {}, []
     for clave, valor in respuesta.get("valores", {}).items():
-        # Si no sabemos el tipo, cualquier texto que no sea sí/no se anonimiza por si acaso.
-        es_texto = tipos.get(clave) == "texto" or (clave not in tipos and isinstance(valor, str) and valor not in ("si", "no"))
-        valores[clave] = anonimizar(valor) if es_texto else valor
-    return dict(respuesta, valores=valores, comentario=anonimizar(respuesta.get("comentario")))
+        if tipos.get(clave) == "texto":
+            if isinstance(valor, str) and valor.strip():
+                textos.append(valor.strip())
+        elif clave not in tipos and isinstance(valor, str) and valor not in ("si", "no"):
+            valores[clave] = anonimizar(valor)  # tipo desconocido: se anonimiza por si acaso
+        else:
+            valores[clave] = valor
+    comentario = respuesta.get("comentario")
+    if isinstance(comentario, str) and comentario.strip():
+        textos.append(comentario.strip())
+    return dict(respuesta, valores=valores, comentario=anonimizar(" / ".join(textos)))
 
 
 # ---------- arranque ----------

@@ -5,6 +5,8 @@ from datetime import date
 from fastapi import APIRouter, HTTPException
 
 from backend.api import ia_o_respaldo as ia
+from backend.api import simulacion
+from backend.api.escenarios import ESCENARIOS
 from backend.api.qr import generar_qr
 from backend.api.validacion import validar_necesidad, validar_preguntas
 from backend.datos import almacen, metricas
@@ -14,6 +16,10 @@ router = APIRouter()
 
 def base_url() -> str:
     return os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
+
+
+def modo_demo() -> bool:
+    return os.getenv("MODO_DEMO", "0").strip().lower() in ("1", "true", "si", "sí")
 
 
 def obtener(encuesta_id: str) -> dict:
@@ -32,7 +38,12 @@ def construir_analisis(encuesta: dict) -> dict:
 
 @router.get("/salud")
 def salud():
-    return {"ok": True, "llm": ia.hay_llm()}
+    return {"ok": True, "llm": ia.hay_llm(), "modo_demo": modo_demo()}
+
+
+@router.get("/escenarios")
+def escenarios():
+    return ESCENARIOS
 
 
 @router.get("/encuestas")
@@ -94,3 +105,22 @@ def analisis(encuesta_id: str):
 def recomendaciones(encuesta_id: str):
     encuesta = obtener(encuesta_id)
     return ia.recomendar(construir_analisis(encuesta), encuesta)
+
+
+@router.post("/encuestas/{encuesta_id}/simular")
+def simular(encuesta_id: str, opciones: dict | None = None):
+    """Solo con MODO_DEMO=1. Opciones: {"n": 40, "con_periodo_anterior": true, "semilla": null}."""
+    if not modo_demo():
+        raise HTTPException(403, "Solo disponible con MODO_DEMO=1 en el .env")
+    encuesta = obtener(encuesta_id)
+    if encuesta["estado"] != "publicada":
+        raise HTTPException(409, "Solo se pueden simular respuestas de una encuesta publicada")
+    opciones = opciones or {}
+    n = opciones.get("n", 40)
+    if not isinstance(n, int) or not 1 <= n <= 500:
+        raise HTTPException(422, "n debe ser un entero entre 1 y 500")
+    respuestas = simulacion.simular(encuesta, n, bool(opciones.get("con_periodo_anterior", True)),
+                                    opciones.get("semilla"))
+    for respuesta in respuestas:
+        almacen.anadir_respuesta(encuesta_id, respuesta)
+    return {"simuladas": len(respuestas), "periodos": sorted({r["periodo"] for r in respuestas})}

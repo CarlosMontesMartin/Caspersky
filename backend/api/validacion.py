@@ -51,9 +51,10 @@ def validar_preguntas(encuesta: dict) -> None:
         ids.add(p.get("id"))
 
 
-def validar_respuesta_entrada(entrada: dict, encuesta: dict) -> None:
-    if entrada.get("turno") not in turnos_de(encuesta["colectivo"]):
-        error(f"Turno no válido para {encuesta['colectivo']}: {entrada.get('turno')}")
+def validar_respuesta_entrada(entrada: dict, encuesta: dict, colectivo: str | None = None) -> None:
+    colectivo = colectivo or encuesta["colectivo"]
+    if entrada.get("turno") not in turnos_de(colectivo):
+        error(f"Turno no válido para {colectivo}: {entrada.get('turno')}")
     if entrada.get("canal", "qr") not in CANALES_PUBLICOS:
         error("canal debe ser qr o quiosco")
     valores = entrada.get("valores", {})
@@ -64,6 +65,8 @@ def validar_respuesta_entrada(entrada: dict, encuesta: dict) -> None:
         p = preguntas.get(clave)
         if p is None:
             error(f"La pregunta {clave} no existe en esta encuesta")
+        if valor is None or valor == "":
+            continue  # pregunta sin contestar
         if p["tipo"] == "escala_1_5" and (not isinstance(valor, int) or not 1 <= valor <= 5):
             error(f"{clave} debe ser un número del 1 al 5")
         if p["tipo"] == "si_no" and valor not in ("si", "no"):
