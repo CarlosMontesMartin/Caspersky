@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Damm · Dashboard de Análisis</title>
+  <link rel="stylesheet" href="/css/estilos.css">
+</head>
+<body>
+
+  <!-- Cabecera -->
+  <header class="site-header">
+    <div class="container">
+      <div style="display: flex; align-items: baseline; gap: 0.75rem;">
+        <a href="/" class="brand">Damm</a>
+        <span class="brand-badge">Escucha Activa</span>
+      </div>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="/" class="nav-link">← Volver a Encuestas</a></li>
+          <li><a href="/crear.html" class="btn btn-secondary">+ Nueva necesidad</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Contenido principal -->
+  <main class="main-content">
+    <div class="container">
+
+      <!-- Encabezado del Dashboard -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.4rem;">
+            <span class="badge badge-publicada" id="badge-estado">Publicada</span>
+            <span class="text-muted text-small" id="badge-id" style="font-family: monospace; font-weight: 600;">enc_001</span>
+            <span class="badge badge-colectivo" id="badge-colectivo">planta</span>
+          </div>
+          <h1 id="titulo-encuesta" style="margin-bottom: 0.35rem;">Análisis de Resultados</h1>
+          <p class="text-muted" id="subtitulo-encuesta">Resultados agregados. Los segmentos con menos de 5 respuestas se ocultan por protección del anonimato.</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem;" id="acciones-cabecera">
+          <!-- Botón de acceso al formulario QR -->
+        </div>
+      </div>
+
+      <!-- Contenedor de Error -->
+      <div id="panel-error" style="display: none;" class="alerta">
+        <div>
+          <div class="alerta-tipo">Error al cargar datos</div>
+          <div class="alerta-mensaje" id="mensaje-error"></div>
+        </div>
+      </div>
+
+      <!-- 1. ALERTAS ARRIBA -->
+      <section id="seccion-alertas" style="margin-bottom: 2rem;">
+        <!-- Se rellena dinámicamente -->
+      </section>
+
+      <!-- 2. RESUMEN: N_RESPUESTAS Y PERIODOS -->
+      <section style="margin-bottom: 2rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem;">
+          <div class="card" style="padding: 1.5rem;">
+            <span class="text-muted text-small" style="text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Muestra total</span>
+            <div style="font-size: 2.25rem; font-weight: 700; color: var(--text-main); line-height: 1.1; margin-top: 0.4rem;" id="val-n-respuestas">--</div>
+            <span class="text-muted text-small">Respuestas recogidas</span>
+          </div>
+
+          <div class="card" style="padding: 1.5rem;">
+            <span class="text-muted text-small" style="text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Periodo actual</span>
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-main); line-height: 1.2; margin-top: 0.6rem;" id="val-periodo-actual">--</div>
+            <span class="text-muted text-small">Mes de medición activa</span>
+          </div>
+
+          <div class="card" style="padding: 1.5rem;">
+            <span class="text-muted text-small" style="text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Periodo anterior</span>
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-muted); line-height: 1.2; margin-top: 0.6rem;" id="val-periodo-anterior">--</div>
+            <span class="text-muted text-small">Para cálculo de tendencias</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. PARTICIPACIÓN POR COLECTIVO Y TURNO -->
+      <section class="card" style="margin-bottom: 2rem;">
+        <div class="card-title">
+          <div>
+            <h3>Participación por colectivo y turno</h3>
+            <p class="text-muted text-small">Representatividad mínima requerida: ≥ 5 respuestas y tasa ≥ 20%.</p>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table-custom">
+            <thead>
+              <tr>
+                <th>Colectivo</th>
+                <th>Turno</th>
+                <th>Respuestas</th>
+                <th>Censo</th>
+                <th>Tasa</th>
+                <th style="min-width: 160px;">Distribución</th>
+                <th>Estado representatividad</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-participacion-body">
+              <tr>
+                <td colspan="7" style="text-align: center; padding: 2rem;" class="text-muted">Cargando métricas de participación...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 4. MEDIAS POR PREGUNTA -->
+      <section class="card" style="margin-bottom: 2rem;">
+        <div class="card-title">
+          <div>
+            <h3>Medias por pregunta (Escala 1 a 5)</h3>
+            <p class="text-muted text-small">Puntuaciones medias de satisfacción. Se omiten segmentos con menos de 5 respuestas.</p>
+          </div>
+        </div>
+
+        <div id="contenedor-medias">
+          <p class="text-muted" style="padding: 1rem 0;">Cargando medias por pregunta...</p>
+        </div>
+      </section>
+
+      <!-- 5. TEMAS Y TENDENCIAS -->
+      <section class="card" style="margin-bottom: 2rem;">
+        <div class="card-title">
+          <div>
+            <h3>Temas clave detectados</h3>
+            <p class="text-muted text-small">Agrupación temática de comentarios cualitativos analizados por la IA.</p>
+          </div>
+        </div>
+
+        <div class="temas-grid" id="grid-temas">
+          <p class="text-muted" style="padding: 1rem 0;">Cargando temas...</p>
+        </div>
+      </section>
+
+      <!-- 6. LÍMITES DEL ANÁLISIS -->
+      <section class="card card-alt" style="margin-bottom: 2rem;">
+        <h4 style="margin-bottom: 0.5rem;">Límites del análisis</h4>
+        <p style="font-weight: 600; color: var(--color-damm); font-size: 0.9rem; margin-bottom: 0.75rem;">
+          Segmentos con menos de 5 respuestas ocultos
+        </p>
+        <ul id="lista-limites" style="padding-left: 1.25rem; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+          <li>Cargando consideraciones metodológicas...</li>
+        </ul>
+      </section>
+
+      <!-- 7. RECOMENDACIONES Y ENCUESTA DE SEGUIMIENTO -->
+      <section class="card" id="seccion-recomendaciones" style="border: 1px solid rgba(42, 26, 26, 0.2);">
+        <div class="card-title">
+          <div>
+            <h3>Recomendaciones e impacto</h3>
+            <p class="text-muted text-small" style="color: var(--color-damm); font-weight: 600;">Propuesta para que RRHH decida</p>
+          </div>
+        </div>
+
+        <div id="contenedor-acciones" style="margin-bottom: 2rem;">
+          <p class="text-muted">Cargando recomendaciones propuestas...</p>
+        </div>
+
+        <!-- Encuesta de seguimiento -->
+        <div id="bloque-seguimiento" style="background-color: var(--bg-surface-alt); border: 1px dashed var(--border-color-hover); border-radius: var(--radius-md); padding: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+            <div style="max-width: 680px;">
+              <span class="badge badge-borrador" style="margin-bottom: 0.5rem;">Ciclo de escucha continua</span>
+              <h4 id="seguimiento-objetivo" style="margin-bottom: 0.4rem;">Nueva encuesta de seguimiento</h4>
+              <p class="text-muted text-small" id="seguimiento-contexto" style="margin-bottom: 0.5rem;"></p>
+              <div style="display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+                <span>Colectivo: <strong id="seguimiento-colectivo" style="text-transform: capitalize;">-</strong></span>
+                <span>Duración máx: <strong id="seguimiento-duracion">-</strong></span>
+              </div>
+            </div>
+            <div>
+              <button id="btn-crear-seguimiento" class="btn btn-primary">
+                Crear encuesta de seguimiento
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Script Dashboard -->
+  <script type="module">
+    import {
+      obtenerAnalisis,
+      obtenerRecomendaciones,
+      obtenerEncuesta,
+      formatearColectivo,
+      formatearTema,
+      formatearTurno,
+      formatearEstado
+    } from '/js/api.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const encuestaId = params.get('id') || 'enc_001';
+
+    // Elementos del DOM
+    const panelError = document.getElementById('panel-error');
+    const mensajeError = document.getElementById('mensaje-error');
+    const badgeId = document.getElementById('badge-id');
+    const badgeColectivo = document.getElementById('badge-colectivo');
+    const tituloEncuesta = document.getElementById('titulo-encuesta');
+    const subtituloEncuesta = document.getElementById('subtitulo-encuesta');
+    const accionesCabecera = document.getElementById('acciones-cabecera');
+
+    const seccionAlertas = document.getElementById('seccion-alertas');
+    const valNRespuestas = document.getElementById('val-n-respuestas');
+    const valPeriodoActual = document.getElementById('val-periodo-actual');
+    const valPeriodoAnterior = document.getElementById('val-periodo-anterior');
+
+    const tablaPartBody = document.getElementById('tabla-participacion-body');
+    const contenedorMedias = document.getElementById('contenedor-medias');
+    const gridTemas = document.getElementById('grid-temas');
+    const listaLimites = document.getElementById('lista-limites');
+
+    const contenedorAcciones = document.getElementById('contenedor-acciones');
+    const bloqueSeguimiento = document.getElementById('bloque-seguimiento');
+    const seguimientoObjetivo = document.getElementById('seguimiento-objetivo');
+    const seguimientoContexto = document.getElementById('seguimiento-contexto');
+    const seguimientoColectivo = document.getElementById('seguimiento-colectivo');
+    const seguimientoDuracion = document.getElementById('seguimiento-duracion');
+    const btnCrearSeguimiento = document.getElementById('btn-crear-seguimiento');
+
+    let datosSeguimiento = null;
+    let mapaPreguntas = {};
+
+    async function cargarDashboard() {
+      badgeId.textContent = encuestaId;
+
+      // Intentar obtener definición de la encuesta para tener títulos de preguntas
+      try {
+        const enc = await obtenerEncuesta(encuestaId);
+        if (enc) {
+          tituloEncuesta.textContent = enc.titulo || `Análisis de ${encuestaId}`;
+          if (enc.intro) subtituloEncuesta.textContent = enc.intro;
+          badgeColectivo.textContent = formatearColectivo(enc.colectivo);
+          if (enc.preguntas) {
+            enc.preguntas.forEach(p => {
+              mapaPreguntas[p.id] = p.texto;
+            });
+          }
+          accionesCabecera.innerHTML = `
+            <a href="/responder/${encodeURIComponent(enc.id)}?canal=qr" class="btn btn-secondary text-small" target="_blank">
+              Abrir formulario móvil (QR)
+            </a>
+          `;
+        }
+      } catch (e) {
+        // Puede continuar aunque no exista la definición directa
+      }
+
+      // Cargar Análisis y Recomendaciones en paralelo
+      try {
+        const [analisis, recomendaciones] = await Promise.all([
+          obtenerAnalisis(encuestaId),
+          obtenerRecomendaciones(encuestaId)
+        ]);
+
+        renderizarAlertas(analisis.alertas || []);
+        renderizarResumen(analisis);
+        renderizarParticipacion(analisis.participacion || []);
+        renderizarMedias(analisis.medias || []);
+        renderizarTemas(analisis.temas || []);
+        renderizarLimites(analisis.limites || []);
+        renderizarRecomendaciones(recomendaciones);
+
+      } catch (err) {
+        console.error('Error al cargar dashboard:', err);
+        panelError.style.display = 'flex';
+        mensajeError.textContent = err.message || 'No se pudieron recuperar los datos de análisis para esta encuesta.';
+      }
+    }
+
+    // 1. Alertas
+    function renderizarAlertas(alertas) {
+      if (!alertas || alertas.length === 0) {
+        seccionAlertas.innerHTML = `
+          <div class="aviso-ia">
+            ✓ No se han detectado alertas críticas de representatividad ni caídas abruptas en este periodo.
+          </div>
+        `;
+        return;
+      }
+
+      seccionAlertas.innerHTML = alertas.map(a => `
+        <div class="alerta">
+          <div>
+            <div class="alerta-tipo">Alerta · ${a.tipo || 'Aviso'}</div>
+            <div class="alerta-mensaje">${a.mensaje}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // 2. Resumen
+    function renderizarResumen(analisis) {
+      valNRespuestas.textContent = (analisis.n_respuestas ?? 0).toLocaleString();
+      valPeriodoActual.textContent = analisis.periodo_actual || 'Noviembre 2026';
+      valPeriodoAnterior.textContent = analisis.periodo_anterior || 'No disponible';
+    }
+
+    // 3. Participación
+    function renderizarParticipacion(filas) {
+      if (!filas || filas.length === 0) {
+        tablaPartBody.innerHTML = `
+          <tr><td colspan="7" class="text-muted" style="text-align: center; padding: 2rem;">No hay datos de participación desglosados.</td></tr>
+        `;
+        return;
+      }
+
+      tablaPartBody.innerHTML = filas.map(f => {
+        const porcentaje = Math.round((f.tasa || 0) * 100);
+        const porcentajeDecimal = ((f.tasa || 0) * 100).toFixed(1);
+        const noRep = !f.representativo;
+
+        return `
+          <tr class="${noRep ? 'row-no-rep' : ''}">
+            <td style="font-weight: 600;">${formatearColectivo(f.colectivo)}</td>
+            <td>${formatearTurno(f.turno)}</td>
+            <td style="font-weight: 600;">${f.respuestas}</td>
+            <td class="text-muted">${f.personas}</td>
+            <td style="font-weight: 600;">${porcentajeDecimal} %</td>
+            <td>
+              <div class="progress-bar-container">
+                <div class="progress-track">
+                  <div class="progress-fill ${noRep ? 'fill-damm' : ''}" style="width: ${Math.min(100, Math.max(4, porcentaje))}%;"></div>
+                </div>
+              </div>
+            </td>
+            <td>
+              ${noRep
+                ? '<span class="badge badge-no-representativo">No representativo</span>'
+                : '<span class="badge badge-aprobada">Representativo</span>'
+              }
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // 4. Medias por pregunta
+    function renderizarMedias(medias) {
+      if (!medias || medias.length === 0) {
+        contenedorMedias.innerHTML = `
+          <p class="text-muted" style="padding: 1rem 0;">No hay preguntas de escala numérica con respuestas suficientes para calcular medias.</p>
+        `;
+        return;
+      }
+
+      contenedorMedias.innerHTML = medias.map(m => {
+        // Regla no negociable: Si n < 5 no se muestra
+        if (m.n < 5) {
+          return `
+            <div style="padding: 1rem 0; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <strong style="margin-right: 0.5rem;">${m.pregunta}</strong>
+                <span class="text-muted">${mapaPreguntas[m.pregunta] || ''}</span>
+              </div>
+              <span class="badge badge-no-representativo">Oculto por privacidad (n < 5)</span>
+            </div>
+          `;
+        }
+
+        const score = typeof m.media === 'number' ? m.media : 0;
+        const porcentajeEscala = Math.min(100, Math.max(0, (score / 5) * 100));
+
+        return `
+          <div style="padding: 1.1rem 0; border-bottom: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                <span style="font-family: monospace; font-weight: 700; color: var(--text-muted); margin-right: 0.4rem;">${m.pregunta}</span>
+                <span style="font-weight: 600;">${mapaPreguntas[m.pregunta] || 'Puntuación de la pregunta'}</span>
+                <span class="text-muted text-small" style="margin-left: 0.5rem;">(Colectivo: ${formatearColectivo(m.colectivo)}, n=${m.n})</span>
+              </div>
+              <div style="font-size: 1.25rem; font-weight: 700;">
+                ${score.toFixed(1)} <span class="text-muted text-small" style="font-weight: 400;">/ 5.0</span>
+              </div>
+            </div>
+            <div class="progress-track" style="height: 10px;">
+              <div class="progress-fill" style="width: ${porcentajeEscala}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 5. Temas y tendencias
+    function renderizarTemas(temas) {
+      if (!temas || temas.length === 0) {
+        gridTemas.innerHTML = `
+          <p class="text-muted" style="padding: 1rem 0;">No se han agrupado temas cualitativos para esta encuesta.</p>
+        `;
+        return;
+      }
+
+      function formatTendenciaBadge(tendencia) {
+        if (tendencia === 'nuevo') {
+          return '<span class="badge badge-nuevo">Nuevo ↑</span>';
+        } else if (tendencia === 'sube') {
+          return '<span class="badge badge-borrador" style="color: var(--color-damm); font-weight:700;">↑ Sube</span>';
+        } else if (tendencia === 'baja') {
+          return '<span class="badge badge-borrador" style="color: #2D5E2E; font-weight:700;">↓ Baja</span>';
+        }
+        return '<span class="badge badge-borrador">→ Estable</span>';
+      }
+
+      gridTemas.innerHTML = temas.map(t => `
+        <div class="tema-card">
+          <div>
+            <div class="tema-header">
+              <span class="tema-nombre">${formatearTema(t.tema)}</span>
+              ${formatTendenciaBadge(t.tendencia)}
+            </div>
+            <p class="tema-resumen">${t.resumen || 'Comentarios clasificados en esta categoría temática.'}</p>
+          </div>
+          <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color); font-size: 0.8rem; color: var(--text-muted);">
+            Volumen: <strong style="color: var(--text-main);">${t.n}</strong> comentarios
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // 6. Límites
+    function renderizarLimites(limites) {
+      if (!limites || limites.length === 0) {
+        listaLimites.innerHTML = `<li>No se han especificado limitaciones metodológicas.</li>`;
+        return;
+      }
+      listaLimites.innerHTML = limites.map(l => `<li>${l}</li>`).join('');
+    }
+
+    // 7. Recomendaciones y Encuesta de seguimiento
+    function renderizarRecomendaciones(recs) {
+      if (!recs || !recs.acciones || recs.acciones.length === 0) {
+        contenedorAcciones.innerHTML = `
+          <p class="text-muted">No hay acciones automáticas recomendadas para este periodo.</p>
+        `;
+      } else {
+        contenedorAcciones.innerHTML = recs.acciones.map(a => `
+          <div class="recomendacion-card">
+            <div class="recomendacion-meta">
+              <span class="badge badge-colectivo">${formatearTema(a.tema)}</span>
+              <span class="text-muted text-small">Recomendación prioritaria</span>
+            </div>
+            <h4 style="margin-bottom: 0.4rem;">${a.titulo}</h4>
+            <p class="text-muted text-small" style="line-height: 1.5;">${a.motivo}</p>
+          </div>
+        `).join('');
+      }
+
+      // Configurar encuesta de seguimiento
+      if (recs && recs.seguimiento) {
+        datosSeguimiento = recs.seguimiento;
+        seguimientoObjetivo.textContent = recs.seguimiento.objetivo || 'Encuesta de seguimiento';
+        seguimientoContexto.textContent = recs.seguimiento.contexto || 'Diseñada para comprobar la efectividad de las medidas tomadas.';
+        seguimientoColectivo.textContent = formatearColectivo(recs.seguimiento.colectivo);
+        seguimientoDuracion.textContent = `${recs.seguimiento.duracion_max_seg || 60} seg`;
+
+        btnCrearSeguimiento.onclick = () => {
+          sessionStorage.setItem('necesidad_prefill', JSON.stringify(datosSeguimiento));
+          window.location.href = '/crear.html';
+        };
+      } else {
+        bloqueSeguimiento.style.display = 'none';
+      }
+    }
+
+    cargarDashboard();
+  </script>
+</body>
+</html>

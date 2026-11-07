@@ -725,6 +725,37 @@ body.modo-quiosco .escala-icono {
   font-size: 2.25rem;
 }
 
+.btn:focus-visible,
+.nav-link:focus-visible,
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+.turno-btn:focus-visible,
+.opcion-btn:focus-visible,
+.sino-btn:focus-visible,
+.escala-btn:focus-visible {
+  outline: 2px solid var(--color-damm);
+  outline-offset: 2px;
+}
+
+/* Adaptación responsive en pantallas pequeñas */
+@media (max-width: 600px) {
+  h1 {
+    font-size: 1.65rem;
+    letter-spacing: -0.015em;
+  }
+
+  .card {
+    padding: 1.25rem;
+  }
+
+  .responder-card {
+    padding: 1.25rem;
+  }
+}
+
 /* Cartel para imprimir (@media print) */
 #cartel-imprimir {
   display: none;
@@ -738,7 +769,7 @@ body.modo-quiosco .escala-icono {
     padding: 0 !important;
   }
 
-  .site-header, .nav-links, .no-print, .btn, .form-group, #paso-1, #paso-2, #paso-3-acciones {
+  body > *:not(#cartel-imprimir) {
     display: none !important;
   }
 

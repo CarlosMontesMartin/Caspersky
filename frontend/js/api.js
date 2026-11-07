@@ -512,6 +512,68 @@ export async function enviarRespuesta(id, respuestaEntrada) {
   });
 }
 
+// ============================================================================
+// Diccionarios y formateadores para etiquetas legibles (contratos/modulos.md)
+// ============================================================================
+
+export const ETIQUETAS_COLECTIVOS = {
+  planta: "Planta",
+  logistica: "Logística",
+  comercial: "Comercial",
+  oficina: "Oficina",
+  manager: "Managers",
+  todos: "Todos los colectivos"
+};
+
+export const ETIQUETAS_TEMAS = {
+  descansos: "Descansos",
+  turnos: "Turnos",
+  carga_trabajo: "Carga de trabajo",
+  comunicacion: "Comunicación",
+  comunicacion_cambio: "Comunicación de cambios",
+  liderazgo: "Liderazgo",
+  herramientas: "Herramientas",
+  formacion: "Formación",
+  reconocimiento: "Reconocimiento",
+  seguridad: "Seguridad",
+  ambiente: "Ambiente laboral",
+  conciliacion: "Conciliación",
+  otros: "Otros"
+};
+
+export const ETIQUETAS_TURNOS = {
+  manana: "Mañana",
+  tarde: "Tarde",
+  noche: "Noche",
+  sin_turno: "Sin turno"
+};
+
+export const ETIQUETAS_ESTADOS = {
+  borrador: "Borrador",
+  aprobada: "Aprobada",
+  publicada: "Publicada"
+};
+
+export function formatearColectivo(colectivo) {
+  if (!colectivo) return "-";
+  return ETIQUETAS_COLECTIVOS[colectivo] || colectivo.charAt(0).toUpperCase() + colectivo.slice(1);
+}
+
+export function formatearTema(tema) {
+  if (!tema) return "-";
+  return ETIQUETAS_TEMAS[tema] || tema.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase());
+}
+
+export function formatearTurno(turno) {
+  if (!turno) return "-";
+  return ETIQUETAS_TURNOS[turno] || turno;
+}
+
+export function formatearEstado(estado) {
+  if (!estado) return "-";
+  return ETIQUETAS_ESTADOS[estado] || estado;
+}
+
 // Vinculación al objeto global window para uso tanto de módulos ES6 como scripts clásicos
 if (typeof window !== "undefined") {
   window.api = {
@@ -525,7 +587,15 @@ if (typeof window !== "undefined") {
     obtenerAnalisis,
     obtenerRecomendaciones,
     obtenerEncuestaPublica,
-    enviarRespuesta
+    enviarRespuesta,
+    ETIQUETAS_COLECTIVOS,
+    ETIQUETAS_TEMAS,
+    ETIQUETAS_TURNOS,
+    ETIQUETAS_ESTADOS,
+    formatearColectivo,
+    formatearTema,
+    formatearTurno,
+    formatearEstado
   };
 }
 

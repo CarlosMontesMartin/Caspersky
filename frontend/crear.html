@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Damm · Diseñar y Publicar Encuesta</title>
+  <link rel="stylesheet" href="/css/estilos.css">
+</head>
+<body>
+
+  <!-- Cabecera -->
+  <header class="site-header">
+    <div class="container">
+      <div style="display: flex; align-items: baseline; gap: 0.75rem;">
+        <a href="/" class="brand">Damm</a>
+        <span class="brand-badge">Escucha Activa</span>
+      </div>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="/" class="nav-link">← Volver a Encuestas</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Contenido principal -->
+  <main class="main-content">
+    <div class="container" style="max-width: 860px;">
+
+      <!-- Encabezado -->
+      <div style="margin-bottom: 2rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+          <span class="badge badge-borrador" id="badge-estado-actual">Nueva encuesta</span>
+          <span class="text-muted text-small" id="badge-id-actual" style="font-family: monospace; display: none;"></span>
+        </div>
+        <h1 style="margin-bottom: 0.35rem;" id="encabezado-titulo">Diseñar Microencuesta</h1>
+        <p class="text-muted">Flujo de 3 pasos: Define la necesidad, revisa la propuesta generada y aprueba antes de publicar.</p>
+      </div>
+
+      <!-- Banner de Aviso / Error -->
+      <div id="banner-alerta" style="display: none;" class="alerta">
+        <div>
+          <div class="alerta-tipo" id="banner-alerta-tipo">Aviso</div>
+          <div class="alerta-mensaje" id="banner-alerta-mensaje"></div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- PASO 1 · NECESIDAD                                                  -->
+      <!-- =================================================================== -->
+      <section class="card" id="paso-1" style="margin-bottom: 2rem;">
+        <div class="card-title">
+          <div>
+            <h3>Paso 1 · Describir la necesidad de RRHH</h3>
+            <p class="text-muted text-small">Indica el objetivo y el colectivo para que la IA adapte las preguntas, la escala y el lenguaje.</p>
+          </div>
+          <span class="badge badge-borrador" style="font-size: 0.8rem;">Paso 1 de 3</span>
+        </div>
+
+        <form id="form-necesidad">
+          <div class="form-group">
+            <label class="form-label" for="input-objetivo">Objetivo de la encuesta *</label>
+            <input type="text" id="input-objetivo" class="form-input" placeholder="Ej.: Saber cómo afecta el nuevo sistema de turnos" required>
+            <span class="form-help">¿Qué necesita saber la organización o sobre qué cambio se quiere consultar?</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="select-colectivo">Colectivo destinatario *</label>
+              <select id="select-colectivo" class="form-select" required>
+                <option value="planta">Planta (Fábrica)</option>
+                <option value="logistica">Logística (Almacén)</option>
+                <option value="comercial">Comercial</option>
+                <option value="oficina">Oficina</option>
+                <option value="manager">Managers</option>
+              </select>
+              <span class="form-help">Cada encuesta se adapta a un único colectivo.</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="input-duracion">Duración máxima estimada (segundos)</label>
+              <input type="number" id="input-duracion" class="form-input" value="90" min="30" max="300">
+              <span class="form-help">Recomendado: 60 - 120 segundos para garantizar alta respuesta.</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="input-contexto">Contexto adicional</label>
+            <textarea id="input-contexto" class="form-textarea" placeholder="Ej.: Cambio de turnos desde octubre. Necesitamos evaluar descansos y conciliación."></textarea>
+            <span class="form-help">Detalles que permitan al generador ajustar las preguntas con precisión.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="input-temas-prohibidos">Temas prohibidos o restringidos (separados por comas)</label>
+            <input type="text" id="input-temas-prohibidos" class="form-input" value="salario">
+            <span class="form-help">Temas que la IA no debe incluir bajo ningún concepto.</span>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+            <button type="submit" id="btn-generar" class="btn btn-primary btn-lg">
+              Generar propuesta con IA
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- PASO 2 · REVISAR Y EDITAR                                           -->
+      <!-- =================================================================== -->
+      <section class="card" id="paso-2" style="margin-bottom: 2rem; display: none;">
+        <div class="card-title">
+          <div>
+            <h3>Paso 2 · Revisar y validar propuesta</h3>
+            <p class="text-muted text-small">Supervisión humana obligatoria. La IA nunca publica sin tu aprobación.</p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="badge badge-colectivo" id="revisar-colectivo">-</span>
+            <span class="badge badge-borrador" id="revisar-tiempo">- seg</span>
+          </div>
+        </div>
+
+        <div class="aviso-ia">
+          <span>⚖️</span>
+          <strong>La IA propone, tú decides.</strong> Revisa las preguntas, edita los textos que consideres o borra las que no aporten valor.
+        </div>
+
+        <!-- Título e intro de la encuesta -->
+        <div style="background-color: var(--bg-surface-alt); padding: 1.25rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; border: 1px solid var(--border-color);">
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label" for="revisar-titulo">Título de la encuesta</label>
+            <input type="text" id="revisar-titulo" class="form-input" style="font-weight: 600;">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="revisar-intro">Introducción para quien responde</label>
+            <textarea id="revisar-intro" class="form-textarea" style="min-height: 60px;"></textarea>
+          </div>
+        </div>
+
+        <!-- Lista de preguntas -->
+        <div style="margin-bottom: 1.5rem;">
+          <h4 style="margin-bottom: 0.75rem;">Preguntas formuladas (<span id="contador-preguntas">0</span>)</h4>
+          <div id="lista-preguntas-container" style="display: flex; flex-direction: column; gap: 1rem;">
+            <!-- Renderizado dinámico de preguntas -->
+          </div>
+        </div>
+
+        <!-- Botones de acción del Paso 2 -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+          <button type="button" id="btn-guardar" class="btn btn-secondary">
+            Guardar cambios (Borrador)
+          </button>
+          <div style="display: flex; gap: 0.75rem;">
+            <button type="button" id="btn-aprobar" class="btn btn-primary">
+              ✓ Aprobar encuesta
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- PASO 3 · PUBLICAR                                                   -->
+      <!-- =================================================================== -->
+      <section class="card" id="paso-3" style="opacity: 0.45; pointer-events: none; transition: opacity 0.3s ease;">
+        <div class="card-title">
+          <div>
+            <h3>Paso 3 · Publicar y distribuir</h3>
+            <p class="text-muted text-small">Genera el enlace directo y el código QR listo para imprimir o colocar en quiosco.</p>
+          </div>
+          <span class="badge badge-borrador" id="badge-paso-3">Requiere aprobación previa</span>
+        </div>
+
+        <div id="paso-3-contenido-bloqueado" style="text-align: center; padding: 2rem 1rem;">
+          <p class="text-muted">Debes aprobar la encuesta en el Paso 2 para habilitar su publicación.</p>
+        </div>
+
+        <div id="paso-3-contenido-activo" style="display: none;">
+          <div style="text-align: center; margin-bottom: 1.5rem;" id="contenedor-btn-publicar">
+            <button type="button" id="btn-publicar" class="btn btn-primary btn-lg" style="min-width: 200px;">
+              Publicar encuesta
+            </button>
+          </div>
+
+          <!-- Información una vez publicada -->
+          <div id="paso-3-publicada" style="display: none;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 2rem; align-items: center; margin-top: 1rem;">
+              
+              <!-- Vista previa del QR -->
+              <div style="text-align: center;">
+                <div style="display: inline-block; padding: 1rem; background: #FFFFFF; border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-sm);">
+                  <img id="img-qr" src="" alt="Código QR de la encuesta" style="width: 200px; height: 200px; display: block; margin: 0 auto;">
+                </div>
+                <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
+                  Escanea para responder en móvil
+                </div>
+              </div>
+
+              <!-- Acciones de distribución -->
+              <div>
+                <div class="form-group">
+                  <label class="form-label" for="input-url-publicada">Enlace directo a la microencuesta</label>
+                  <div style="display: flex; gap: 0.5rem;">
+                    <input type="text" id="input-url-publicada" class="form-input" readonly style="font-family: monospace; font-size: 0.85rem;">
+                    <button type="button" id="btn-copiar-enlace" class="btn btn-secondary" style="white-space: nowrap;">
+                      Copiar
+                    </button>
+                  </div>
+                  <span class="form-help" id="aviso-copiado" style="color: #2D5E2E; display: none;">¡Enlace copiado al portapapeles!</span>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.65rem; margin-top: 1.5rem;">
+                  <button type="button" id="btn-imprimir-cartel" class="btn btn-secondary" style="width: 100%;">
+                    🖨️ Imprimir cartel físico
+                  </button>
+                  <a id="btn-abrir-quiosco" href="#" target="_blank" class="btn btn-secondary" style="width: 100%;">
+                    🖥️ Abrir modo quiosco
+                  </a>
+                  <a id="btn-ver-dashboard" href="#" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">
+                    📊 Ir al panel de análisis
+                  </a>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- =================================================================== -->
+  <!-- CARTEL FÍSICO PARA IMPRIMIR (@media print)                          -->
+  <!-- HIJO DIRECTO DE BODY según especificación                           -->
+  <!-- =================================================================== -->
+  <div id="cartel-imprimir">
+    <div class="cartel-marca">Damm</div>
+    <h2 class="cartel-titulo" id="cartel-titulo-print">¿Qué tal con los nuevos turnos?</h2>
+    <img id="cartel-qr-img" class="cartel-qr-img" src="" alt="Código QR">
+    <div class="cartel-lema">2 minutos, anónimo</div>
+  </div>
+
+  <!-- Script interactivo -->
+  <script type="module">
+    import {
+      generarEncuesta,
+      obtenerEncuesta,
+      guardarEncuesta,
+      aprobarEncuesta,
+      publicarEncuesta,
+      formatearColectivo,
+      formatearEstado
+    } from '/js/api.js';
+
+    // Estado local de la página
+    let encuestaActual = null;
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get('id');
+
+    // Elementos DOM generales
+    const bannerAlerta = document.getElementById('banner-alerta');
+    const bannerTipo = document.getElementById('banner-alerta-tipo');
+    const bannerMensaje = document.getElementById('banner-alerta-mensaje');
+    const badgeEstado = document.getElementById('badge-estado-actual');
+    const badgeId = document.getElementById('badge-id-actual');
+    const encabezadoTitulo = document.getElementById('encabezado-titulo');
+
+    // Paso 1
+    const formNecesidad = document.getElementById('form-necesidad');
+    const inputObjetivo = document.getElementById('input-objetivo');
+    const selectColectivo = document.getElementById('select-colectivo');
+    const inputDuracion = document.getElementById('input-duracion');
+    const inputContexto = document.getElementById('input-contexto');
+    const inputTemasProhibidos = document.getElementById('input-temas-prohibidos');
+    const btnGenerar = document.getElementById('btn-generar');
+
+    // Paso 2
+    const paso2 = document.getElementById('paso-2');
+    const revisarColectivo = document.getElementById('revisar-colectivo');
+    const revisarTiempo = document.getElementById('revisar-tiempo');
+    const revisarTitulo = document.getElementById('revisar-titulo');
+    const revisarIntro = document.getElementById('revisar-intro');
+    const contadorPreguntas = document.getElementById('contador-preguntas');
+    const listaPreguntasContainer = document.getElementById('lista-preguntas-container');
+    const btnGuardar = document.getElementById('btn-guardar');
+    const btnAprobar = document.getElementById('btn-aprobar');
+
+    // Paso 3
+    const paso3 = document.getElementById('paso-3');
+    const badgePaso3 = document.getElementById('badge-paso-3');
+    const paso3Bloqueado = document.getElementById('paso-3-contenido-bloqueado');
+    const paso3Activo = document.getElementById('paso-3-contenido-activo');
+    const btnPublicar = document.getElementById('btn-publicar');
+    const paso3Publicada = document.getElementById('paso-3-publicada');
+    const contenedorBtnPublicar = document.getElementById('contenedor-btn-publicar');
+    const imgQr = document.getElementById('img-qr');
+    const inputUrlPublicada = document.getElementById('input-url-publicada');
+    const btnCopiarEnlace = document.getElementById('btn-copiar-enlace');
+    const avisoCopiado = document.getElementById('aviso-copiado');
+    const btnImprimirCartel = document.getElementById('btn-imprimir-cartel');
+    const btnAbrirQuiosco = document.getElementById('btn-abrir-quiosco');
+    const btnVerDashboard = document.getElementById('btn-ver-dashboard');
+
+    // Cartel print
+    const cartelTituloPrint = document.getElementById('cartel-titulo-print');
+    const cartelQrImg = document.getElementById('cartel-qr-img');
+
+    function mostrarAviso(tipo, mensaje) {
+      bannerTipo.textContent = tipo;
+      bannerMensaje.textContent = mensaje;
+      bannerAlerta.style.display = 'flex';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function ocultarAviso() {
+      bannerAlerta.style.display = 'none';
+    }
+
+    function actualizarBadgesEstado(estado, id) {
+      if (id) {
+        badgeId.textContent = id;
+        badgeId.style.display = 'inline-block';
+      }
+      const nombreEstado = formatearEstado(estado);
+      badgeEstado.textContent = nombreEstado;
+      badgeEstado.className = `badge badge-${estado}`;
+    }
+
+    // Comprobar si hay prefill en sessionStorage (encuesta de seguimiento)
+    function verificarPrefill() {
+      try {
+        const prefillRaw = sessionStorage.getItem('necesidad_prefill');
+        if (prefillRaw) {
+          const prefill = JSON.parse(prefillRaw);
+          sessionStorage.removeItem('necesidad_prefill');
+
+          if (prefill.objetivo) inputObjetivo.value = prefill.objetivo;
+          if (prefill.colectivo) selectColectivo.value = prefill.colectivo;
+          if (prefill.duracion_max_seg) inputDuracion.value = prefill.duracion_max_seg;
+          if (prefill.contexto) inputContexto.value = prefill.contexto;
+          if (Array.isArray(prefill.temas_prohibidos)) {
+            inputTemasProhibidos.value = prefill.temas_prohibidos.join(', ');
+          }
+
+          mostrarAviso('Seguimiento activo', 'Se ha rellenado el formulario con la propuesta de encuesta de seguimiento. Pulsa "Generar" para continuar el ciclo.');
+        }
+      } catch (e) {
+        console.error('Error al leer necesidad_prefill:', e);
+      }
+    }
+
+    // Renderizado del Paso 2
+    function renderizarPaso2(encuesta) {
+      paso2.style.display = 'block';
+      revisarColectivo.textContent = formatearColectivo(encuesta.colectivo);
+      revisarTiempo.textContent = `${encuesta.tiempo_estimado_seg || 60} seg`;
+      revisarTitulo.value = encuesta.titulo || '';
+      revisarIntro.value = encuesta.intro || '';
+      contadorPreguntas.textContent = encuesta.preguntas ? encuesta.preguntas.length : 0;
+
+      listaPreguntasContainer.innerHTML = '';
+      if (!encuesta.preguntas || encuesta.preguntas.length === 0) {
+        listaPreguntasContainer.innerHTML = `
+          <p class="text-muted" style="padding: 1rem 0;">No hay preguntas en esta encuesta.</p>
+        `;
+        return;
+      }
+
+      encuesta.preguntas.forEach((p, index) => {
+        const item = document.createElement('div');
+        item.style.backgroundColor = 'var(--bg-surface)';
+        item.style.border = '1px solid var(--border-color)';
+        item.style.borderRadius = 'var(--radius-md)';
+        item.style.padding = '1.25rem';
+
+        const tieneOpciones = p.tipo === 'opcion' && Array.isArray(p.opciones) && p.opciones.length > 0;
+
+        item.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-family: monospace; font-weight: 700; color: var(--text-muted);">${p.id}</span>
+              <span class="badge badge-borrador">${p.tipo}</span>
+              <span class="badge badge-colectivo">${p.dimension}</span>
+              ${p.condicion ? '<span class="badge badge-borrador" style="font-size:0.7rem;">condicional</span>' : ''}
+            </div>
+            <button type="button" class="btn btn-danger btn-borrar-pregunta" data-index="${index}">
+              Borrar pregunta
+            </button>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0.5rem;">
+            <input type="text" class="form-input input-texto-pregunta" data-index="${index}" value="${p.texto.replace(/"/g, '&quot;')}" required>
+          </div>
+
+          ${tieneOpciones ? `
+            <div style="margin-top: 0.5rem; padding-left: 0.75rem; border-left: 2px solid var(--border-color);">
+              <span class="text-muted text-small" style="font-weight: 600;">Opciones predefinidas:</span>
+              <ul style="margin-top: 0.25rem; font-size: 0.85rem; color: var(--text-muted); padding-left: 1.25rem;">
+                ${p.opciones.map(opt => `<li>${opt}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+        `;
+
+        listaPreguntasContainer.appendChild(item);
+      });
+
+      // Event listeners para editar textos de preguntas y marcar vuelta a borrador si cambia algo
+      listaPreguntasContainer.querySelectorAll('.input-texto-pregunta').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const idx = parseInt(e.target.dataset.index, 10);
+          encuestaActual.preguntas[idx].texto = e.target.value;
+          notificarCambioEdicion();
+        });
+      });
+
+      // Event listeners para borrar preguntas
+      listaPreguntasContainer.querySelectorAll('.btn-borrar-pregunta').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const idx = parseInt(e.target.dataset.index, 10);
+          encuestaActual.preguntas.splice(idx, 1);
+          notificarCambioEdicion();
+          renderizarPaso2(encuestaActual);
+        });
+      });
+    }
+
+    // Si el usuario edita algo después de aprobar, vuelve a borrador según el contrato
+    function notificarCambioEdicion() {
+      if (encuestaActual.estado === 'aprobada') {
+        encuestaActual.estado = 'borrador';
+        actualizarBadgesEstado('borrador', encuestaActual.id);
+        bloquearPaso3('Se han realizado modificaciones: debes volver a guardar y aprobar');
+      }
+    }
+
+    revisarTitulo.addEventListener('input', () => {
+      encuestaActual.titulo = revisarTitulo.value;
+      notificarCambioEdicion();
+    });
+
+    revisarIntro.addEventListener('input', () => {
+      encuestaActual.intro = revisarIntro.value;
+      notificarCambioEdicion();
+    });
+
+    // Gestión del Paso 3
+    function habilitarPaso3Aprobada() {
+      paso3.style.opacity = '1';
+      paso3.style.pointerEvents = 'auto';
+      badgePaso3.textContent = 'Lista para publicar';
+      badgePaso3.className = 'badge badge-aprobada';
+      paso3Bloqueado.style.display = 'none';
+      paso3Activo.style.display = 'block';
+      contenedorBtnPublicar.style.display = 'block';
+      paso3Publicada.style.display = 'none';
+    }
+
+    function habilitarPaso3Publicada(encuesta) {
+      paso3.style.opacity = '1';
+      paso3.style.pointerEvents = 'auto';
+      badgePaso3.textContent = 'Publicada';
+      badgePaso3.className = 'badge badge-publicada';
+      paso3Bloqueado.style.display = 'none';
+      paso3Activo.style.display = 'block';
+      contenedorBtnPublicar.style.display = 'none';
+      paso3Publicada.style.display = 'block';
+
+      const url = encuesta.url || `${window.location.origin}/responder/${encuesta.id}?canal=qr`;
+      const qrSrc = encuesta.qr || '';
+
+      inputUrlPublicada.value = url;
+      imgQr.src = qrSrc;
+      btnAbrirQuiosco.href = `${window.location.origin}/responder/${encuesta.id}?canal=quiosco`;
+      btnVerDashboard.href = `/dashboard.html?id=${encuesta.id}`;
+
+      // Configurar cartel para impresión
+      cartelTituloPrint.textContent = encuesta.titulo || 'Microencuesta Damm';
+      cartelQrImg.src = qrSrc;
+    }
+
+    function bloquearPaso3(mensaje) {
+      paso3.style.opacity = '0.45';
+      paso3.style.pointerEvents = 'none';
+      badgePaso3.textContent = 'Requiere aprobación previa';
+      badgePaso3.className = 'badge badge-borrador';
+      paso3Bloqueado.style.display = 'block';
+      if (mensaje) {
+        paso3Bloqueado.querySelector('p').textContent = mensaje;
+      }
+      paso3Activo.style.display = 'none';
+      paso3Publicada.style.display = 'none';
+    }
+
+    // Configurar estado según la encuesta cargada
+    function sincronizarEstadoVisual(encuesta) {
+      encuestaActual = encuesta;
+      actualizarBadgesEstado(encuesta.estado, encuesta.id);
+      encabezadoTitulo.textContent = `Encuesta ${encuesta.id}`;
+
+      // Rellenar formulario de necesidad si coinciden
+      inputObjetivo.value = encuesta.titulo || '';
+      selectColectivo.value = encuesta.colectivo || 'planta';
+
+      renderizarPaso2(encuesta);
+
+      if (encuesta.estado === 'borrador') {
+        bloquearPaso3();
+      } else if (encuesta.estado === 'aprobada') {
+        habilitarPaso3Aprobada();
+      } else if (encuesta.estado === 'publicada') {
+        habilitarPaso3Publicada(encuesta);
+      }
+    }
+
+    // Evento Formulario Paso 1 (Generar)
+    formNecesidad.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      ocultarAviso();
+
+      const objetivo = inputObjetivo.value.trim();
+      const colectivo = selectColectivo.value;
+      const contexto = inputContexto.value.trim();
+      const duracion = parseInt(inputDuracion.value, 10) || 90;
+      const prohibidos = inputTemasProhibidos.value
+        .split(',')
+        .map(t => t.trim().toLowerCase())
+        .filter(t => t.length > 0);
+
+      const necesidad = {
+        objetivo,
+        colectivo,
+        contexto,
+        duracion_max_seg: duracion,
+        temas_prohibidos: prohibidos
+      };
+
+      try {
+        btnGenerar.disabled = true;
+        btnGenerar.textContent = 'Generando con IA…';
+
+        const encuestaGenerada = await generarEncuesta(necesidad);
+        sincronizarEstadoVisual(encuestaGenerada);
+
+        // Desplazar suavemente a Paso 2
+        paso2.scrollIntoView({ behavior: 'smooth' });
+
+      } catch (err) {
+        console.error('Error al generar encuesta:', err);
+        mostrarAviso('Error al generar', err.message || 'No se pudo generar la encuesta. Revisa los datos del formulario.');
+      } finally {
+        btnGenerar.disabled = false;
+        btnGenerar.textContent = 'Generar propuesta con IA';
+      }
+    });
+
+    // Evento Guardar Paso 2
+    btnGuardar.addEventListener('click', async () => {
+      if (!encuestaActual) return;
+      ocultarAviso();
+
+      try {
+        btnGuardar.disabled = true;
+        btnGuardar.textContent = 'Guardando…';
+
+        const guardada = await guardarEncuesta(encuestaActual);
+        sincronizarEstadoVisual(guardada);
+        mostrarAviso('Cambios guardados', 'La encuesta se ha guardado correctamente como borrador.');
+
+      } catch (err) {
+        console.error('Error al guardar:', err);
+        mostrarAviso('Error al guardar', err.message || 'No se pudieron guardar los cambios.');
+      } finally {
+        btnGuardar.disabled = false;
+        btnGuardar.textContent = 'Guardar cambios (Borrador)';
+      }
+    });
+
+    // Evento Aprobar Paso 2
+    btnAprobar.addEventListener('click', async () => {
+      if (!encuestaActual) return;
+      ocultarAviso();
+
+      try {
+        btnAprobar.disabled = true;
+        btnAprobar.textContent = 'Aprobando…';
+
+        // Primero guardamos cualquier edición pendiente
+        await guardarEncuesta(encuestaActual);
+        const aprobada = await aprobarEncuesta(encuestaActual.id);
+        sincronizarEstadoVisual(aprobada);
+
+        mostrarAviso('Encuesta aprobada', 'Has aprobado la microencuesta. Ya puedes proceder a su publicación en el Paso 3.');
+        paso3.scrollIntoView({ behavior: 'smooth' });
+
+      } catch (err) {
+        console.error('Error al aprobar:', err);
+        mostrarAviso('Error de aprobación', err.message || 'No se pudo aprobar la encuesta (debe tener entre 1 y 6 preguntas válidas).');
+      } finally {
+        btnAprobar.disabled = false;
+        btnAprobar.textContent = '✓ Aprobar encuesta';
+      }
+    });
+
+    // Evento Publicar Paso 3
+    btnPublicar.addEventListener('click', async () => {
+      if (!encuestaActual) return;
+      ocultarAviso();
+
+      try {
+        btnPublicar.disabled = true;
+        btnPublicar.textContent = 'Publicando…';
+
+        const publicada = await publicarEncuesta(encuestaActual.id);
+        sincronizarEstadoVisual(publicada);
+
+        mostrarAviso('Encuesta publicada', '¡La encuesta ya está activa! Comparte el enlace directo o imprime el cartel con el código QR.');
+
+      } catch (err) {
+        console.error('Error al publicar:', err);
+        mostrarAviso('Error al publicar', err.message || 'No se pudo publicar la encuesta (recuerda que debe estar aprobada previamente).');
+      } finally {
+        btnPublicar.disabled = false;
+        btnPublicar.textContent = 'Publicar encuesta';
+      }
+    });
+
+    // Copiar enlace
+    btnCopiarEnlace.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(inputUrlPublicada.value);
+        avisoCopiado.style.display = 'block';
+        setTimeout(() => {
+          avisoCopiado.style.display = 'none';
+        }, 3000);
+      } catch (e) {
+        inputUrlPublicada.select();
+        document.execCommand('copy');
+        avisoCopiado.style.display = 'block';
+      }
+    });
+
+    // Imprimir cartel físico
+    btnImprimirCartel.addEventListener('click', () => {
+      window.print();
+    });
+
+    // Inicialización si viene con ?id=
+    async function inicializar() {
+      verificarPrefill();
+
+      if (idParam) {
+        try {
+          const enc = await obtenerEncuesta(idParam);
+          sincronizarEstadoVisual(enc);
+        } catch (err) {
+          console.error('Error al cargar encuesta:', err);
+          mostrarAviso('Encuesta no encontrada', `No existe la encuesta con identificador "${idParam}". Puedes crear una nueva completando el Paso 1.`);
+        }
+      }
+    }
+
+    inicializar();
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Damm · Microencuesta</title>
+  <link rel="stylesheet" href="/css/estilos.css">
+  <style>
+    /* Estilos específicos de responder para máxima ergonomía móvil */
+    .pregunta-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .pregunta-numero {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.35rem;
+    }
+
+    .pregunta-texto {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-main);
+      line-height: 1.35;
+      margin-bottom: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Contenedor móvil centrado -->
+  <div class="responder-wrap">
+
+    <!-- Cabecera de la encuesta -->
+    <header style="text-align: center; margin-bottom: 1.5rem;">
+      <div class="brand" style="font-size: 2.2rem; margin-bottom: 0.25rem;">Damm</div>
+      <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;" id="txt-colectivo-badge">
+        Escucha Activa
+      </div>
+    </header>
+
+    <!-- Estado de carga / error inicial -->
+    <div id="pantalla-carga" style="text-align: center; padding: 3rem 1rem;">
+      <p class="text-muted">Cargando microencuesta...</p>
+    </div>
+
+    <div id="pantalla-error" style="display: none;">
+      <div class="alerta">
+        <div>
+          <div class="alerta-tipo">Encuesta no disponible</div>
+          <div class="alerta-mensaje" id="mensaje-error-carga">No se pudo cargar la encuesta solicitada.</div>
+        </div>
+      </div>
+      <div style="text-align: center; margin-top: 1.5rem;">
+        <a href="/" class="btn btn-secondary">Volver al inicio</a>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- FORMULARIO DE RESPUESTA                                             -->
+    <!-- =================================================================== -->
+    <form id="form-responder" style="display: none;">
+
+      <!-- Introducción y Transparencia -->
+      <div class="responder-card">
+        <h1 id="titulo-encuesta" style="font-size: 1.6rem; margin-bottom: 0.5rem; line-height: 1.25;">
+          Microencuesta
+        </h1>
+        <p id="intro-encuesta" class="text-muted" style="font-size: 0.95rem; margin-bottom: 1rem; line-height: 1.45;">
+          Tu opinión nos ayuda a mejorar. Es 100 % anónima y dura menos de 2 minutos.
+        </p>
+
+        <!-- Cuadro de transparencia -->
+        <div class="transparencia-box" id="bloque-transparencia">
+          <strong>🔒 Privacidad y anonimato:</strong>
+          <span id="texto-transparencia">Esta microencuesta es completamente anónima. No se registra quién eres ni desde dónde respondes. Los resultados solo se analizan de forma agregada.</span>
+        </div>
+      </div>
+
+      <!-- Selector de turno (solo si hay más de un turno disponible) -->
+      <div class="responder-card" id="card-turnos" style="display: none;">
+        <div class="pregunta-numero">Paso previo</div>
+        <div class="pregunta-texto">¿En qué turno estás trabajando hoy?</div>
+        <p class="text-muted text-small" style="margin-bottom: 0.75rem;">Para poder analizar la conciliación y los descansos de cada equipo.</p>
+        
+        <div class="turnos-selector" id="contenedor-turnos">
+          <!-- Botones de turno dinámicos -->
+        </div>
+        <input type="hidden" id="input-turno-seleccionado" required>
+        <span class="form-help" id="error-turno" style="color: var(--color-damm); display: none; margin-top: 0.5rem; font-weight: 500;">
+          Por favor, selecciona tu turno para continuar.
+        </span>
+      </div>
+
+      <!-- Contenedor dinámico de preguntas -->
+      <div id="contenedor-preguntas">
+        <!-- Renderizado dinámico de preguntas -->
+      </div>
+
+      <!-- Botón de Envío -->
+      <div style="margin: 2rem 0 3rem;">
+        <button type="submit" id="btn-enviar-respuesta" class="btn btn-primary btn-lg" style="width: 100%; min-height: 52px; font-size: 1.05rem;">
+          Enviar respuestas de forma anónima
+        </button>
+      </div>
+
+    </form>
+
+    <!-- =================================================================== -->
+    <!-- PANTALLA DE ÉXITO ("¡GRACIAS!")                                     -->
+    <!-- =================================================================== -->
+    <div id="pantalla-gracias" style="display: none; text-align: center; padding: 2.5rem 1rem;">
+      <div class="responder-card" style="padding: 3rem 1.5rem;">
+        <div style="font-size: 3.5rem; line-height: 1; margin-bottom: 1rem;">👏</div>
+        <h2 style="font-size: 2rem; margin-bottom: 0.5rem;">¡Muchas gracias!</h2>
+        <p class="text-muted" style="font-size: 1.05rem; line-height: 1.5; max-width: 420px; margin: 0 auto 1.5rem;">
+          Tus respuestas se han registrado de forma anónima y se sumarán al análisis agregado de tu colectivo.
+        </p>
+
+        <div class="aviso-ia" style="text-align: left; margin: 1.5rem auto; max-width: 420px;">
+          <span>🔒</span>
+          <span>Ningún dato identificativo ha sido almacenado. Gracias por ayudarnos a mejorar Damm cada día.</span>
+        </div>
+
+        <!-- Información específica de modo quiosco -->
+        <div id="bloque-quiosco-retorno" style="display: none; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+          <p class="text-muted text-small" id="texto-cuenta-atras" style="font-weight: 600;">
+            El quiosco se reiniciará en 5 segundos...
+          </p>
+          <button type="button" id="btn-reiniciar-quiosco" class="btn btn-secondary" style="margin-top: 0.75rem;">
+            Nueva respuesta ahora
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Script de la pantalla de respuesta -->
+  <script type="module">
+    import {
+      obtenerEncuestaPublica,
+      enviarRespuesta,
+      formatearColectivo,
+      formatearTurno
+    } from '/js/api.js';
+
+    // Obtener id de la encuesta desde el último segmento de la URL o query param
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    let encuestaId = pathSegments[pathSegments.length - 1];
+
+    // Si la ruta es directamente responder.html, buscar en query params
+    if (!encuestaId || encuestaId === 'responder.html' || encuestaId === 'responder') {
+      const urlParams = new URLSearchParams(window.location.search);
+      encuestaId = urlParams.get('id') || 'enc_001';
+    }
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const canal = searchParams.get('canal') || 'qr'; // qr | quiosco | teams
+
+    // Activar estilos de modo quiosco si corresponde
+    if (canal === 'quiosco') {
+      document.body.classList.add('modo-quiosco');
+    }
+
+    // Elementos DOM
+    const pantallaCarga = document.getElementById('pantalla-carga');
+    const pantallaError = document.getElementById('pantalla-error');
+    const mensajeErrorCarga = document.getElementById('mensaje-error-carga');
+    const formResponder = document.getElementById('form-responder');
+    const pantallaGracias = document.getElementById('pantalla-gracias');
+
+    const txtColectivoBadge = document.getElementById('txt-colectivo-badge');
+    const tituloEncuesta = document.getElementById('titulo-encuesta');
+    const introEncuesta = document.getElementById('intro-encuesta');
+    const textoTransparencia = document.getElementById('texto-transparencia');
+
+    const cardTurnos = document.getElementById('card-turnos');
+    const contenedorTurnos = document.getElementById('contenedor-turnos');
+    const inputTurnoSeleccionado = document.getElementById('input-turno-seleccionado');
+    const errorTurno = document.getElementById('error-turno');
+
+    const contenedorPreguntas = document.getElementById('contenedor-preguntas');
+    const btnEnviarRespuesta = document.getElementById('btn-enviar-respuesta');
+
+    const bloqueQuioscoRetorno = document.getElementById('bloque-quiosco-retorno');
+    const textoCuentaAtras = document.getElementById('texto-cuenta-atras');
+    const btnReiniciarQuiosco = document.getElementById('btn-reiniciar-quiosco');
+
+    // Estado de respuestas del usuario en memoria de ejecución (NUNCA en storage)
+    let encuestaData = null;
+    let respuestasValores = {};
+    let turnoElegido = null;
+    let temporizadorQuiosco = null;
+
+    async function cargar() {
+      try {
+        pantallaCarga.style.display = 'block';
+        pantallaError.style.display = 'none';
+
+        encuestaData = await obtenerEncuestaPublica(encuestaId);
+
+        renderizarEncuesta(encuestaData);
+
+        pantallaCarga.style.display = 'none';
+        formResponder.style.display = 'block';
+
+      } catch (err) {
+        console.error('Error al cargar encuesta pública:', err);
+        pantallaCarga.style.display = 'none';
+        pantallaError.style.display = 'block';
+        mensajeErrorCarga.textContent = err.message || `La encuesta "${encuestaId}" no está disponible o no se encuentra publicada.`;
+      }
+    }
+
+    function renderizarEncuesta(enc) {
+      tituloEncuesta.textContent = enc.titulo || 'Microencuesta Damm';
+      if (enc.intro) introEncuesta.textContent = enc.intro;
+      if (enc.colectivo) {
+        txtColectivoBadge.textContent = `Escucha Activa · ${formatearColectivo(enc.colectivo)}`;
+      }
+      if (enc.transparencia) {
+        textoTransparencia.textContent = enc.transparencia;
+      }
+
+      // Configuración de turnos
+      configurarTurnos(enc.turnos || ['sin_turno']);
+
+      // Renderizado de preguntas
+      renderizarPreguntas(enc.preguntas || []);
+    }
+
+    function configurarTurnos(turnos) {
+      if (turnos.length > 1) {
+        cardTurnos.style.display = 'block';
+        contenedorTurnos.innerHTML = '';
+
+        turnos.forEach(t => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'turno-btn';
+          btn.textContent = formatearTurno(t);
+          btn.dataset.turno = t;
+
+          btn.addEventListener('click', () => {
+            contenedorTurnos.querySelectorAll('.turno-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            turnoElegido = t;
+            inputTurnoSeleccionado.value = t;
+            errorTurno.style.display = 'none';
+          });
+
+          contenedorTurnos.appendChild(btn);
+        });
+      } else {
+        // Un único turno (ej. sin_turno para comerciales u oficinas)
+        turnoElegido = turnos[0] || 'sin_turno';
+        inputTurnoSeleccionado.value = turnoElegido;
+        cardTurnos.style.display = 'none';
+      }
+    }
+
+    function renderizarPreguntas(preguntas) {
+      contenedorPreguntas.innerHTML = '';
+
+      preguntas.forEach((p, idx) => {
+        const card = document.createElement('div');
+        card.className = 'pregunta-card';
+        card.id = `card-pregunta-${p.id}`;
+
+        const encabezado = `
+          <div class="pregunta-numero">Pregunta ${idx + 1}</div>
+          <div class="pregunta-texto">${p.texto}</div>
+        `;
+
+        let controlHtml = '';
+
+        if (p.tipo === 'escala_1_5') {
+          // Escala 1 a 5 con caritas grandes
+          controlHtml = `
+            <div class="escala-container" data-pregunta="${p.id}">
+              <button type="button" class="escala-btn" data-valor="1" title="1 - Muy insatisfecho">
+                <span class="escala-icono">😡</span>
+                <span class="escala-num">1</span>
+              </button>
+              <button type="button" class="escala-btn" data-valor="2" title="2 - Insatisfecho">
+                <span class="escala-icono">🙁</span>
+                <span class="escala-num">2</span>
+              </button>
+              <button type="button" class="escala-btn" data-valor="3" title="3 - Neutral">
+                <span class="escala-icono">😐</span>
+                <span class="escala-num">3</span>
+              </button>
+              <button type="button" class="escala-btn" data-valor="4" title="4 - Satisfecho">
+                <span class="escala-icono">🙂</span>
+                <span class="escala-num">4</span>
+              </button>
+              <button type="button" class="escala-btn" data-valor="5" title="5 - Muy satisfecho">
+                <span class="escala-icono">😃</span>
+                <span class="escala-num">5</span>
+              </button>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+              <span>Muy insatisfecho</span>
+              <span>Muy satisfecho</span>
+            </div>
+          `;
+        } else if (p.tipo === 'si_no') {
+          // Sí / No con botones grandes
+          controlHtml = `
+            <div class="sino-container" data-pregunta="${p.id}">
+              <button type="button" class="sino-btn" data-valor="si">Sí</button>
+              <button type="button" class="sino-btn" data-valor="no">No</button>
+            </div>
+          `;
+        } else if (p.tipo === 'opcion') {
+          // Opciones predefinidas
+          const opciones = Array.isArray(p.opciones) ? p.opciones : [];
+          controlHtml = `
+            <div class="opciones-container" data-pregunta="${p.id}">
+              ${opciones.map(opt => `
+                <button type="button" class="opcion-btn" data-valor="${opt.replace(/"/g, '&quot;')}">
+                  ${opt}
+                </button>
+              `).join('')}
+            </div>
+          `;
+        } else if (p.tipo === 'texto') {
+          // Pregunta de texto libre con aviso de anonimato
+          controlHtml = `
+            <div class="form-group" style="margin-bottom: 0;">
+              <textarea class="form-textarea input-texto-libre" data-pregunta="${p.id}" placeholder="Escribe aquí tu opinión o sugerencia sincera..." style="min-height: 100px;"></textarea>
+              <span class="form-help" style="color: var(--color-damm); font-weight: 500;">
+                ⚠️ No escribas nombres ni datos personales.
+              </span>
+            </div>
+          `;
+        }
+
+        card.innerHTML = encabezado + controlHtml;
+        contenedorPreguntas.appendChild(card);
+      });
+
+      // Configurar interacción de botones para escala_1_5
+      contenedorPreguntas.querySelectorAll('.escala-container').forEach(cont => {
+        const pId = cont.dataset.pregunta;
+        cont.querySelectorAll('.escala-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            cont.querySelectorAll('.escala-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            respuestasValores[pId] = parseInt(btn.dataset.valor, 10);
+            evaluarCondiciones();
+          });
+        });
+      });
+
+      // Configurar interacción de botones para si_no
+      contenedorPreguntas.querySelectorAll('.sino-container').forEach(cont => {
+        const pId = cont.dataset.pregunta;
+        cont.querySelectorAll('.sino-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            cont.querySelectorAll('.sino-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            respuestasValores[pId] = btn.dataset.valor;
+            evaluarCondiciones();
+          });
+        });
+      });
+
+      // Configurar interacción de botones para opcion
+      contenedorPreguntas.querySelectorAll('.opciones-container').forEach(cont => {
+        const pId = cont.dataset.pregunta;
+        cont.querySelectorAll('.opcion-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            cont.querySelectorAll('.opcion-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            respuestasValores[pId] = btn.dataset.valor;
+            evaluarCondiciones();
+          });
+        });
+      });
+
+      // Configurar interacción de textarea
+      contenedorPreguntas.querySelectorAll('.input-texto-libre').forEach(textarea => {
+        const pId = textarea.dataset.pregunta;
+        textarea.addEventListener('input', (e) => {
+          respuestasValores[pId] = e.target.value;
+        });
+      });
+
+      evaluarCondiciones();
+    }
+
+    // Evaluación de preguntas condicionales si existen
+    function evaluarCondiciones() {
+      if (!encuestaData || !encuestaData.preguntas) return;
+
+      encuestaData.preguntas.forEach(p => {
+        if (p.condicion) {
+          const card = document.getElementById(`card-pregunta-${p.id}`);
+          if (!card) return;
+
+          const valorPadre = respuestasValores[p.condicion.pregunta];
+          let cumple = false;
+
+          if (p.condicion.valor_max !== undefined && typeof valorPadre === 'number') {
+            cumple = valorPadre <= p.condicion.valor_max;
+          } else if (p.condicion.valor !== undefined) {
+            cumple = valorPadre === p.condicion.valor;
+          }
+
+          if (cumple) {
+            card.style.display = 'block';
+          } else {
+            card.style.display = 'none';
+            delete respuestasValores[p.id];
+          }
+        }
+      });
+    }
+
+    // Envío del formulario
+    formResponder.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Validar turno si hay múltiples
+      if (!turnoElegido) {
+        errorTurno.style.display = 'block';
+        cardTurnos.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+
+      // Extraer comentario si hay alguna pregunta de tipo texto
+      let comentarioTexto = null;
+      if (encuestaData && encuestaData.preguntas) {
+        for (const p of encuestaData.preguntas) {
+          if (p.tipo === 'texto' && respuestasValores[p.id]) {
+            comentarioTexto = respuestasValores[p.id];
+          }
+        }
+      }
+
+      const respuestaEntrada = {
+        turno: turnoElegido,
+        canal: canal === 'quiosco' ? 'quiosco' : 'qr',
+        valores: { ...respuestasValores },
+        comentario: comentarioTexto
+      };
+
+      try {
+        btnEnviarRespuesta.disabled = true;
+        btnEnviarRespuesta.textContent = 'Enviando de forma anónima…';
+
+        await enviarRespuesta(encuestaId, respuestaEntrada);
+
+        // Mostrar pantalla de gracias
+        formResponder.style.display = 'none';
+        pantallaGracias.style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // Si es quiosco, iniciar cuenta atrás de 5 segundos
+        if (canal === 'quiosco') {
+          bloqueQuioscoRetorno.style.display = 'block';
+          iniciarCuentaAtrasQuiosco(5);
+        }
+
+      } catch (err) {
+        console.error('Error al enviar respuesta:', err);
+        alert(err.message || 'No se pudo registrar la respuesta. Por favor, inténtalo de nuevo.');
+      } finally {
+        btnEnviarRespuesta.disabled = false;
+        btnEnviarRespuesta.textContent = 'Enviar respuestas de forma anónima';
+      }
+    });
+
+    function reiniciarFormularioQuiosco() {
+      if (temporizadorQuiosco) clearInterval(temporizadorQuiosco);
+      respuestasValores = {};
+      turnoElegido = null;
+      inputTurnoSeleccionado.value = '';
+
+      if (formResponder) {
+        formResponder.reset();
+        formResponder.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
+      }
+
+      pantallaGracias.style.display = 'none';
+      cargar();
+    }
+
+    function iniciarCuentaAtrasQuiosco(segundos) {
+      let restante = segundos;
+      textoCuentaAtras.textContent = `El quiosco se reiniciará en ${restante} segundos...`;
+
+      if (temporizadorQuiosco) clearInterval(temporizadorQuiosco);
+      temporizadorQuiosco = setInterval(() => {
+        restante -= 1;
+        if (restante <= 0) {
+          clearInterval(temporizadorQuiosco);
+          reiniciarFormularioQuiosco();
+        } else {
+          textoCuentaAtras.textContent = `El quiosco se reiniciará en ${restante} segundos...`;
+        }
+      }, 1000);
+    }
+
+    btnReiniciarQuiosco.addEventListener('click', () => {
+      reiniciarFormularioQuiosco();
+    });
+
+    cargar();
+  </script>
+</body>
+</html>
+
