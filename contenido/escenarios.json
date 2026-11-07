@@ -1,0 +1,50 @@
+[
+  {
+    "id": "A",
+    "nombre": "Cambio en la manera de trabajar",
+    "descripcion": "Escenario A de la guía: un equipo ha cambiado su forma de trabajar y RRHH quiere saber, en menos de 2 minutos, si el cambio se ha entendido, qué dificultades genera y qué hay que reforzar.",
+    "necesidad": {
+      "objetivo": "Entender cómo está afectando el nuevo sistema de turnos en planta: si se ha entendido, qué dificultades genera y qué hay que reforzar",
+      "colectivo": "planta",
+      "contexto": "Desde octubre la fábrica funciona con un nuevo sistema de turnos rotativos: cambia el cuadrante, los horarios de relevo y la hora de la pausa",
+      "duracion_max_seg": 120,
+      "temas_prohibidos": [
+        "salario",
+        "evaluacion_individual",
+        "salud_personal"
+      ]
+    }
+  },
+  {
+    "id": "B",
+    "nombre": "Logística por QR",
+    "descripcion": "Escenario B de la guía: personas con poco tiempo, sin ordenador y con acceso limitado al correo. Consulta móvil por QR, muy breve, con control de representatividad.",
+    "necesidad": {
+      "objetivo": "Saber si el nuevo sistema de turnos funciona en logística: si el relevo da tiempo a pasar la información y qué dificulta más el trabajo en el almacén",
+      "colectivo": "logistica",
+      "contexto": "Personal de almacén y distribución, siempre en movimiento y sin ordenador. Se responde por QR en muelles, fichaje y sala de descanso, en los tres turnos. Históricamente es el colectivo que menos participa, sobre todo de noche",
+      "duracion_max_seg": 60,
+      "temas_prohibidos": [
+        "salario",
+        "evaluacion_individual",
+        "salud_personal"
+      ]
+    }
+  },
+  {
+    "id": "C",
+    "nombre": "Gran volumen de comentarios",
+    "descripcion": "Escenario C de la guía: unos 500 comentarios abiertos de dos periodos. Se agrupan por temas, se resumen, se detectan temas emergentes frente al periodo anterior y se proponen áreas de actuación explicando los límites del análisis.",
+    "necesidad": {
+      "objetivo": "Recoger comentarios abiertos sobre el día a día en fábrica para detectar qué temas preocupan más y cuáles han aparecido o crecido respecto al periodo anterior",
+      "colectivo": "planta",
+      "contexto": "Pulso de clima con una pregunta abierta. Se comparará con los comentarios del periodo anterior (octubre) sobre bienestar, liderazgo, comunicación, herramientas, organización y desarrollo",
+      "duracion_max_seg": 90,
+      "temas_prohibidos": [
+        "salario",
+        "evaluacion_individual",
+        "salud_personal"
+      ]
+    }
+  }
+]
