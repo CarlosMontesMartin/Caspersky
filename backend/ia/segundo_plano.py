@@ -13,7 +13,11 @@ from typing import Any, Callable, Hashable
 
 log = logging.getLogger(__name__)
 
-_pool = ThreadPoolExecutor(max_workers=6, thread_name_prefix="ia")
+# Sin prisa: estas llamadas no bloquean ninguna pantalla
+TIMEOUT_SEG = 60
+
+# Pocas tareas a la vez: la API del evento encola las peticiones y las demás superarían el timeout
+_pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix="ia")
 _bloqueo = threading.Lock()
 _resultados: dict[Hashable, Any] = {}
 _pendientes: dict[Hashable, Future] = {}

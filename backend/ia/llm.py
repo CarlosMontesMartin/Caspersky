@@ -52,7 +52,7 @@ def hay_llm() -> bool:
     return bool(os.getenv("LLM_API_KEY", "").strip() and os.getenv("LLM_BASE_URL", "").strip())
 
 
-def llamar_llm(sistema: str, usuario: str) -> str:
+def llamar_llm(sistema: str, usuario: str, timeout: float = TIMEOUT_SEG) -> str:
     """Envía un mensaje de sistema y uno de usuario al modelo y devuelve el texto de respuesta."""
     clave, base, modelo = _config()
     if not hay_llm():
@@ -71,7 +71,7 @@ def llamar_llm(sistema: str, usuario: str) -> str:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(peticion, timeout=TIMEOUT_SEG) as respuesta:
+        with urllib.request.urlopen(peticion, timeout=timeout) as respuesta:
             datos = json.loads(respuesta.read().decode("utf-8"))
     except urllib.error.HTTPError as error:
         # El cuerpo del error no incluye la clave; se recorta por si es largo
@@ -104,16 +104,16 @@ def _extraer_json(texto: str) -> dict | list:
     raise ValueError("La respuesta no contiene un JSON válido")
 
 
-def llamar_llm_json(sistema: str, usuario: str) -> dict | list:
+def llamar_llm_json(sistema: str, usuario: str, timeout: float = TIMEOUT_SEG) -> dict | list:
     """Igual que llamar_llm, pero devuelve el JSON de la respuesta.
 
     Solo reintenta, una vez, si el JSON no es válido; un fallo de red sube enseguida.
     """
-    texto = llamar_llm(sistema, usuario)
+    texto = llamar_llm(sistema, usuario, timeout)
     try:
         return _extraer_json(texto)
     except ValueError:
-        texto = llamar_llm(sistema, usuario + "\n\nResponde solo con JSON válido.")
+        texto = llamar_llm(sistema, usuario + "\n\nResponde solo con JSON válido.", timeout)
         return _extraer_json(texto)
 
 

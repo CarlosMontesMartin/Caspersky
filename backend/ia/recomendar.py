@@ -163,7 +163,8 @@ def recomendar(analisis: dict[str, Any], encuesta: dict[str, Any]) -> dict[str, 
 
 def _redactar_con_ia(datos: dict[str, Any], originales: list[dict[str, str]]) -> list | None:
     prompt = (_PROMPTS / "recomendar.md").read_text(encoding="utf-8")
-    respuesta = llamar_llm_json(prompt, json.dumps(datos, ensure_ascii=False))
+    respuesta = llamar_llm_json(prompt, json.dumps(datos, ensure_ascii=False),
+                                segundo_plano.TIMEOUT_SEG)
     nuevas = respuesta.get("acciones") if isinstance(respuesta, dict) else None
     if not isinstance(nuevas, list) or len(nuevas) != len(originales):
         return None

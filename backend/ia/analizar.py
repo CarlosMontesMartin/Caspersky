@@ -221,16 +221,19 @@ def _resumir_con_ia(tema: str, textos: list[str]) -> str | None:
         f"Muestra de {len(muestra)} comentarios:\n"
         + "\n".join(f"- {t}" for t in muestra)
     )
-    datos = llamar_llm_json(_leer_prompt("resumir.md"), usuario)
-    texto = _recortar(str(datos.get("resumen", "") if isinstance(datos, dict) else "").strip())
-    # Por anonimato se descarta cualquier resumen con citas o frases copiadas
-    if not texto:
-        log.warning("Resumen de '%s' vacío; se mantiene el de respaldo", tema)
-        return None
-    if '"' in texto or "«" in texto or _copia_literal(texto, muestra):
-        log.warning("Resumen de '%s' descartado por contener una cita literal", tema)
-        return None
-    return texto
+    for intento in range(2):
+        datos = llamar_llm_json(_leer_prompt("resumir.md"), usuario, segundo_plano.TIMEOUT_SEG)
+        texto = _recortar(str(datos.get("resumen", "") if isinstance(datos, dict) else "").strip())
+        if not texto:
+            log.warning("Resumen de '%s' vacío; se mantiene el de respaldo", tema)
+            return None
+        # Por anonimato se descarta cualquier resumen con citas o frases copiadas
+        if '"' not in texto and "«" not in texto and not _copia_literal(texto, muestra):
+            return texto
+        usuario += ("\n\nTu resumen anterior repetía frases literales de los comentarios. "
+                    "Reescríbelo con palabras distintas, sin copiar ninguna frase.")
+    log.warning("Resumen de '%s' descartado por contener una cita literal", tema)
+    return None
 
 
 def _recortar(texto: str, max_frases: int = 2, max_palabras: int = 45) -> str:
