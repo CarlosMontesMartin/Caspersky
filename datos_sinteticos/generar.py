@@ -152,7 +152,7 @@ COMENTARIOS = {
         ("P", "me ponen de noche mas veces q antes"),
         ("P", "no sabemos el cuadrante hasta el ultimo dia"),
         ("P", "con los turnos nuevos no hay manera de organizarse"),
-        ("P", "el cuadrante cambia sin avisar y asi no se puede"),
+        ("P", "el cuadrante cambia cada semana y asi no se puede"),
         ("P", "preferia el sistema de turnos de antes, era mas estable"),
         ("P", "el torn de nit s'hauria de repartir millor"),
         ("P", "los cambios de turno de ultima hora son constantes"),
