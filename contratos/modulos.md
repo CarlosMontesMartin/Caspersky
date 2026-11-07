@@ -186,8 +186,8 @@ Textos de los prompts de sistema. Cada uno exige responder solo en JSON con el f
 
 | Función | Entrada | Salida | Qué hace |
 |---|---|---|---|
-| `clasificar_comentarios(textos)` | `list[str]` | `list[str]` (un tema por texto, mismo orden) | La IA clasifica en lotes de 50 en la lista cerrada de temas. Respaldo: palabras clave por tema (ej. "descanso", "pausa" → descansos). |
-| `resumir_tema(tema, textos)` | `str`, `list[str]` | `str` | 1–2 frases sobre lo que dicen, con una muestra de hasta 30 comentarios. Sin citas literales ni nada que identifique. Respaldo: "N comentarios sobre <tema>". Como hay una llamada por tema, se cachea el resultado por encuesta y periodo para que el dashboard no tarde. |
+| `clasificar_comentarios(textos)` | `list[str]` | `list[str]` (un tema por texto, mismo orden) | Clasificación híbrida en la lista cerrada de temas: primero las palabras clave por tema (ej. "descanso", "pausa" → descansos); solo los comentarios que no encajan en ninguna regla van a la IA, en lotes de 50. Sin IA, esos quedan como `otros`. |
+| `resumir_tema(tema, textos)` | `str`, `list[str]` | `str` | 1–2 frases sobre lo que dicen, con una muestra de hasta 30 comentarios. Sin citas literales ni nada que identifique. Se genera en segundo plano y se cachea por encuesta y periodo: mientras no está listo, devuelve el respaldo "N comentarios sobre <tema>", y en la siguiente carga ya sale el resumen de la IA. Así el dashboard responde en unos 3 s. |
 | `calcular_tendencia(n_actual, total_actual, n_anterior, total_anterior)` | `int`×4 | `str` | `nuevo` si antes < 2 y ahora ≥ 5 (tolera un comentario mal clasificado); `sube` / `baja` si el porcentaje cambia ±30 % o más; si no, `estable`. Sin periodo anterior → `estable`. |
 | `analizar_comentarios(respuestas_actual, respuestas_anterior)` | `list` Respuesta ×2 | `list` Tema | Clasifica los comentarios no vacíos de ambos periodos, cuenta por tema, resume y calcula la tendencia. **Omite los temas con `n < 5`**. Orden: primero `nuevo` y `sube`, luego por `n`. |
 
@@ -195,7 +195,7 @@ Textos de los prompts de sistema. Cada uno exige responder solo en JSON con el f
 
 | Función | Entrada | Salida | Qué hace |
 |---|---|---|---|
-| `recomendar(analisis, encuesta)` | `dict` Analisis, `dict` Encuesta | `dict` Recomendaciones | 2–3 acciones concretas (título, motivo con el dato que la justifica, tema), priorizando alertas y temas `nuevo`/`sube`. `seguimiento` = Necesidad rellenada para el mismo colectivo, `duracion_max_seg` 60, centrada en el tema principal. Son propuestas: el texto nunca habla de personas concretas. Respaldo: reglas fijas por tema. |
+| `recomendar(analisis, encuesta)` | `dict` Analisis, `dict` Encuesta | `dict` Recomendaciones | 2–3 acciones concretas (título, motivo con el dato que la justifica, tema), priorizando alertas y temas `nuevo`/`sube`. `seguimiento` = Necesidad rellenada para el mismo colectivo, `duracion_max_seg` 60, centrada en el tema principal. Son propuestas: el texto nunca habla de personas concretas. Las acciones salen de reglas fijas por tema; la IA solo mejora la redacción, en segundo plano y con caché (igual que `resumir_tema`). |
 
 ### `evaluar.py` · después del MVP
 
