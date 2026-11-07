@@ -31,3 +31,4 @@ Solo usa la librería estándar de Python 3 (sin dependencias).
 | **Comentarios vacíos** | 15 % de respuestas sin comentario (simulan gente que no escribe nada). |
 | **Datos ficticios** | ~3 % incluyen un nombre inventado, correo `@example.com` o teléfono falso para probar `anonimizar()`. |
 | **Seguridad** | En noviembre, el tema `seguridad` casi solo aparece en planta y logística. |
+
