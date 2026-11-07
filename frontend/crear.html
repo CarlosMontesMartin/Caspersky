@@ -430,6 +430,7 @@
         encuestaActual.estado = 'borrador';
         actualizarBadgesEstado('borrador', encuestaActual.id);
         bloquearPaso3('Se han realizado modificaciones: debes volver a guardar y aprobar');
+        actualizarEstadoPaso1(false);
       }
     }
 
@@ -442,6 +443,21 @@
       encuestaActual.intro = revisarIntro.value;
       notificarCambioEdicion();
     });
+
+    // Control de activación / desactivación del Paso 1
+    function actualizarEstadoPaso1(bloqueado) {
+      inputObjetivo.disabled = bloqueado;
+      selectColectivo.disabled = bloqueado;
+      inputDuracion.disabled = bloqueado;
+      inputContexto.disabled = bloqueado;
+      inputTemasProhibidos.disabled = bloqueado;
+      btnGenerar.disabled = bloqueado;
+
+      const paso1 = document.getElementById('paso-1');
+      if (paso1) {
+        paso1.style.opacity = bloqueado ? '0.6' : '1';
+      }
+    }
 
     // Gestión del Paso 3
     function habilitarPaso3Aprobada() {
@@ -496,6 +512,10 @@
       encuestaActual = encuesta;
       actualizarBadgesEstado(encuesta.estado, encuesta.id);
       encabezadoTitulo.textContent = `Encuesta ${encuesta.id}`;
+
+      // Deshabilitar formulario y botón Generar del paso 1 si ya está aprobada o publicada
+      const bloqueado = encuesta.estado === 'aprobada' || encuesta.estado === 'publicada';
+      actualizarEstadoPaso1(bloqueado);
 
       // Rellenar formulario de necesidad si coinciden
       inputObjetivo.value = encuesta.titulo || '';
@@ -614,6 +634,7 @@
         sincronizarEstadoVisual(publicada);
 
         mostrarAviso('Encuesta publicada', '¡La encuesta ya está activa! Comparte el enlace directo o imprime el cartel con el código QR.');
+        paso3.scrollIntoView({ behavior: 'smooth' });
 
       } catch (err) {
         console.error('Error al publicar:', err);

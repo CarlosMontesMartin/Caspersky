@@ -8,8 +8,66 @@
 
 export const USAR_EJEMPLOS = true;
 
-// Almacén en memoria para simular el ciclo cuando USAR_EJEMPLOS = true
-const _almacenSimulado = {
+/**
+ * Generador SVG de código QR estético para modo mock
+ */
+function generarQrDataUrl(texto) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+    <rect width="200" height="200" fill="#FFFFFF"/>
+    <!-- Patrones de esquina (position marks) -->
+    <rect x="20" y="20" width="46" height="46" fill="#2A1A1A"/>
+    <rect x="26" y="26" width="34" height="34" fill="#FFFFFF"/>
+    <rect x="33" y="33" width="20" height="20" fill="#2A1A1A"/>
+
+    <rect x="134" y="20" width="46" height="46" fill="#2A1A1A"/>
+    <rect x="140" y="26" width="34" height="34" fill="#FFFFFF"/>
+    <rect x="147" y="33" width="20" height="20" fill="#2A1A1A"/>
+
+    <rect x="20" y="134" width="46" height="46" fill="#2A1A1A"/>
+    <rect x="26" y="140" width="34" height="34" fill="#FFFFFF"/>
+    <rect x="33" y="147" width="20" height="20" fill="#2A1A1A"/>
+
+    <!-- Puntos de datos simulados -->
+    <rect x="76" y="24" width="8" height="8" fill="#2A1A1A"/>
+    <rect x="92" y="24" width="16" height="8" fill="#2A1A1A"/>
+    <rect x="116" y="24" width="8" height="8" fill="#2A1A1A"/>
+
+    <rect x="76" y="40" width="16" height="8" fill="#2A1A1A"/>
+    <rect x="100" y="40" width="8" height="8" fill="#2A1A1A"/>
+    <rect x="116" y="40" width="10" height="8" fill="#2A1A1A"/>
+
+    <rect x="24" y="76" width="8" height="16" fill="#2A1A1A"/>
+    <rect x="40" y="84" width="16" height="8" fill="#2A1A1A"/>
+    <rect x="64" y="76" width="8" height="8" fill="#2A1A1A"/>
+    <rect x="80" y="76" width="24" height="8" fill="#2A1A1A"/>
+    <rect x="112" y="84" width="16" height="16" fill="#2A1A1A"/>
+    <rect x="136" y="76" width="8" height="8" fill="#2A1A1A"/>
+    <rect x="152" y="84" width="24" height="8" fill="#2A1A1A"/>
+
+    <rect x="24" y="100" width="16" height="8" fill="#2A1A1A"/>
+    <rect x="48" y="108" width="8" height="16" fill="#2A1A1A"/>
+    <rect x="64" y="100" width="16" height="8" fill="#2A1A1A"/>
+    <rect x="88" y="92" width="8" height="24" fill="#2A1A1A"/>
+    <rect x="104" y="108" width="16" height="8" fill="#2A1A1A"/>
+    <rect x="128" y="100" width="24" height="8" fill="#2A1A1A"/>
+    <rect x="160" y="100" width="16" height="16" fill="#2A1A1A"/>
+
+    <rect x="76" y="134" width="16" height="8" fill="#2A1A1A"/>
+    <rect x="100" y="142" width="8" height="16" fill="#2A1A1A"/>
+    <rect x="116" y="134" width="24" height="8" fill="#2A1A1A"/>
+    <rect x="148" y="142" width="16" height="8" fill="#2A1A1A"/>
+    <rect x="172" y="134" width="8" height="16" fill="#2A1A1A"/>
+
+    <rect x="76" y="160" width="24" height="8" fill="#2A1A1A"/>
+    <rect x="108" y="168" width="16" height="8" fill="#2A1A1A"/>
+    <rect x="132" y="160" width="12" height="16" fill="#2A1A1A"/>
+    <rect x="152" y="168" width="28" height="8" fill="#2A1A1A"/>
+  </svg>`;
+  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+}
+
+// Estructura inicial para simular el ciclo cuando USAR_EJEMPLOS = true
+const _almacenInicial = {
   encuestas: {
     "enc_000": {
       id: "enc_000",
@@ -19,8 +77,8 @@ const _almacenSimulado = {
       colectivo: "todos",
       periodo: "2026-10",
       tiempo_estimado_seg: 90,
-      url: window.location.origin + "/responder/enc_000?canal=qr",
-      qr: generarQrDataUrl(window.location.origin + "/responder/enc_000?canal=qr"),
+      url: (typeof window !== "undefined" ? window.location.origin : "http://localhost:5500") + "/responder/enc_000?canal=qr",
+      qr: generarQrDataUrl((typeof window !== "undefined" ? window.location.origin : "http://localhost:5500") + "/responder/enc_000?canal=qr"),
       preguntas: [
         { id: "p1", texto: "¿Cómo valoras tu bienestar general en el trabajo?", tipo: "escala_1_5", opciones: [], dimension: "bienestar", condicion: null },
         { id: "p2", texto: "¿Sientes cercanía y apoyo por parte de tu responsable directo?", tipo: "escala_1_5", opciones: [], dimension: "liderazgo", condicion: null },
@@ -99,23 +157,40 @@ const _almacenSimulado = {
 };
 
 /**
- * Generador SVG de código QR estético para modo mock
+ * Carga el almacén simulado desde sessionStorage (clave "almacen_simulado")
+ * para persistir cambios de estado entre páginas
  */
-function generarQrDataUrl(texto) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-    <rect width="200" height="200" fill="#FFFFFF"/>
-    <!-- Patrones de esquina (position marks) -->
-    <rect x="20" y="20" width="46" height="46" fill="#2A1A1A"/>
-    <rect x="26" y="26" width="34" height="34" fill="#FFFFFF"/>
-    <rect x="33" y="33" width="20" height="20" fill="#2A1A1A"/>
+function _obtenerAlmacen() {
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    try {
+      const guardado = window.sessionStorage.getItem("almacen_simulado");
+      if (guardado) {
+        return JSON.parse(guardado);
+      }
+    } catch (e) {
+      console.warn("No se pudo leer almacen_simulado de sessionStorage:", e);
+    }
+  }
+  const inicial = JSON.parse(JSON.stringify(_almacenInicial));
+  _guardarAlmacen(inicial);
+  return inicial;
+}
 
-    <rect x="134" y="20" width="46" height="46" fill="#2A1A1A"/>
-    <rect x="140" y="26" width="34" height="34" fill="#FFFFFF"/>
-    <rect x="147" y="33" width="20" height="20" fill="#2A1A1A"/>
+/**
+ * Guarda el almacén simulado en sessionStorage (clave "almacen_simulado")
+ */
+function _guardarAlmacen(almacen) {
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    try {
+      window.sessionStorage.setItem("almacen_simulado", JSON.stringify(almacen));
+    } catch (e) {
+      console.warn("No se pudo guardar almacen_simulado en sessionStorage:", e);
+    }
+  }
+}
 
-    <rect x="20" y="134" width="46" height="46" fill="#2A1A1A"/>
-    <rect x="26" y="140" width="34" height="34" fill="#FFFFFF"/>
-    <rect x="33" y="147" width="20" height="20" fill="#2A1A1A"/>
+// Inicialización inmediata en sessionStorage
+let _almacenSimulado = _obtenerAlmacen();
 
     <!-- Puntos de datos simulados -->
     <rect x="76" y="24" width="8" height="8" fill="#2A1A1A"/>
@@ -202,13 +277,14 @@ async function peticion(ruta, opciones = {}) {
  */
 export async function listarEncuestas() {
   if (USAR_EJEMPLOS) {
-    return Object.values(_almacenSimulado.encuestas).map(e => ({
+    const almacen = _obtenerAlmacen();
+    return Object.values(almacen.encuestas).map(e => ({
       id: e.id,
       titulo: e.titulo,
       colectivo: e.colectivo,
       estado: e.estado,
       periodo: e.periodo,
-      n_respuestas: _almacenSimulado.respuestas[e.id] ?? 0
+      n_respuestas: almacen.respuestas[e.id] ?? 0
     }));
   }
   return peticion("/encuestas");
@@ -221,7 +297,8 @@ export async function listarEncuestas() {
  */
 export async function generarEncuesta(necesidad) {
   if (USAR_EJEMPLOS) {
-    const ids = Object.keys(_almacenSimulado.encuestas)
+    const almacen = _obtenerAlmacen();
+    const ids = Object.keys(almacen.encuestas)
       .map(k => parseInt(k.replace("enc_", ""), 10))
       .filter(n => !isNaN(n));
     const siguienteNum = (ids.length ? Math.max(...ids) : 0) + 1;
@@ -278,8 +355,9 @@ export async function generarEncuesta(necesidad) {
       ]
     };
 
-    _almacenSimulado.encuestas[nuevoId] = nuevaEncuesta;
-    _almacenSimulado.respuestas[nuevoId] = 0;
+    almacen.encuestas[nuevoId] = nuevaEncuesta;
+    almacen.respuestas[nuevoId] = 0;
+    _guardarAlmacen(almacen);
     return JSON.parse(JSON.stringify(nuevaEncuesta));
   }
   return peticion("/encuestas/generar", {
@@ -294,7 +372,8 @@ export async function generarEncuesta(necesidad) {
  */
 export async function obtenerEncuesta(id) {
   if (USAR_EJEMPLOS) {
-    const enc = _almacenSimulado.encuestas[id];
+    const almacen = _obtenerAlmacen();
+    const enc = almacen.encuestas[id];
     if (!enc) {
       throw new Error(`No existe la encuesta ${id}`);
     }
@@ -310,7 +389,8 @@ export async function obtenerEncuesta(id) {
  */
 export async function guardarEncuesta(encuesta) {
   if (USAR_EJEMPLOS) {
-    const actual = _almacenSimulado.encuestas[encuesta.id];
+    const almacen = _obtenerAlmacen();
+    const actual = almacen.encuestas[encuesta.id];
     if (!actual) {
       throw new Error(`No existe la encuesta ${encuesta.id}`);
     }
@@ -325,7 +405,8 @@ export async function guardarEncuesta(encuesta) {
       url: actual.url,
       qr: actual.qr
     };
-    _almacenSimulado.encuestas[encuesta.id] = actualizada;
+    almacen.encuestas[encuesta.id] = actualizada;
+    _guardarAlmacen(almacen);
     return JSON.parse(JSON.stringify(actualizada));
   }
   return peticion(`/encuestas/${encodeURIComponent(encuesta.id)}`, {
@@ -340,7 +421,8 @@ export async function guardarEncuesta(encuesta) {
  */
 export async function aprobarEncuesta(id) {
   if (USAR_EJEMPLOS) {
-    const actual = _almacenSimulado.encuestas[id];
+    const almacen = _obtenerAlmacen();
+    const actual = almacen.encuestas[id];
     if (!actual) {
       throw new Error(`No existe la encuesta ${id}`);
     }
@@ -352,6 +434,7 @@ export async function aprobarEncuesta(id) {
     }
 
     actual.estado = "aprobada";
+    _guardarAlmacen(almacen);
     return JSON.parse(JSON.stringify(actual));
   }
   return peticion(`/encuestas/${encodeURIComponent(id)}/aprobar`, {
@@ -365,7 +448,8 @@ export async function aprobarEncuesta(id) {
  */
 export async function publicarEncuesta(id) {
   if (USAR_EJEMPLOS) {
-    const actual = _almacenSimulado.encuestas[id];
+    const almacen = _obtenerAlmacen();
+    const actual = almacen.encuestas[id];
     if (!actual) {
       throw new Error(`No existe la encuesta ${id}`);
     }
@@ -378,6 +462,7 @@ export async function publicarEncuesta(id) {
     actual.url = url;
     actual.qr = generarQrDataUrl(url);
 
+    _guardarAlmacen(almacen);
     return JSON.parse(JSON.stringify(actual));
   }
   return peticion(`/encuestas/${encodeURIComponent(id)}/publicar`, {
@@ -469,7 +554,8 @@ export async function obtenerRecomendaciones(id) {
  */
 export async function obtenerEncuestaPublica(id) {
   if (USAR_EJEMPLOS) {
-    const enc = _almacenSimulado.encuestas[id];
+    const almacen = _obtenerAlmacen();
+    const enc = almacen.encuestas[id];
     if (!enc || enc.estado !== "publicada") {
       throw new Error(`La encuesta ${id} no existe o no está publicada`);
     }
@@ -499,11 +585,13 @@ export async function obtenerEncuestaPublica(id) {
  */
 export async function enviarRespuesta(id, respuestaEntrada) {
   if (USAR_EJEMPLOS) {
-    const enc = _almacenSimulado.encuestas[id];
+    const almacen = _obtenerAlmacen();
+    const enc = almacen.encuestas[id];
     if (!enc || enc.estado !== "publicada") {
       throw new Error(`La encuesta ${id} no está publicada para recibir respuestas`);
     }
-    _almacenSimulado.respuestas[id] = (_almacenSimulado.respuestas[id] || 0) + 1;
+    almacen.respuestas[id] = (almacen.respuestas[id] || 0) + 1;
+    _guardarAlmacen(almacen);
     return { ok: true };
   }
   return peticion(`/publico/encuestas/${encodeURIComponent(id)}/respuestas`, {
