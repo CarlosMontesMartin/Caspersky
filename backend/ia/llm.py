@@ -67,23 +67,49 @@ def llamar_llm(sistema: str, usuario: str, timeout: float = TIMEOUT_SEG) -> str:
     peticion = urllib.request.Request(
         f"{base}/chat/completions",
         data=cuerpo,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {clave}"},
+        # Algunos proveedores (detrás de Cloudflare) rechazan el agente por defecto de urllib
+        headers={"Content-Type": "application/json", "Accept": "application/json",
+                 "User-Agent": "caspersky-ia/1.0", "Authorization": f"Bearer {clave}"},
         method="POST",
     )
-    try:
-        with urllib.request.urlopen(peticion, timeout=timeout) as respuesta:
-            datos = json.loads(respuesta.read().decode("utf-8"))
-    except urllib.error.HTTPError as error:
-        # El cuerpo del error no incluye la clave; se recorta por si es largo
-        detalle = error.read().decode("utf-8", "replace")[:200]
-        raise RuntimeError(f"LLM respondió {error.code}: {detalle}") from None
-    except (urllib.error.URLError, TimeoutError) as error:
-        raise RuntimeError(f"No se pudo contactar con el LLM: {error}") from None
+    inicio = time.monotonic()
+    for intento in range(2):
+        restante = timeout - (time.monotonic() - inicio)
+        try:
+            with urllib.request.urlopen(peticion, timeout=max(1.0, restante)) as respuesta:
+                datos = json.loads(respuesta.read().decode("utf-8"))
+            break
+        except urllib.error.HTTPError as error:
+            # El cuerpo del error no incluye la clave; se recorta por si es largo
+            detalle = error.read().decode("utf-8", "replace")
+            espera = _espera_limite(error, detalle)
+            # Límite de peticiones: si el proveedor indica la espera y cabe en el tiempo, un reintento
+            if (error.code == 429 and intento == 0 and espera is not None
+                    and espera + 2 < timeout - (time.monotonic() - inicio)):
+                time.sleep(espera)
+                continue
+            raise RuntimeError(f"LLM respondió {error.code}: {detalle[:200]}") from None
+        except (urllib.error.URLError, TimeoutError) as error:
+            raise RuntimeError(f"No se pudo contactar con el LLM: {error}") from None
 
     texto = (datos.get("choices") or [{}])[0].get("message", {}).get("content") or ""
     if not texto.strip():
         raise RuntimeError("El LLM devolvió una respuesta vacía")
     return texto
+
+
+def _espera_limite(error: urllib.error.HTTPError, detalle: str) -> float | None:
+    cabecera = error.headers.get("retry-after") if error.headers else None
+    try:
+        if cabecera:
+            return min(float(cabecera), 30.0)
+    except ValueError:
+        pass
+    encontrado = re.search(r"try again in ([\d.]+)\s*(ms|s)", detalle)
+    if encontrado:
+        valor = float(encontrado.group(1))
+        return min(valor / 1000 if encontrado.group(2) == "ms" else valor, 30.0)
+    return None
 
 
 def _extraer_json(texto: str) -> dict | list:

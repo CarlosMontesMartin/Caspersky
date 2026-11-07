@@ -1,6 +1,6 @@
 """Diagnóstico del LLM: conexión, clasificación, resumen y tiempo de generación de encuestas.
 
-Uso: python3 -m backend.ia.diagnostico [modelo ...]   (por defecto ornith)
+Uso: python3 -m backend.ia.diagnostico [modelo ...]   (por defecto el de LLM_MODEL)
 """
 
 from __future__ import annotations
@@ -111,6 +111,6 @@ if __name__ == "__main__":
     if not hay_llm():
         sys.exit("No hay LLM_API_KEY en .env")
     print(f"URL: {_config()[1]}")
-    for modelo in sys.argv[1:] or ["ornith"]:
+    for modelo in sys.argv[1:] or [_config()[2]]:
         probar(modelo)
     cronometrar_generacion()
