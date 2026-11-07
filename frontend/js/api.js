@@ -8,6 +8,10 @@
 
 export const USAR_EJEMPLOS = false;
 
+import {
+  ENCUESTA_MULTISECTOR, ANALISIS_MULTISECTOR, RECOMENDACIONES_MULTISECTOR, respuestaPreguntaEjemplo
+} from "/js/ejemplos_v2.js";
+
 /**
  * Generador SVG de código QR estético para modo mock
  */
@@ -190,6 +194,9 @@ function _guardarAlmacen(almacen) {
 }
 
 // Inicialización inmediata en sessionStorage
+_almacenInicial.encuestas.enc_002 = ENCUESTA_MULTISECTOR;
+_almacenInicial.respuestas.enc_002 = 312;
+
 let _almacenSimulado = _obtenerAlmacen();
 
 /**
@@ -251,9 +258,81 @@ export async function listarEncuestas() {
   return peticion("/encuestas");
 }
 
+// Preguntas propias por sector para el modo de ejemplo (como el respaldo de UPC 1)
+const _PREGUNTAS_SECTOR_EJEMPLO = {
+  planta: [
+    { texto: "¿Te da tiempo a hacer la pausa completa en tu turno?", tipo: "si_no", dimension: "bienestar" },
+    { texto: "¿Cómo valoras el relevo entre turnos en la línea?", tipo: "escala_1_5", dimension: "entorno" },
+  ],
+  logistica: [
+    { texto: "¿Te llega a tiempo el cuadrante de rutas?", tipo: "escala_1_5", dimension: "condiciones" },
+    { texto: "¿Puedes pasar la información en el relevo de muelle?", tipo: "si_no", dimension: "entorno" },
+  ],
+  comercial: [
+    { texto: "¿Cómo afecta el cambio a tus visitas a clientes?", tipo: "escala_1_5", dimension: "condiciones" },
+    { texto: "¿Te coordinas bien con almacén para los pedidos?", tipo: "escala_1_5", dimension: "entorno" },
+  ],
+  oficina: [
+    { texto: "¿Las reuniones se adaptan a los nuevos horarios?", tipo: "escala_1_5", dimension: "condiciones" },
+    { texto: "¿Tienes las herramientas para coordinarte con otras áreas?", tipo: "si_no", dimension: "entorno" },
+  ],
+  manager: [
+    { texto: "¿Puedes organizar a tu equipo con el nuevo sistema?", tipo: "escala_1_5", dimension: "liderazgo" },
+    { texto: "¿Recibes la información para tomar decisiones a tiempo?", tipo: "escala_1_5", dimension: "liderazgo" },
+  ],
+};
+
+function _encuestaUnSectorSimulada(id, necesidad, colectivo) {
+  const objetivo = (necesidad.objetivo || "el cambio").toLowerCase();
+  return {
+    id, estado: "borrador", origen: "respaldo",
+    titulo: necesidad.objetivo || "Tu opinión cuenta",
+    intro: "Queremos saber tu opinión. Es anónima y dura menos de 2 minutos.",
+    colectivo, colectivos: [colectivo],
+    periodo: new Date().toISOString().slice(0, 7),
+    tiempo_estimado_seg: 75, tiempo_por_colectivo: { [colectivo]: 75 },
+    url: null, qr: null,
+    preguntas: [
+      { id: "p1", texto: `¿Cómo valoras ${objetivo}?`, tipo: "escala_1_5", opciones: [], dimension: "condiciones", condicion: null },
+      { id: "p2", texto: "¿Te llega a tiempo la información de los cambios?", tipo: "escala_1_5", opciones: [], dimension: "liderazgo", condicion: null },
+      { id: "p3", texto: "¿Te da tiempo a descansar con el horario actual?", tipo: "si_no", opciones: [], dimension: "bienestar", condicion: null },
+      { id: "p4", texto: "¿Qué cambiarías?", tipo: "texto", opciones: [], dimension: "condiciones", condicion: null },
+    ],
+    preguntas_por_colectivo: {},
+  };
+}
+
+function _encuestaMultisectorSimulada(id, necesidad, colectivos) {
+  const preguntas_por_colectivo = {};
+  const tiempo_por_colectivo = {};
+  colectivos.forEach(c => {
+    preguntas_por_colectivo[c] = (_PREGUNTAS_SECTOR_EJEMPLO[c] || []).map((p, i) => ({
+      id: `${c}_p${i + 1}`, opciones: [], condicion: null, ...p,
+    }));
+    tiempo_por_colectivo[c] = 15 + 30 + preguntas_por_colectivo[c].length * 15;
+  });
+  return {
+    id, estado: "borrador", origen: "respaldo",
+    titulo: necesidad.objetivo || "Tu opinión cuenta",
+    intro: "Queremos saber tu opinión. Es anónima y dura menos de 2 minutos.",
+    colectivo: colectivos.length === 5 ? "todos" : "varios",
+    colectivos,
+    periodo: new Date().toISOString().slice(0, 7),
+    tiempo_estimado_seg: Math.max(...Object.values(tiempo_por_colectivo)),
+    tiempo_por_colectivo,
+    url: null, qr: null,
+    preguntas: [
+      { id: "c1", texto: `¿Cómo valoras ${(necesidad.objetivo || "el cambio").toLowerCase()}?`, tipo: "escala_1_5", opciones: [], dimension: "condiciones", condicion: null },
+      { id: "c2", texto: "¿Qué cambiarías?", tipo: "texto", opciones: [], dimension: "condiciones", condicion: null },
+    ],
+    preguntas_por_colectivo,
+  };
+}
+
 /**
  * POST /encuestas/generar
- * Recibe Necesidad: { objetivo, colectivo, contexto, duracion_max_seg, temas_prohibidos }
+ * Recibe Necesidad: { objetivo, colectivos: [...], contexto, duracion_max_seg, temas_prohibidos }
+ * (v2: "colectivos" sustituye a "colectivo", que se sigue aceptando)
  * Devuelve Encuesta en borrador
  */
 export async function generarEncuesta(necesidad) {
@@ -265,56 +344,11 @@ export async function generarEncuesta(necesidad) {
     const siguienteNum = (ids.length ? Math.max(...ids) : 0) + 1;
     const nuevoId = `enc_${String(siguienteNum).padStart(3, "0")}`;
 
-    const nuevaEncuesta = {
-      id: nuevoId,
-      estado: "borrador",
-      titulo: necesidad.objetivo || "¿Qué tal con los turnos?",
-      intro: necesidad.contexto || "Tu opinión es clave para adaptar el ritmo de trabajo. Es 100% anónima.",
-      colectivo: necesidad.colectivo || "planta",
-      periodo: new Date().toISOString().slice(0, 7),
-      tiempo_estimado_seg: Math.min(necesidad.duracion_max_seg || 60, 90),
-      url: null,
-      qr: null,
-      preguntas: [
-        {
-          id: "p1",
-          texto: `¿Cómo valoras el impacto de ${necesidad.objetivo.toLowerCase()}?`,
-          tipo: "escala_1_5",
-          opciones: [],
-          dimension: "condiciones",
-          condicion: null
-        },
-        {
-          id: "p2",
-          texto: "¿Cuál consideras que es el punto principal a mejorar?",
-          tipo: "opcion",
-          opciones: [
-            "La comunicación del equipo",
-            "Los descansos y pausas",
-            "La distribución de tareas",
-            "Ninguno en especial"
-          ],
-          dimension: "entorno",
-          condicion: null
-        },
-        {
-          id: "p3",
-          texto: "¿Consideras suficiente la antelación con la que se avisan los cambios?",
-          tipo: "si_no",
-          opciones: [],
-          dimension: "cultura",
-          condicion: null
-        },
-        {
-          id: "p4",
-          texto: "¿Quieres dejarnos algún comentario o sugerencia adicional?",
-          tipo: "texto",
-          opciones: [],
-          dimension: "bienestar",
-          condicion: null
-        }
-      ]
-    };
+    const colectivos = colectivosDe(necesidad);
+    const varios = colectivos.length > 1;
+    const nuevaEncuesta = varios
+      ? _encuestaMultisectorSimulada(nuevoId, necesidad, colectivos)
+      : _encuestaUnSectorSimulada(nuevoId, necesidad, colectivos[0] || "planta");
 
     almacen.encuestas[nuevoId] = nuevaEncuesta;
     almacen.respuestas[nuevoId] = 0;
@@ -437,6 +471,9 @@ export async function publicarEncuesta(id) {
  */
 export async function obtenerAnalisis(id) {
   if (USAR_EJEMPLOS) {
+    // v2: los ejemplos tienen todos los campos nuevos (zonas, distribuciones, lectura, estado_ia…)
+    return JSON.parse(JSON.stringify({ ...ANALISIS_MULTISECTOR, encuesta_id: id }));
+    // eslint-disable-next-line no-unreachable
     return {
       encuesta_id: id,
       periodo_actual: "2026-10",
@@ -483,6 +520,8 @@ export async function obtenerAnalisis(id) {
  */
 export async function obtenerRecomendaciones(id) {
   if (USAR_EJEMPLOS) {
+    return JSON.parse(JSON.stringify(RECOMENDACIONES_MULTISECTOR));
+    // eslint-disable-next-line no-unreachable
     return {
       acciones: [
         {
@@ -521,18 +560,21 @@ export async function obtenerEncuestaPublica(id) {
       throw new Error(`La encuesta ${id} no existe o no está publicada`);
     }
 
-    const turnos = enc.colectivo === "planta"
-      ? ["manana", "tarde", "noche"]
-      : ["sin_turno"];
+    const colectivos = colectivosDe(enc);
+    const turnos_por_colectivo = {};
+    colectivos.forEach(c => { turnos_por_colectivo[c] = c === "planta" ? ["manana", "tarde", "noche"] : ["sin_turno"]; });
 
     return {
       id: enc.id,
       titulo: enc.titulo,
       intro: enc.intro,
       colectivo: enc.colectivo,
+      colectivos,
       tiempo_estimado_seg: enc.tiempo_estimado_seg,
       preguntas: enc.preguntas,
-      turnos: turnos,
+      preguntas_por_colectivo: enc.preguntas_por_colectivo || {},
+      turnos: turnos_por_colectivo[colectivos[0]] || ["sin_turno"],
+      turnos_por_colectivo,
       transparencia: "Esta microencuesta ayuda a mejorar tu día a día en Damm. Tus respuestas son 100 % anónimas: no se guarda quién eres ni desde dónde respondes. RRHH solo ve resultados agregados (mínimo 5 respuestas por grupo)."
     };
   }
@@ -562,6 +604,146 @@ export async function enviarRespuesta(id, respuestaEntrada) {
 }
 
 // ============================================================================
+// Estado del servidor, escenarios de la demo y simulación (backend/api/rutas_encuestas.py)
+// ============================================================================
+
+/**
+ * GET /salud
+ * Devuelve { ok, llm, modo_demo }: llm indica si hay IA real; modo_demo si se puede simular.
+ */
+export async function obtenerSalud() {
+  if (USAR_EJEMPLOS) {
+    return { ok: true, llm: false, modo_demo: true };
+  }
+  return peticion("/salud");
+}
+
+/**
+ * GET /escenarios
+ * Devuelve la lista de escenarios de la demo:
+ * [{ id, titulo, descripcion, necesidad (Necesidad o null), encuesta_id (o null), que_mirar: [] }]
+ */
+export async function listarEscenarios() {
+  if (USAR_EJEMPLOS) {
+    return [
+      {
+        id: "A",
+        titulo: "Cambio organizativo: nuevo sistema de turnos",
+        descripcion: "RRHH quiere saber si el cambio de turnos en planta se ha entendido, qué dificultades genera y qué hay que reforzar, en menos de 2 minutos.",
+        necesidad: { objetivo: "Saber cómo afecta el nuevo sistema de turnos", colectivo: "planta", contexto: "Cambio de turnos desde octubre", duracion_max_seg: 120, temas_prohibidos: ["salario"] },
+        encuesta_id: null,
+        que_mirar: []
+      },
+      {
+        id: "B",
+        titulo: "Colectivo de logística sin ordenador",
+        descripcion: "Personas con poco tiempo y sin correo corporativo: encuesta muy breve por QR o quiosco y aviso si la muestra no es representativa.",
+        necesidad: { objetivo: "Saber cómo se vive el día a día en el almacén y si llega la información", colectivo: "logistica", contexto: "Personas sin ordenador ni correo corporativo; responden por QR o en quiosco", duracion_max_seg: 60, temas_prohibidos: ["salario"] },
+        encuesta_id: null,
+        que_mirar: []
+      },
+      {
+        id: "C",
+        titulo: "Gran volumen de comentarios",
+        descripcion: "Unos 600 comentarios de 5 colectivos y 2 periodos: agruparlos, resumirlos, detectar temas emergentes y explicar los límites del análisis.",
+        necesidad: null,
+        encuesta_id: "enc_000",
+        que_mirar: []
+      }
+    ];
+  }
+  return peticion("/escenarios");
+}
+
+/**
+ * POST /encuestas/{id}/simular  (solo con MODO_DEMO=1 en el .env del servidor)
+ * Recibe opciones { n: 150, con_periodo_anterior: true, semilla: null }
+ * Devuelve { simuladas, periodos }. 403 sin modo demo, 409 si no está publicada.
+ */
+export async function simularRespuestas(id, opciones = {}) {
+  if (USAR_EJEMPLOS) {
+    const almacen = _almacenSimulado;
+    const enc = almacen.encuestas[id];
+    if (!enc || enc.estado !== "publicada") {
+      throw new Error("Solo se pueden simular respuestas de una encuesta publicada");
+    }
+    const n = opciones.n ?? 150;
+    const simuladas = (opciones.con_periodo_anterior === false ? 1 : 2) * n;
+    almacen.respuestas[id] = (almacen.respuestas[id] || 0) + simuladas;
+    _guardarAlmacen(almacen);
+    return { simuladas, periodos: [] };
+  }
+  return peticion(`/encuestas/${encodeURIComponent(id)}/simular`, {
+    method: "POST",
+    body: opciones
+  });
+}
+
+// ============================================================================
+// Versión 2 (contratos v2): pregunta a tus datos, encuestas activas y sectores
+// ============================================================================
+
+/**
+ * POST /encuestas/{id}/preguntar
+ * Recibe { pregunta } y devuelve { respuesta, cifras: [], confianza: "alta|media|baja", origen: "ia|reglas" }.
+ * El servidor puede tardar hasta 25 s.
+ */
+export async function preguntarDatos(id, pregunta) {
+  if (USAR_EJEMPLOS) {
+    await new Promise(r => setTimeout(r, 600));
+    return respuestaPreguntaEjemplo(pregunta);
+  }
+  return peticion(`/encuestas/${encodeURIComponent(id)}/preguntar`, {
+    method: "POST",
+    body: { pregunta }
+  });
+}
+
+/** Encuestas publicadas (para la barra lateral "Mis encuestas") */
+export async function listarEncuestasActivas() {
+  const todas = await listarEncuestas();
+  return (todas || []).filter(e => e.estado === "publicada");
+}
+
+/** Orden fijo de los sectores (contratos v2, 1.1) */
+export const ORDEN_COLECTIVOS = ["planta", "logistica", "comercial", "oficina", "manager"];
+
+/**
+ * Sectores de una Necesidad, Encuesta, EncuestaPublica o Analisis, en el orden fijo.
+ * Acepta el formato nuevo ("colectivos") y el antiguo ("colectivo", incluido "todos").
+ */
+export function colectivosDe(datos) {
+  if (!datos) return [];
+  let lista = Array.isArray(datos.colectivos) && datos.colectivos.length ? datos.colectivos : null;
+  if (!lista) {
+    if (datos.colectivo === "todos") lista = ORDEN_COLECTIVOS;
+    else if (datos.colectivo && datos.colectivo !== "varios") lista = [datos.colectivo];
+    else lista = [];
+  }
+  return ORDEN_COLECTIVOS.filter(c => lista.includes(c));
+}
+
+/** Núcleo común + preguntas propias del sector (misma regla que preguntas_de del backend) */
+export function preguntasDe(encuesta, colectivo) {
+  return [
+    ...(encuesta?.preguntas || []),
+    ...((encuesta?.preguntas_por_colectivo || {})[colectivo] || []),
+  ];
+}
+
+/** 0.261 → "26,1 %" */
+export function formatearPct(tasa, decimales = 1) {
+  if (tasa === null || tasa === undefined || Number.isNaN(Number(tasa))) return "—";
+  return `${(Number(tasa) * 100).toLocaleString("es-ES", { minimumFractionDigits: decimales, maximumFractionDigits: decimales })}\u202F%`;
+}
+
+/** 2.67 → "2,7" */
+export function formatearMedia(media, decimales = 1) {
+  if (media === null || media === undefined || Number.isNaN(Number(media))) return "—";
+  return Number(media).toLocaleString("es-ES", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
+}
+
+// ============================================================================
 // Diccionarios y formateadores para etiquetas legibles (contratos/modulos.md)
 // ============================================================================
 
@@ -571,7 +753,8 @@ export const ETIQUETAS_COLECTIVOS = {
   comercial: "Comercial",
   oficina: "Oficina",
   manager: "Managers",
-  todos: "Todos los colectivos"
+  todos: "Todos los sectores",
+  varios: "Varios sectores"
 };
 
 export const ETIQUETAS_TEMAS = {
@@ -637,6 +820,15 @@ if (typeof window !== "undefined") {
     obtenerRecomendaciones,
     obtenerEncuestaPublica,
     enviarRespuesta,
+    obtenerSalud,
+    listarEscenarios,
+    simularRespuestas,
+    preguntarDatos,
+    listarEncuestasActivas,
+    colectivosDe,
+    preguntasDe,
+    formatearPct,
+    formatearMedia,
     ETIQUETAS_COLECTIVOS,
     ETIQUETAS_TEMAS,
     ETIQUETAS_TURNOS,
