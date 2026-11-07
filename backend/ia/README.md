@@ -10,9 +10,9 @@
 - `probar_analizar.py`: Pruebas de análisis temático y recomendaciones.
 
 ## Variables de entorno
-- `LLM_API_KEY`
-- `LLM_BASE_URL`
-- `LLM_MODEL`
+- `LLM_API_KEY`: clave del equipo.
+- `LLM_BASE_URL`: por defecto `https://dcc-llm-gw.uab.cat/uabthehack/v1`.
+- `LLM_MODEL`: `ornith` (único modelo disponible en el evento).
 
 Si no se configura una clave, el sistema opera en modo de respaldo determinista mediante reglas y plantillas predefinidas.
 
@@ -20,4 +20,5 @@ Si no se configura una clave, el sistema opera en modo de respaldo determinista 
 ```bash
 python3 -m backend.ia.probar_generar
 python3 -m backend.ia.probar_analizar
+python3 -m backend.ia.llm        # prueba de conexión con el modelo
 ```

@@ -530,8 +530,11 @@ def calcular_tendencia(n_actual, total_actual, n_anterior, total_anterior):
     """Devuelve nuevo, sube, baja o estable comparando el peso del tema entre periodos."""
     if total_anterior == 0:
         return "estable"
+    # Menos de 2 en el periodo anterior: un comentario mal clasificado no anula un tema nuevo
+    if n_anterior < 2 and n_actual >= 5:
+        return "nuevo"
     if n_anterior == 0:
-        return "nuevo" if n_actual >= 5 else "estable"
+        return "estable"
     p_act = n_actual / total_actual if total_actual else 0.0
     p_ant = n_anterior / total_anterior
     cambio = (p_act - p_ant) / p_ant

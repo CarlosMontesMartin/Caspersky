@@ -62,8 +62,14 @@ Constantes (definidas en `backend/datos/metricas.py`, el resto las importa de ah
 
 // RespuestaEntrada (lo que envía la pantalla /responder)
 { "turno": "noche", "canal": "qr",               // qr | quiosco
-  "valores": { "p1": 2, "p2": "texto libre" },
-  "comentario": "texto libre opcional" }
+  "valores": { "p1": 2, "p2": "texto libre" } }  // todas las preguntas, también la de texto
+```
+
+**Regla del texto libre:** cada encuesta tiene como máximo UNA pregunta de tipo `texto`. En la Respuesta
+guardada, ese texto va SOLO en `comentario` (anonimizado) y no se repite en `valores`. `valores` solo
+contiene `escala_1_5`, `opcion` y `si_no`. `analizar_comentarios` lee únicamente `comentario`.
+
+```json
 
 // Tema (salida de analizar_comentarios)
 { "tema": "descansos", "n": 57, "resumen": "", "tendencia": "sube" }
@@ -142,7 +148,7 @@ Pytest. **[MVP]** solo `test_anonimizar.py`: correos, teléfonos y nombres desap
 | Método y ruta | Recibe | Devuelve | Errores | Qué hace |
 |---|---|---|---|---|
 | `GET /publico/encuestas/{id}` | — | EncuestaPublica | 404 si no existe o no está publicada | Añade `turnos` y `transparencia`. |
-| `POST /publico/encuestas/{id}/respuestas` | RespuestaEntrada | `{"ok": true}` | 404, 422 (turno no válido para el colectivo, valor fuera de 1–5…) | Construye la Respuesta: `id` aleatorio, `fecha` de hoy, `periodo`, `colectivo` y `centro_tipo` de la encuesta, `comentario` y textos por `anonimizar()`. Sin `tema_real`. No guarda IP, user agent ni hora exacta. |
+| `POST /publico/encuestas/{id}/respuestas` | RespuestaEntrada | `{"ok": true}` | 404, 422 (turno no válido para el colectivo, valor fuera de 1–5…) | Construye la Respuesta: `id` aleatorio, `fecha` de hoy, `periodo`, `colectivo` y `centro_tipo` de la encuesta. **Saca de `valores` la respuesta de la pregunta `texto`, la pasa por `anonimizar()` y la guarda en `comentario`** (`""` si no hay). Sin `tema_real`. No guarda IP, user agent ni hora exacta. |
 
 ### `qr.py`
 
@@ -161,8 +167,8 @@ en ese caso usan el **modo de respaldo** descrito en cada una.
 
 | Función | Entrada | Salida | Qué hace |
 |---|---|---|---|
-| `hay_llm()` | — | `bool` | `True` si existe `LLM_API_KEY` en `.env`. |
-| `llamar_llm(sistema, usuario)` | `str`, `str` | `str` | Llama al proveedor elegido (el SDK solo se importa aquí). Timeout 30 s. Lanza excepción si falla. |
+| `hay_llm()` | — | `bool` | `True` si `LLM_API_KEY` y `LLM_BASE_URL` tienen valor en `.env`. |
+| `llamar_llm(sistema, usuario)` | `str`, `str` | `str` | Llama a la API del evento, compatible con OpenAI: `POST {LLM_BASE_URL}/chat/completions` con la librería estándar de Python (sin el paquete `openai`, para no añadir dependencias), cabecera `Authorization: Bearer {LLM_API_KEY}`, `model = LLM_MODEL` (por defecto `ornith`) y mensajes `system` + `user`. Timeout 30 s. Lanza excepción si falla. |
 | `llamar_llm_json(sistema, usuario)` | `str`, `str` | `dict` o `list` | Llama a `llamar_llm`, extrae el primer bloque JSON del texto y lo parsea. Un reintento si el JSON no es válido. |
 
 ### `prompts/` · `generar.md`, `clasificar.md`, `resumir.md`, `recomendar.md`
@@ -173,7 +179,7 @@ Textos de los prompts de sistema. Cada uno exige responder solo en JSON con el f
 | Función | Entrada | Salida | Qué hace |
 |---|---|---|---|
 | `generar_encuesta(necesidad, reglas)` | `dict` Necesidad, `str` reglas | `dict` Encuesta sin `id` | **[MVP]** Pide a la IA título, intro, 3–6 preguntas (`p1`, `p2`…), tipo, opciones, dimensión y tiempo estimado, siguiendo las reglas del colectivo. En el MVP `condicion` es siempre `null`. Después llama a `validar_encuesta`. |
-| `validar_encuesta(encuesta, necesidad)` | `dict`, `dict` | `dict` corregida | **[MVP]** Fuerza: colectivo = el de la necesidad; 3–6 preguntas; tipos y dimensiones de la lista cerrada; `opciones` solo en `opcion`; `condicion = null`; ninguna pregunta que contenga un tema prohibido; `tiempo_estimado_seg ≤ duracion_max_seg` (≈ 15 s por escala/sí-no/opción, 30 s por texto; quita preguntas si se pasa). |
+| `validar_encuesta(encuesta, necesidad)` | `dict`, `dict` | `dict` corregida | **[MVP]** Fuerza: colectivo = el de la necesidad; 3–6 preguntas; tipos y dimensiones de la lista cerrada; `opciones` solo en `opcion`; `condicion = null`; **como máximo una pregunta `texto`**; ninguna pregunta que contenga un tema prohibido; `tiempo_estimado_seg ≤ duracion_max_seg` (≈ 15 s por escala/sí-no/opción, 30 s por texto; quita preguntas si se pasa). |
 | Respaldo | | | Plantilla fija por colectivo: 3 escalas + 1 texto sobre el objetivo de la necesidad. |
 
 ### `analizar.py`
@@ -182,7 +188,7 @@ Textos de los prompts de sistema. Cada uno exige responder solo en JSON con el f
 |---|---|---|---|
 | `clasificar_comentarios(textos)` | `list[str]` | `list[str]` (un tema por texto, mismo orden) | La IA clasifica en lotes de 50 en la lista cerrada de temas. Respaldo: palabras clave por tema (ej. "descanso", "pausa" → descansos). |
 | `resumir_tema(tema, textos)` | `str`, `list[str]` | `str` | 1–2 frases sobre lo que dicen, con una muestra de hasta 30 comentarios. Sin citas literales ni nada que identifique. Respaldo: "N comentarios sobre <tema>". Como hay una llamada por tema, se cachea el resultado por encuesta y periodo para que el dashboard no tarde. |
-| `calcular_tendencia(n_actual, total_actual, n_anterior, total_anterior)` | `int`×4 | `str` | `nuevo` si antes 0 y ahora ≥ 5; `sube` / `baja` si el porcentaje cambia ±30 % o más; si no, `estable`. Sin periodo anterior → `estable`. |
+| `calcular_tendencia(n_actual, total_actual, n_anterior, total_anterior)` | `int`×4 | `str` | `nuevo` si antes < 2 y ahora ≥ 5 (tolera un comentario mal clasificado); `sube` / `baja` si el porcentaje cambia ±30 % o más; si no, `estable`. Sin periodo anterior → `estable`. |
 | `analizar_comentarios(respuestas_actual, respuestas_anterior)` | `list` Respuesta ×2 | `list` Tema | Clasifica los comentarios no vacíos de ambos periodos, cuenta por tema, resume y calcula la tendencia. **Omite los temas con `n < 5`**. Orden: primero `nuevo` y `sube`, luego por `n`. |
 
 ### `recomendar.py`
@@ -258,7 +264,7 @@ Mientras el backend no esté listo, `api.js` puede devolver los JSON de `/ejempl
 | Archivo | Lo lee | Formato |
 |---|---|---|
 | `reglas_colectivos.md` | `almacen.leer_reglas()` → prompt de `generar_encuesta` | Una sección `## <colectivo>` por colectivo con: número de preguntas, tiempo máximo, tono, tipos de pregunta preferidos, canal y qué evitar. |
-| `plantilla.json` | `almacen.leer_plantilla()` | Lista Plantilla. Planta con 3 filas (manana, tarde, noche); resto con `sin_turno`. |
+| `plantilla.json` | `almacen.leer_plantilla()` y el generador de datos sintéticos | Lista Plantilla con estas 7 filas (1.400 personas en total): planta manana 300, planta tarde 280, planta noche 220, logistica 240, comercial 160, oficina 150, manager 50. Planta con 3 turnos; resto con `sin_turno`. |
 | `transparencia.md` | `almacen.leer_transparencia()` → pantalla de respuesta | Texto plano, máximo 3 frases: para qué es, que es anónimo y que solo se ven resultados agregados. |
 | `escenarios_demo.md` | Personas (UPC 1 para los datos, todos para ensayar) | Necesidades exactas que se escriben en el demo y qué debe verse en cada pantalla. |
 

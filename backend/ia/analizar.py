@@ -6,6 +6,7 @@ Si no hay clave de modelo disponible o la llamada falla, recurre a reglas por pa
 from __future__ import annotations
 
 import json
+import logging
 import re
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
@@ -14,15 +15,17 @@ from typing import Any
 
 from .llm import hay_llm, llamar_llm_json
 
+log = logging.getLogger(__name__)
+
 TEMAS = [
     "descansos", "turnos", "carga_trabajo", "comunicacion", "liderazgo",
     "herramientas", "formacion", "reconocimiento", "seguridad", "ambiente",
     "conciliacion", "otros",
 ]
 UMBRAL_MINIMO = 5
-TAMANO_LOTE = 50
+TAMANO_LOTE = 25  # Lotes pequeños para que cada llamada quede lejos del timeout de 30 s
 MAX_MUESTRA_RESUMEN = 30
-HILOS_IA = 4
+HILOS_IA = 6
 
 _PROMPTS = Path(__file__).resolve().parent / "prompts"
 
@@ -120,21 +123,53 @@ def _leer_prompt(nombre: str) -> str:
     return ruta.read_text(encoding="utf-8") if ruta.exists() else ""
 
 
+_ALIAS_TEMA = {"carga": "carga_trabajo", "carga_de_trabajo": "carga_trabajo",
+               "comunicaciones": "comunicacion", "formaciones": "formacion",
+               "herramienta": "herramientas", "turno": "turnos", "descanso": "descansos",
+               "otro": "otros"}
+
+
+def _normalizar_tema(valor) -> str | None:
+    if isinstance(valor, dict):
+        valor = valor.get("tema") or valor.get("categoria") or valor.get("topic")
+    if not isinstance(valor, str):
+        return None
+    clave = re.sub(r"[\s\-]+", "_", _normalizar(valor).strip(" .\"'"))
+    clave = _ALIAS_TEMA.get(clave, clave)
+    return clave if clave in TEMAS else None
+
+
+def _extraer_temas(datos, n: int) -> list[str | None]:
+    # Los modelos no siempre respetan el formato: se aceptan lista, {"temas": [...]}
+    # o un diccionario numerado {"1": "tema", ...}
+    if isinstance(datos, dict):
+        for clave in ("temas", "categorias", "resultados", "clasificacion"):
+            if clave in datos:
+                datos = datos[clave]
+                break
+    if isinstance(datos, dict):
+        try:
+            datos = [v for _, v in sorted(datos.items(), key=lambda kv: int(kv[0]))]
+        except (TypeError, ValueError):
+            datos = list(datos.values())
+    if not isinstance(datos, list) or len(datos) != n:
+        recibidos = len(datos) if isinstance(datos, list) else type(datos).__name__
+        raise ValueError(f"se esperaban {n} temas y llegaron {recibidos}")
+    return [_normalizar_tema(v) for v in datos]
+
+
 def _clasificar_lote_ia(lote: list[str]) -> list[str]:
     try:
         usuario = (
             f"Temas permitidos: {', '.join(TEMAS)}\n\n"
-            f"Clasifica estos {len(lote)} comentarios. Devuelve exactamente {len(lote)} temas, "
-            f"en el mismo orden.\n\n"
-            + json.dumps({str(i + 1): txt for i, txt in enumerate(lote)}, ensure_ascii=False)
+            f"Clasifica estos {len(lote)} comentarios. Devuelve exactamente {len(lote)} temas "
+            f"en el mismo orden, con el formato {{\"temas\": [...]}}.\n\n"
+            + "\n".join(f"{i}. {txt}" for i, txt in enumerate(lote, start=1))
         )
-        datos = llamar_llm_json(_leer_prompt("clasificar.md"), usuario)
-        temas = datos.get("temas") if isinstance(datos, dict) else datos
-        if not isinstance(temas, list) or len(temas) != len(lote):
-            raise ValueError("número de temas distinto al de comentarios")
-        return [t if t in TEMAS else clasificar_por_palabras(txt)
-                for t, txt in zip(temas, lote)]
-    except Exception:
+        temas = _extraer_temas(llamar_llm_json(_leer_prompt("clasificar.md"), usuario), len(lote))
+        return [t or clasificar_por_palabras(txt) for t, txt in zip(temas, lote)]
+    except Exception as error:
+        log.warning("Lote de %d comentarios clasificado por palabras clave: %s", len(lote), error)
         return [clasificar_por_palabras(txt) for txt in lote]
 
 
@@ -181,15 +216,26 @@ def resumir_tema(tema: str, textos: list[str]) -> str:
                 + "\n".join(f"- {t}" for t in muestra)
             )
             datos = llamar_llm_json(_leer_prompt("resumir.md"), usuario)
-            texto = datos.get("resumen", "") if isinstance(datos, dict) else ""
-            texto = str(texto).strip()
-            # Descarta el resumen si contiene citas textuales para proteger el anonimato
-            if texto and '"' not in texto and "«" not in texto and not _copia_literal(texto, muestra):
+            texto = str(datos.get("resumen", "") if isinstance(datos, dict) else "").strip()
+            texto = _recortar(texto)
+            # Por anonimato se descarta cualquier resumen con citas o frases copiadas
+            if not texto:
+                log.warning("Resumen de '%s' vacío; se usa el texto de respaldo", tema)
+            elif '"' in texto or "«" in texto or _copia_literal(texto, muestra):
+                log.warning("Resumen de '%s' descartado por contener una cita literal", tema)
+            else:
                 resumen = texto
-        except Exception:
-            pass
+        except Exception as error:
+            log.warning("Resumen de '%s' no disponible: %s", tema, error)
     _CACHE_RESUMEN[clave] = resumen
     return resumen
+
+
+def _recortar(texto: str, max_frases: int = 2, max_palabras: int = 45) -> str:
+    frases = re.split(r"(?<=[.!?])\s+", texto)
+    corto = " ".join(frases[:max_frases])
+    palabras = corto.split()
+    return corto if len(palabras) <= max_palabras else " ".join(palabras[:max_palabras]).rstrip(",;:") + "…"
 
 
 def _copia_literal(resumen: str, textos: list[str], palabras: int = 6) -> bool:
@@ -206,13 +252,16 @@ def calcular_tendencia(n_actual: int, total_actual: int,
                        n_anterior: int, total_anterior: int) -> str:
     """Devuelve nuevo, sube, baja o estable comparando el peso del tema entre periodos.
 
-    Sube o baja con una variación relativa del 30 %; nuevo si antes no aparecía y ahora
-    tiene al menos 5 comentarios.
+    Sube o baja con una variación relativa del 30 %; nuevo si antes tenía menos de 2
+    comentarios y ahora tiene al menos 5.
     """
     if total_anterior <= 0:
         return "estable"
+    # Menos de 2 en el periodo anterior: un comentario mal clasificado no anula un tema nuevo
+    if n_anterior < 2 and n_actual >= UMBRAL_MINIMO:
+        return "nuevo"
     if n_anterior == 0:
-        return "nuevo" if n_actual >= UMBRAL_MINIMO else "estable"
+        return "estable"
     pct_actual = n_actual / total_actual if total_actual else 0.0
     pct_anterior = n_anterior / total_anterior
     cambio = (pct_actual - pct_anterior) / pct_anterior

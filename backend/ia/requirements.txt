@@ -1,2 +1,2 @@
-python-dotenv>=1.0.0
-google-genai>=1.0.0
+# Solo librería estándar. python-dotenv es opcional (ya lo instala backend/api).
+python-dotenv>=1.0
