@@ -4,56 +4,46 @@
 Plataforma de escucha activa para el reto de Damm (UAB The Hack 2026).
 Ciclo: RRHH describe una necesidad -> la IA genera una microencuesta adaptada a un colectivo
 -> RRHH la edita y aprueba -> se publica con enlace y QR a nuestro propio formulario
--> se recogen respuestas (móvil por QR o modo quiosco) -> análisis (participación,
-representatividad, temas, alertas) -> recomendaciones -> nueva encuesta de seguimiento.
-No usamos Typeform ni base de datos SQL.
+-> se responde desde el móvil (QR) o en modo quiosco -> análisis (participación,
+representatividad, medias, temas, alertas, límites) -> recomendaciones -> encuesta de seguimiento.
+No usamos Typeform ni base de datos SQL: todo se guarda en archivos JSON.
+
+## Documentos de referencia (en este orden)
+1. modulos.md: archivos, funciones, firmas, rutas y qué hace cada cosa. Si algo no está ahí, se pregunta.
+2. contratos/formatos.md y contratos/ejemplos/: formatos JSON exactos.
+3. contratos/api.md: resumen de la API (detalle en modulos.md, sección 3).
 
 ## Reglas no negociables
 - Solo datos sintéticos. Nunca nombres, correos, teléfonos ni datos reales.
-- Todo comentario pasa por anonimizar() (backend/datos/anonimizar.py) antes de guardarse.
-- Solo resultados agregados. Ningún segmento con menos de 5 respuestas muestra medias,
+- Todo texto libre pasa por anonimizar() antes de guardarse.
+- Solo resultados agregados: ningún segmento con menos de 5 respuestas muestra medias,
   temas ni comentarios (los recuentos de participación sí se muestran).
 - La IA nunca publica sin aprobación humana (publicar sin aprobar = error 409).
-- No se guarda nada que identifique a quien responde (ni IP ni user agent).
+- No se guarda nada que identifique a quien responde (ni IP ni user agent ni hora exacta).
+- Todo funciona SIN clave de IA (modo de respaldo): el demo nunca depende de la red.
 - Los tokens solo en .env (nunca en el código ni en el repositorio).
 
 ## Carpetas y dueños (no toques archivos fuera de tu carpeta)
-- CONTEXT.md, contratos/  Tech Lead (solo lectura para el equipo)
-- frontend/         UAB 1  pantallas de RRHH y pantalla /responder/{id} (móvil y quiosco)
-- backend/api/      UPC 2  servidor y endpoints (Python + FastAPI)
-- backend/datos/    UPC 2  almacenamiento en JSON, métricas, anonimización
-- backend/ia/       UPC 1  generar_encuesta, analizar_comentarios, recomendar
-- datos_sinteticos/ UPC 1  generador y datos_sinteticos/respuestas.json
-- contenido/        UAB 2  reglas por colectivo, plantilla.json, textos, escenarios
+- CONTEXT.md, modulos.md, contratos/   Tech Lead (solo lectura para el equipo)
+- backend/api/      UPC 2  FastAPI: rutas, QR, validación, puente con la IA
+- backend/datos/    UPC 2  almacén JSON, métricas, anonimización, tests
+- backend/ia/       UPC 1  llm, generar, analizar, recomendar (firmas en modulos.md)
+- datos_sinteticos/ UPC 1  generar.py -> enc_000.json y respuestas.json
+- frontend/         UAB 1  HTML + CSS + JS sin compilación; todo fetch pasa por js/api.js
+- contenido/        UAB 2  reglas_colectivos.md, plantilla.json, transparencia.md, escenarios_demo.md
 - pitch/            UAB 2
 
-## Encuestas y sectores
-- Cada encuesta va dirigida a UN colectivo: planta, logistica, comercial, oficina o manager.
-  Si RRHH quiere preguntar a varios colectivos, se generan varias encuestas.
-- Cada Respuesta guarda colectivo, turno, canal y periodo: así se comparan turnos dentro
-  de una encuesta y colectivos o periodos entre encuestas.
-- Excepción: enc_000 "Pulso de clima general", con colectivo "todos", contiene el histórico
-  sintético de los 5 colectivos y 2 periodos (escenario C). Es el único caso con "todos".
-- centro_tipo se deriva del colectivo: planta -> fabrica, logistica -> almacen, resto -> oficina.
+## Cómo se ejecuta
+- ./run.sh desde la raíz: crea .venv, instala y arranca en http://localhost:8000
+  (si da "Permiso denegado": chmod +x run.sh).
+- El backend sirve también el frontend: http://localhost:8000/ (index.html),
+  /responder/{id}, /ejemplos/… y la documentación en /docs.
+- Datos: backend/datos/almacen/ (no se sube a git). Al arrancar vacío carga los sintéticos.
+  Reiniciar datos: rm -rf backend/datos/almacen y ./run.sh
+- Tests: python -m pytest -q backend/datos
+- Demo con móvil: en .env pon BASE_URL=http://<IP del portátil>:8000 (misma wifi) para que el QR funcione.
 
-## Almacenamiento (JSON, sin base de datos)
-backend/datos/almacen/            se crea solo al arrancar · está en .gitignore
-  encuestas/<encuesta_id>.json    una Encuesta
-  respuestas/<encuesta_id>.json   lista de Respuesta de esa encuesta
-- Solo backend/datos/ lee y escribe estos archivos; el resto usa la API.
-- Al arrancar con almacen/ vacío se cargan los datos sintéticos de
-  datos_sinteticos/respuestas.json (lista de Respuesta, cada una con su encuesta_id),
-  pasando cada comentario por anonimizar().
-- Reiniciar los datos: rm -rf backend/datos/almacen y ./run.sh
-
-## Cómo trabajamos
-- Arranque: ./run.sh desde la raíz (crea .venv, instala y levanta la API en :8000).
-  Si da "Permiso denegado": chmod +x run.sh
-- Documentación interactiva de la API: http://localhost:8000/docs
-- Tests del backend: python -m pytest -q backend/datos
-- Todos en main: git pull --rebase y comprobar ./run.sh antes de cada push.
-- Nunca git add . : añade solo tus carpetas (git add backend/ia, git add frontend...).
-
-## Formatos y API
-Ver contratos/formatos.md, contratos/api.md y contratos/ejemplos/.
-Usa exactamente esos nombres de campo y valores.
+## Git
+- Todos en main. Una vez: git config pull.rebase true
+- Antes de cada push: git pull y comprobar que ./run.sh arranca.
+- Nunca git add . : añade solo tus carpetas.
