@@ -3,7 +3,7 @@
    Fase 1: css/estilos.css
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600;1,700&display=swap');
 
 :root {
   /* Paleta Damm & Mediterráneo */
@@ -993,3 +993,445 @@ select:focus-visible,
   }
 }
 
+
+
+/* ==========================================================================
+   ESTÉTICA "TU RINCÓN" (inspirada en la web de Estrella Damm)
+   Cabecera con imagen y título en cursiva, menú lateral espaciado,
+   tipografía geométrica fina, botones rectos con borde y mucho blanco.
+   Estas reglas van al final para sobrescribir las anteriores.
+   ========================================================================== */
+
+:root {
+  --bg-base: #FFFFFF;
+  --bg-surface: #FFFFFF;
+  --bg-surface-alt: #F7F4EF;
+  --bg-surface-hover: #EFEAE2;
+  --border-color: #DCD6CE;
+  --border-color-hover: #A9A39B;
+  --text-main: #1E1E1E;
+  --text-muted: #8C949C;
+  --text-light: #B4BAC0;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Jost', 'Futura', 'Century Gothic', -apple-system, sans-serif;
+  --shadow-sm: none;
+  --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.06);
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --container-max: 1320px;
+}
+
+body {
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* Titulares: serif en cursiva, como "Mi actividad" */
+h1, h2 {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+h1 { font-size: 3rem; line-height: 1.1; }
+h2 { font-size: 2rem; }
+h3, h4, .card-title h3 {
+  font-family: var(--font-sans);
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+h3 { font-size: 1.2rem; }
+
+.text-muted, p.text-muted { color: var(--text-muted); }
+
+/* ---------- Cabecera con imagen ---------- */
+.site-header { display: none; }
+
+.hero {
+  position: relative;
+  height: 340px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  /* Foto propia en frontend/public/cabecera.jpg; si no existe, queda el degradado */
+  background:
+    linear-gradient(rgba(20, 15, 10, 0.28), rgba(20, 15, 10, 0.28)),
+    url('/public/cabecera.jpg') center / cover no-repeat,
+    linear-gradient(160deg, #D8C3A0 0%, #B98F63 55%, #8E6644 100%);
+}
+
+.hero-barra {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.4rem 2.5rem;
+}
+
+.hero-marca {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 1.6rem;
+  color: #FFFFFF;
+  text-decoration: none;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.25);
+}
+
+.hero-contexto {
+  font-size: 0.95rem;
+  color: #FFFFFF;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+}
+.hero-contexto strong {
+  font-weight: 500;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.85);
+  padding-bottom: 0.2rem;
+  margin-left: 0.35rem;
+}
+
+.hero-titulo {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 700;
+  font-size: clamp(2.6rem, 7vw, 5.5rem);
+  color: #FFFFFF;
+  text-decoration: none;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.3);
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Dos columnas: menú lateral + contenido ---------- */
+.main-content { padding: 4.5rem 0 5rem; }
+
+.container.layout {
+  max-width: var(--container-max);
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 4rem;
+  padding: 0 2.5rem;
+}
+
+.layout-contenido {
+  min-width: 0;
+  max-width: 1040px;
+}
+
+.menu-lateral {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  position: sticky;
+  top: 2rem;
+  align-self: start;
+  padding-top: 0.6rem;
+}
+
+.menu-lateral-item {
+  font-size: 1.05rem;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  color: var(--text-light);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.menu-lateral-item:hover { color: var(--text-main); }
+.menu-lateral-item.activo { color: var(--text-muted); }
+
+/* ---------- Botones rectos con borde, en mayúsculas ---------- */
+.btn {
+  border-radius: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 400;
+  font-size: 0.85rem;
+  padding: 0.85rem 1.6rem;
+}
+.btn-primary {
+  background: transparent;
+  color: var(--text-main);
+  border: 1px solid var(--text-main);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--text-main);
+  border-color: var(--text-main);
+  color: #FFFFFF;
+}
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border-color);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: transparent;
+  border-color: var(--text-main);
+}
+.btn-lg { padding: 1.05rem 2.2rem; font-size: 0.9rem; }
+
+/* ---------- Tarjetas planas ---------- */
+.card {
+  border-radius: 0;
+  border-color: var(--border-color);
+  box-shadow: none;
+}
+.card-alt { background: var(--bg-surface-alt); }
+
+.badge {
+  border-radius: 0;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+}
+
+.form-input, .form-textarea, .form-select {
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--border-color-hover);
+  padding-left: 0.1rem;
+  background: transparent;
+  font-size: 1rem;
+}
+.form-input:focus, .form-textarea:focus, .form-select:focus {
+  box-shadow: none;
+  border-bottom-color: var(--text-main);
+}
+.form-textarea { border: 1px solid var(--border-color); padding: 0.75rem; }
+.form-label {
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.alerta { border-radius: 0; }
+.aviso-ia { border-radius: 0; }
+
+/* ---------- Pantalla "Mis encuestas" (estilo "Mi actividad") ---------- */
+.actividad-subtitulo {
+  font-size: 1.15rem;
+  color: var(--text-muted);
+  margin: 1.4rem 0 2.6rem;
+}
+
+.encuestas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.75rem;
+}
+
+.encuesta-tarjeta {
+  border: 1px solid var(--border-color);
+  padding: 2rem 1.75rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-height: 300px;
+  background: #FFFFFF;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.encuesta-tarjeta:hover {
+  border-color: var(--border-color-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.encuesta-tarjeta-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.encuesta-tarjeta-titulo {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 1.55rem;
+  line-height: 1.2;
+  color: var(--text-main);
+  text-decoration: none;
+}
+
+.encuesta-tarjeta-datos {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: auto;
+}
+.encuesta-tarjeta-datos strong {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.encuesta-tarjeta-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+.encuesta-tarjeta-acciones .btn { padding: 0.7rem 1.1rem; font-size: 0.75rem; }
+
+/* Caja de línea discontinua para crear una nueva, como "Añade rincones…" */
+.encuesta-nueva {
+  border: 2px dashed #A9B1B9;
+  padding: 3rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 2.2rem;
+  min-height: 300px;
+}
+.encuesta-nueva p {
+  font-size: 1.35rem;
+  line-height: 1.45;
+  color: var(--text-main);
+  max-width: 300px;
+}
+.encuesta-nueva .btn { min-width: 240px; }
+
+/* ---------- Móvil ---------- */
+@media (max-width: 900px) {
+  .container.layout {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    padding: 0 1.25rem;
+  }
+  .menu-lateral {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.6rem 1.4rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .menu-lateral-item { font-size: 0.9rem; letter-spacing: 0.1em; }
+  .hero { height: 230px; }
+  .hero-barra { padding: 1rem 1.25rem; }
+  .hero-contexto { display: none; }
+  h1 { font-size: 2.2rem; }
+  .main-content { padding: 2.5rem 0 3rem; }
+}
+
+@media print {
+  .hero, .menu-lateral { display: none !important; }
+}
+
+
+/* ==========================================================================
+   COHERENCIA DE COLOR Y TIPOGRAFÍA
+   Una sola gama de grises cálidos + el rojo Damm solo para alertas.
+   ========================================================================== */
+
+:root {
+  --text-main: #1F1C1A;
+  --text-muted: #8A8580;
+  --text-light: #B5B0AA;
+  --border-color: #DDD8D1;
+  --border-color-hover: #A8A29B;
+  --bg-surface-alt: #F6F3EF;
+}
+
+/* Estados: misma familia de color, distinta intensidad (nada de azules ni verdes) */
+.badge-borrador {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--border-color);
+}
+.badge-aprobada {
+  background: transparent;
+  color: var(--text-main);
+  border-color: var(--text-main);
+}
+.badge-publicada {
+  background: var(--text-main);
+  color: #FFFFFF;
+  border-color: var(--text-main);
+}
+.badge-colectivo {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--border-color);
+}
+
+/* ---------- "Mis encuestas": una sola tipografía (Jost) en todo el contenido ---------- */
+.pagina-encuestas .layout-contenido,
+.pagina-encuestas .layout-contenido * {
+  font-family: var(--font-sans);
+  font-style: normal;
+}
+
+/* El título vuelve a la serif en cursiva, como "Mi actividad" en la web de Damm */
+.pagina-encuestas .layout-contenido h1 {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 3rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.pagina-encuestas .actividad-subtitulo {
+  font-size: 1.1rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.pagina-encuestas .encuesta-tarjeta-titulo {
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--text-main);
+}
+
+.pagina-encuestas .encuesta-tarjeta-meta {
+  color: var(--text-muted);
+}
+
+.pagina-encuestas .encuesta-tarjeta-datos {
+  color: var(--text-muted);
+}
+.pagina-encuestas .encuesta-tarjeta-datos strong {
+  font-weight: 400;
+  color: var(--text-main);
+}
+
+.pagina-encuestas .encuesta-nueva {
+  border-color: var(--text-light);
+}
+.pagina-encuestas .encuesta-nueva p {
+  font-weight: 400;
+  color: var(--text-main);
+}
+
+
+/* ==========================================================================
+   IMAGEN DE CABECERA DISTINTA EN CADA PANTALLA
+   Pon en frontend/public/ las fotos que quieras:
+     cabecera-inicio.jpg   → Mis encuestas
+     cabecera-crear.jpg    → Nueva necesidad / Revisar y publicar
+     cabecera-analisis.jpg → Análisis y Recomendaciones
+   Si falta la de una pantalla, se usa cabecera.jpg; si tampoco existe, el degradado.
+   ========================================================================== */
+.hero[data-pagina] {
+  background:
+    linear-gradient(rgba(20, 15, 10, 0.28), rgba(20, 15, 10, 0.28)),
+    var(--hero-foto, none) center / cover no-repeat,
+    url('/public/cabecera.jpg') center / cover no-repeat,
+    linear-gradient(160deg, #D8C3A0 0%, #B98F63 55%, #8E6644 100%);
+}
+.hero[data-pagina="inicio"]   { --hero-foto: url('/public/cabecera-inicio.jpg'); }
+.hero[data-pagina="crear"]    { --hero-foto: url('/public/cabecera-crear.jpg'); }
+.hero[data-pagina="analisis"] { --hero-foto: url('/public/cabecera-analisis.jpg'); }
