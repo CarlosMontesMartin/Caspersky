@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Informe ejecutivo · Damm Escucha activa</title>
+  <link rel="stylesheet" href="/css/estilos.css">
+  <style>
+    /* Informe ejecutivo (contratos v2, 5.2): una hoja A4 para dirección */
+    .hoja { max-width: 820px; }
+    .sello {
+      display: inline-block; margin-bottom: var(--e2);
+      font-size: var(--t-xs); font-weight: var(--peso-fuerte); letter-spacing: .06em; text-transform: uppercase;
+      color: var(--acento); border: 1px solid var(--acento); border-radius: var(--radio); padding: 2px var(--e2);
+    }
+    .hoja h2 { font-size: var(--t-sm); text-transform: uppercase; letter-spacing: .06em; color: var(--texto-2); margin-bottom: var(--e3); }
+    .lectura { font-size: var(--t-lg); line-height: 1.55; }
+    .hallazgos { padding-left: var(--e5); }
+    .hallazgos li + li { margin-top: var(--e2); }
+    .motivo { display: block; font-size: var(--t-xs); color: var(--texto-2); margin-top: 2px; }
+    .metodo p + p { margin-top: var(--e1); }
+    .metodo ul { padding-left: var(--e5); margin-bottom: var(--e3); }
+
+    /* Impresión: solo la hoja, sin barra lateral. Gana a la regla del cartel QR de estilos.css. */
+    @page { size: A4; margin: 14mm; }
+    @media print {
+      html, body, .app, .contenido { background: #FFFFFF !important; }
+      html body > .app#informe-app { display: block !important; min-height: 0; }
+      .hoja .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+      .hoja .kpi-nota { font-size: 10px; }
+      .hoja .cabecera-pagina { margin-bottom: var(--e3); }
+      .barra-lateral, .no-imprimir { display: none !important; }
+      .contenido { margin: 0 !important; padding: 0 !important; }
+      .hoja { max-width: none; }
+      .hoja .tarjeta { box-shadow: none; padding: var(--e2) var(--e3); }
+      .hoja h2 { margin-bottom: var(--e1); font-size: var(--t-xs); }
+      .hoja h2[style] { padding: var(--e2) var(--e3) 0 !important; }
+      .hoja .tarjeta > .nota[style*="padding"] { padding: var(--e1) var(--e3) var(--e2) !important; }
+      .hoja .seccion { margin-bottom: var(--e2); break-inside: avoid; }
+      .hoja .metodo { break-inside: auto; }
+      .hoja .kpis { margin-bottom: 0; gap: var(--e2); }
+      .hoja .kpi { padding: var(--e2) var(--e3); }
+      .hoja .kpi-valor { font-size: var(--t-xl); }
+      .lectura { font-size: var(--t-md); }
+      .hallazgos, .hoja .tabla, .metodo { font-size: var(--t-xs); }
+      .hoja .tabla th, .hoja .tabla td { padding: var(--e1) var(--e2); }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="informe-app">
+    <aside class="barra-lateral" id="barra-lateral"></aside>
+
+    <main class="contenido">
+      <div class="contenido-interior hoja">
+
+        <div class="cabecera-pagina">
+          <div>
+            <span class="sello">Confidencial · resultados agregados</span>
+            <h1 id="titulo">Informe ejecutivo</h1>
+            <div class="meta nota" id="meta"></div>
+          </div>
+          <div class="acciones no-imprimir">
+            <a class="btn btn-secundario" id="btn-volver" href="/">Volver al análisis</a>
+            <button type="button" class="btn btn-principal" id="btn-imprimir" disabled>Imprimir / Guardar PDF</button>
+          </div>
+        </div>
+
+        <div id="aviso" class="aviso error oculto" role="alert"></div>
+        <p class="cargando" id="cargando">Preparando el informe…</p>
+
+        <div id="informe" class="oculto">
+          <section class="tarjeta seccion">
+            <h2>Lectura ejecutiva</h2>
+            <p class="lectura" id="lectura"></p>
+            <p class="nota" id="lectura-origen" style="margin-top: var(--e2);"></p>
+          </section>
+
+          <section class="seccion">
+            <div class="kpis">
+              <div class="tarjeta kpi">
+                <div class="kpi-etiqueta">Respuestas</div>
+                <div class="kpi-valor" id="kpi-respuestas">—</div>
+                <div class="kpi-nota" id="kpi-respuestas-nota"></div>
+              </div>
+              <div class="tarjeta kpi">
+                <div class="kpi-etiqueta">Participación global</div>
+                <div class="kpi-valor" id="kpi-participacion">—</div>
+                <div class="kpi-nota" id="kpi-participacion-nota"></div>
+              </div>
+              <div class="tarjeta kpi">
+                <div class="kpi-etiqueta">Segmentos no representativos</div>
+                <div class="kpi-valor" id="kpi-segmentos">—</div>
+                <div class="kpi-nota" id="kpi-segmentos-nota"></div>
+              </div>
+              <div class="tarjeta kpi">
+                <div class="kpi-etiqueta">Valoración media</div>
+                <div class="kpi-valor" id="kpi-valoracion">—</div>
+                <div class="kpi-nota" id="kpi-valoracion-nota"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="tarjeta seccion">
+            <h2>Hallazgos principales</h2>
+            <ol class="hallazgos" id="hallazgos"></ol>
+          </section>
+
+          <section class="tarjeta seccion" style="padding: 0;">
+            <h2 style="padding: var(--e5) var(--e5) 0;">Acciones propuestas</h2>
+            <div class="tabla-envoltura">
+              <table class="tabla">
+                <thead><tr><th>Acción</th><th>Responsable</th><th>Plazo</th><th>Indicador</th></tr></thead>
+                <tbody id="acciones"></tbody>
+              </table>
+            </div>
+            <p class="nota" style="padding: var(--e3) var(--e5) var(--e5);">Propuestas para validar por People. No son decisiones automáticas.</p>
+          </section>
+
+          <section class="tarjeta seccion">
+            <h2>Encuesta de seguimiento propuesta</h2>
+            <p id="seguimiento"></p>
+          </section>
+
+          <section class="tarjeta seccion metodo nota">
+            <h2>Límites y metodología</h2>
+            <ul id="limites"></ul>
+            <p><strong>Anonimato:</strong> no se guarda nada que identifique a quien responde y los comentarios se anonimizan antes de guardarse.</p>
+            <p><strong>Umbral:</strong> los grupos con menos de 5 respuestas no muestran medias, temas ni comentarios.</p>
+            <p><strong>IA con supervisión humana:</strong> la IA propone preguntas, temas y acciones; People las revisa y decide.</p>
+          </section>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="/js/layout.js"></script>
+  <script type="module">
+    import { obtenerAnalisis, obtenerRecomendaciones, colectivosDe, formatearColectivo, formatearTema, formatearTurno,
+             formatearPct, formatearMedia } from '/js/api.js';
+    import { escapar, entero, nombrePeriodo, textoLegible } from '/js/ui.js';
+
+    const $ = id => document.getElementById(id);
+    const encuestaId = new URLSearchParams(window.location.search).get('id');
+
+    function avisar(texto) {
+      $('cargando').classList.add('oculto');
+      $('aviso').textContent = texto;
+      $('aviso').classList.remove('oculto');
+    }
+
+    async function iniciar() {
+      if (!encuestaId) return avisar('Falta el identificador de la encuesta (informe.html?id=…).');
+      $('btn-volver').href = `/dashboard.html?id=${encodeURIComponent(encuestaId)}`;
+      try {
+        // Las recomendaciones son opcionales: si fallan, el informe sale igual
+        const [analisis, recomendaciones] = await Promise.all([
+          obtenerAnalisis(encuestaId),
+          obtenerRecomendaciones(encuestaId).catch(() => null),
+        ]);
+        pintar(analisis, recomendaciones || {});
+        $('cargando').classList.add('oculto');
+        $('informe').classList.remove('oculto');
+        $('btn-imprimir').disabled = false;
+      } catch (err) {
+        avisar(`No se pudo cargar el análisis: ${err.message}`);
+      }
+    }
+
+    // ---------- KPIs: mismo cálculo que el dashboard ----------
+    function mediaPonderada(lista) {
+      const validas = (lista || []).filter(m => m.media !== null && m.media !== undefined && (m.n ?? m.respuestas ?? 0) > 0);
+      const peso = validas.reduce((s, m) => s + (m.n ?? m.respuestas), 0);
+      if (!peso) return null;
+      return validas.reduce((s, m) => s + m.media * (m.n ?? m.respuestas), 0) / peso;
+    }
+    function valoracionMedia(a) {
+      if (a.zonas?.length) {
+        return {
+          actual: mediaPonderada(a.zonas.map(z => ({ media: z.media, n: z.respuestas }))),
+          anterior: mediaPonderada(a.zonas.map(z => ({ media: z.media_anterior, n: z.respuestas }))),
+        };
+      }
+      return { actual: mediaPonderada(a.medias), anterior: mediaPonderada(a.medias_anterior) };
+    }
+
+    function pintarKpis(a) {
+      const part = a.participacion || [];
+      const respuestas = part.reduce((s, f) => s + (f.respuestas || 0), 0);
+      const personas = part.reduce((s, f) => s + (f.personas || 0), 0);
+      const global = a.participacion_global ?? (personas ? respuestas / personas : null);
+      const noRep = part.filter(f => !f.representativo).length;
+
+      $('kpi-respuestas').textContent = entero(a.n_respuestas);
+      $('kpi-respuestas-nota').textContent = a.n_simuladas > 0
+        ? `Incluye ${entero(a.n_simuladas)} simuladas`
+        : `Periodo actual${a.n_anterior ? ` · ${entero(a.n_anterior)} en el anterior` : ''}`;
+      $('kpi-participacion').textContent = formatearPct(global);
+      $('kpi-participacion-nota').textContent = personas ? `${entero(respuestas)} de ${entero(personas)} personas` : '';
+      $('kpi-segmentos').textContent = `${noRep} de ${part.length}`;
+      $('kpi-segmentos').classList.toggle('critico', noRep > 0);
+      $('kpi-segmentos-nota').textContent = noRep ? 'Interpretar sus resultados con cautela' : 'Todos son representativos';
+
+      const v = valoracionMedia(a);
+      $('kpi-valoracion').innerHTML = v.actual === null ? '—' : `${formatearMedia(v.actual)} <span class="kpi-sobre">/ 5</span>`;
+      if (v.actual !== null && v.anterior !== null) {
+        const dif = v.actual - v.anterior;
+        const flecha = dif <= -0.05 ? '↓' : dif >= 0.05 ? '↑' : '=';
+        $('kpi-valoracion-nota').textContent = `${flecha} ${formatearMedia(Math.abs(dif))} frente a ${nombrePeriodo(a.periodo_anterior)}`;
+      } else {
+        $('kpi-valoracion-nota').textContent = a.periodo_anterior ? '' : 'Sin periodo anterior para comparar';
+      }
+    }
+
+    // ---------- Informe ----------
+    function pintar(a, r) {
+      const sectores = colectivosDe(a);
+      const mapaPreguntas = Object.fromEntries((a.preguntas || []).map(p => [p.id, p.texto]));
+      const legible = t => textoLegible(t, mapaPreguntas, formatearColectivo);
+
+      const titulo = a.titulo || 'Informe ejecutivo';
+      document.title = `Informe · ${titulo}`;
+      $('titulo').textContent = titulo;
+      const fecha = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+      $('meta').textContent = [
+        sectores.length ? `Sectores: ${sectores.map(formatearColectivo).join(', ')}` : null,
+        a.periodo_actual ? `Periodo: ${nombrePeriodo(a.periodo_actual)}${a.periodo_anterior ? ` (frente a ${nombrePeriodo(a.periodo_anterior)})` : ''}` : null,
+        `Fecha: ${fecha}`,
+      ].filter(Boolean).join(' · ');
+
+      // 1. Lectura ejecutiva
+      const lectura = a.lectura || r.lectura || '';
+      $('lectura').textContent = lectura
+        ? legible(lectura)
+        : 'La lectura ejecutiva aún no está disponible. Los indicadores y hallazgos se calculan directamente de los datos agregados.';
+      const origen = r.origen || a.estado_ia?.origen_recomendaciones;
+      $('lectura-origen').textContent = origen === 'ia' ? 'Redactada por IA a partir de datos agregados.'
+        : origen === 'reglas' ? 'Redactada por reglas a partir de datos agregados.' : '';
+
+      // 2. KPIs
+      pintarKpis(a);
+
+      // 3. Hallazgos: 2 primeras alertas + tema principal que sube o es nuevo, con su cifra
+      const hallazgos = (a.alertas || []).slice(0, 2).map(al => legible(al.mensaje)).filter(Boolean);
+      const emergente = (a.temas || []).filter(t => t.tendencia === 'nuevo' || t.tendencia === 'sube')
+        .sort((x, y) => (y.n || 0) - (x.n || 0))[0];
+      if (emergente) {
+        const cifra = emergente.pct != null && emergente.pct_anterior != null
+          ? ` (del ${formatearPct(emergente.pct_anterior)} al ${formatearPct(emergente.pct)} de los comentarios)`
+          : emergente.pct != null ? ` (${formatearPct(emergente.pct)} de los comentarios)` : '';
+        hallazgos.push(`${formatearTema(emergente.tema)}: ${emergente.tendencia === 'nuevo' ? 'tema nuevo' : 'tema en aumento'}, ${entero(emergente.n)} comentarios${cifra}.${emergente.resumen ? ' ' + emergente.resumen : ''}`);
+      }
+      $('hallazgos').innerHTML = hallazgos.length
+        ? hallazgos.map(h => `<li>${escapar(h)}</li>`).join('')
+        : '<li>No hay alertas ni temas emergentes en este periodo.</li>';
+
+      // 4. Acciones propuestas
+      const acciones = r.acciones || [];
+      $('acciones').innerHTML = acciones.length
+        ? acciones.map(ac => `
+          <tr>
+            <td><strong>${escapar(ac.titulo)}</strong>${ac.motivo ? `<span class="motivo">${escapar(legible(ac.motivo))}</span>` : ''}</td>
+            <td>${escapar(ac.responsable || 'Por definir')}</td>
+            <td>${escapar(ac.plazo || 'Por definir')}</td>
+            <td>${escapar(ac.indicador || 'Por definir')}</td>
+          </tr>`).join('')
+        : '<tr><td colspan="4" class="texto-2">Sin acciones propuestas todavía.</td></tr>';
+
+      // 5. Encuesta de seguimiento
+      const s = r.seguimiento;
+      if (s?.objetivo) {
+        const sSectores = colectivosDe(s);
+        $('seguimiento').textContent = `${s.objetivo.replace(/\.$/, '')}.`
+          + (sSectores.length ? ` Sectores: ${sSectores.map(formatearColectivo).join(', ')}.` : '')
+          + (s.duracion_max_seg ? ` Duración máxima: ${s.duracion_max_seg} s.` : '');
+      } else {
+        $('seguimiento').textContent = 'Pendiente de propuesta.';
+      }
+
+      // 6. Límites, más los segmentos ocultos por privacidad
+      const limites = (a.limites || []).map(legible);
+      const ocultos = (a.participacion || []).filter(f => (f.respuestas || 0) < 5);
+      if (ocultos.length) {
+        limites.push(`Ocultos por tener menos de 5 respuestas: ${ocultos.map(f =>
+          formatearColectivo(f.colectivo) + (f.turno && f.turno !== 'sin_turno' ? ` · ${formatearTurno(f.turno)}` : '')).join(', ')}.`);
+      }
+      $('limites').innerHTML = limites.length ? limites.map(l => `<li>${escapar(l)}</li>`).join('') : '<li>Sin límites destacados.</li>';
+    }
+
+    $('btn-imprimir').addEventListener('click', () => window.print());
+    iniciar();
+  </script>
+</body>
+</html>
