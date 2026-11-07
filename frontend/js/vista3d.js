@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { decimal, porcentaje, textoLegible, TIPOS_ALERTA, escapar } from '/js/ui.js';
 
 // =========================================================================
 // CONSTANTES
@@ -19,20 +20,20 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
  * que haya debajo de ese punto.
  */
 const ZONAS = {
-  planta:    { label: '🏭 Planta de producción', fx:  0.25, fz: -0.20, pos: new THREE.Vector3() },
-  logistica: { label: '📦 Logística',            fx: -0.30, fz: -0.30, pos: new THREE.Vector3() },
-  comercial: { label: '🚚 Comercial',            fx: -0.30, fz:  0.30, pos: new THREE.Vector3() },
-  oficina:   { label: '🏢 Oficina',              fx:  0.05, fz:  0.30, pos: new THREE.Vector3() },
-  manager:   { label: '👔 Dirección',            fx:  0.30, fz:  0.25, pos: new THREE.Vector3() },
+  planta:    { label: 'Planta', fx:  0.25, fz: -0.20, pos: new THREE.Vector3() },
+  logistica: { label: 'Logística',            fx: -0.30, fz: -0.30, pos: new THREE.Vector3() },
+  comercial: { label: 'Comercial',            fx: -0.30, fz:  0.30, pos: new THREE.Vector3() },
+  oficina:   { label: 'Oficina',              fx:  0.05, fz:  0.30, pos: new THREE.Vector3() },
+  manager:   { label: 'Managers',            fx:  0.30, fz:  0.25, pos: new THREE.Vector3() },
 };
 
 /** Mallas del FBX que no forman parte de las instalaciones (decoración) */
 const MALLAS_OCULTAS = /^(cloud|car)/i;
 
 const COLOR_CLAY    = 0xF5F1EA; // color único de la maqueta (monocromática)
-const COLOR_BG_DAY  = 0xFAF7F2;
+const COLOR_BG_DAY  = 0xFFFFFF;
 const COLOR_BG_NIGHT = 0x141B2D;
-const COLOR_DAMM    = 0xB5121B;
+const COLOR_DAMM    = 0xB91C1C; // --critico de diseno.md
 const COLOR_NIGHT_BLUE = 0x2B3A67;
 
 // =========================================================================
@@ -42,9 +43,9 @@ const COLOR_NIGHT_BLUE = 0x2B3A67;
 /** Devuelve color del marcador según representatividad del colectivo */
 function colorMarcador(colKey, analisis) {
   const filas = (analisis.participacion || []).filter(f => f.colectivo === colKey);
-  if (filas.length === 0) return 0x999999; // gris: ausente
+  if (filas.length === 0) return 0xA1A1AA; // gris: ausente
   const hayNoRep = filas.some(f => !f.representativo);
-  return hayNoRep ? COLOR_DAMM : 0x2A1A1A; // rojo Damm o oscuro
+  return hayNoRep ? COLOR_DAMM : 0x15803D; // crítico o correcto (--ok)
 }
 
 /** Proyecta una posición 3D a coordenadas de pantalla del contenedor */
@@ -64,7 +65,7 @@ function toScreen(pos, camera, domRect) {
  * Inicializa la escena 3D dentro de `contenedor` usando los datos de `analisis`.
  * Devuelve un objeto { dispose() } para limpiar y detener el render loop.
  */
-export function iniciarVista3D(contenedor, analisis) {
+export function iniciarVista3D(contenedor, analisis, mapaPreguntas = {}) {
   // --- Estado interno ----
   let animFrameId = null;
   let disposed = false;
@@ -303,7 +304,7 @@ export function iniciarVista3D(contenedor, analisis) {
     if (respuestas < 5) {
       html += `
         <div class="aviso-ia" style="margin:0.6rem 0">
-          🔒 Oculto por privacidad (n&lt;5). Solo ${respuestas} respuestas de ${personas} personas.
+          Oculto por privacidad (menos de 5 respuestas). Solo ${respuestas} respuestas de ${personas} personas.
         </div>`;
       panelLateral.innerHTML = html;
       panelLateral.style.display = 'block';
@@ -314,14 +315,14 @@ export function iniciarVista3D(contenedor, analisis) {
     if (hayNoRep) {
       html += `<span class="badge badge-no-representativo" style="margin-bottom:0.6rem;display:inline-block">No representativo</span>`;
     } else {
-      html += `<span class="badge badge-aprobada" style="margin-bottom:0.6rem;display:inline-block">Representativo</span>`;
+      html += `<span class="badge badge-ok" style="margin-bottom:0.6rem;display:inline-block">Representativo</span>`;
     }
 
     // Participación global
     html += `
       <div class="panel-3d-stat">
         <span class="text-muted text-small">Tasa de participación</span>
-        <strong>${(tasa * 100).toFixed(1)} %</strong>
+        <strong>${porcentaje(tasa)}</strong>
         <span class="text-muted text-small">${respuestas} / ${personas}</span>
       </div>`;
 
@@ -329,13 +330,13 @@ export function iniciarVista3D(contenedor, analisis) {
     if (filas.length > 0) {
       html += `<div class="panel-3d-turnos"><span class="text-muted text-small" style="font-weight:600;margin-bottom:0.3rem;display:block">Desglose por turno</span>`;
       filas.forEach(f => {
-        const turnoLabel = { manana: 'Mañana', tarde: 'Tarde', noche: 'Noche', sin_turno: 'Jornada continua' }[f.turno] || f.turno;
-        const pct = ((f.tasa || 0) * 100).toFixed(1);
+        const turnoLabel = { manana: 'Mañana', tarde: 'Tarde', noche: 'Noche', sin_turno: 'Sin turno' }[f.turno] || f.turno;
+        const pct = porcentaje(f.tasa || 0);
         const noRep = !f.representativo;
         html += `
           <div class="panel-3d-turno-row">
             <span>${turnoLabel}</span>
-            <span style="font-weight:700;${noRep ? 'color:var(--color-damm)' : ''}">${pct} %</span>
+            <span style="font-weight:700;${noRep ? 'color:var(--critico)' : ''}">${pct}</span>
             <span class="text-muted text-small">(${f.respuestas}/${f.personas})</span>
           </div>`;
       });
@@ -348,9 +349,9 @@ export function iniciarVista3D(contenedor, analisis) {
       html += `<div class="panel-3d-medias"><span class="text-muted text-small" style="font-weight:600;margin-bottom:0.3rem;display:block">Medias</span>`;
       mediasCol.forEach(m => {
         if (m.n < 5) {
-          html += `<div class="panel-3d-turno-row"><span>${m.pregunta}</span><span class="badge badge-no-representativo" style="font-size:0.7rem">n&lt;5</span></div>`;
+          html += `<div class="panel-3d-turno-row"><span style="flex:1">${escapar(mapaPreguntas[m.pregunta] || m.pregunta)}</span><span class="text-muted">—</span></div>`;
         } else {
-          html += `<div class="panel-3d-turno-row"><span>${m.pregunta}</span><strong>${m.media.toFixed(1)} / 5</strong><span class="text-muted text-small">n=${m.n}</span></div>`;
+          html += `<div class="panel-3d-turno-row"><span style="flex:1">${escapar(mapaPreguntas[m.pregunta] || m.pregunta)}</span><strong>${decimal(m.media)}</strong></div>`;
         }
       });
       html += `</div>`;
@@ -366,7 +367,7 @@ export function iniciarVista3D(contenedor, analisis) {
     if (alertas.length > 0) {
       html += `<div style="margin-top:0.6rem">`;
       alertas.forEach(a => {
-        html += `<div class="alerta" style="margin-bottom:0.4rem;padding:0.5rem 0.7rem"><div><div class="alerta-tipo" style="font-size:0.65rem">${a.tipo}</div><div class="alerta-mensaje" style="font-size:0.8rem">${a.mensaje}</div></div></div>`;
+        html += `<div class="alerta" style="margin-bottom:0.4rem;padding:0.5rem 0.7rem"><div><div class="alerta-tipo">${escapar(TIPOS_ALERTA[a.tipo] || a.tipo)}</div><div class="alerta-mensaje">${escapar(textoLegible(a.mensaje, mapaPreguntas))}</div></div></div>`;
       });
       html += `</div>`;
     }

@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Damm · Dashboard de Análisis</title>
+  <title>Análisis · Damm Escucha activa</title>
   <link rel="stylesheet" href="/css/estilos.css">
+  <script src="/vendor/chart.umd.min.js"></script>
+  <script src="/vendor/qrcode.js"></script>
   <script type="importmap">
   {
     "imports": {
@@ -13,1146 +15,936 @@
     }
   }
   </script>
-  <style>
-    /* Estilos de la vista de instalaciones (Apartado 5.1) */
-    .zona-iso {
-      cursor: pointer;
-      transition: filter 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .zona-iso:hover, .zona-iso.activa {
-      filter: url(#sombra-activa) drop-shadow(0 4px 10px rgba(42, 26, 26, 0.18));
-    }
-    .zona-iso polygon, .zona-iso rect {
-      transition: fill 0.25s ease, stroke 0.25s ease;
-    }
-    .zona-iso.activa .iso-techo {
-      stroke: var(--text-main) !important;
-      stroke-width: 2.5px !important;
-    }
-    .zona-iso.activa .etiqueta-iso rect {
-      stroke: var(--text-main) !important;
-      stroke-width: 2px !important;
-      fill: var(--bg-surface-alt) !important;
-    }
-    .zona-iso.zona-atenuada {
-      opacity: 0.45;
-    }
-  </style>
 </head>
 <body>
+  <div class="app">
+    <aside class="barra-lateral" id="barra-lateral"></aside>
 
-  <!-- Cabecera -->
-  <header class="site-header">
-    <div class="container">
-      <div style="display: flex; align-items: baseline; gap: 0.75rem;">
-        <a href="/" class="brand">Damm</a>
-        <span class="brand-badge">Escucha Activa</span>
+    <main class="contenido">
+      <div class="contenido-interior">
+
+        <!-- Cabecera -->
+        <div class="cabecera-pagina">
+          <div>
+            <h1 id="titulo">Análisis</h1>
+            <div class="meta">
+              <span id="badges-sectores" class="meta"></span>
+              <span class="badge" id="badge-estado"></span>
+              <span class="nota" id="texto-actualizado"></span>
+            </div>
+          </div>
+          <div class="acciones">
+            <button type="button" class="btn btn-secundario" id="btn-actualizar">Actualizar</button>
+            <a class="btn btn-secundario" id="btn-informe">Informe ejecutivo</a>
+            <button type="button" class="btn btn-secundario" id="btn-formulario">Formulario (QR)</button>
+            <button type="button" class="btn btn-secundario oculto" id="btn-simular">Simular respuestas</button>
+          </div>
+        </div>
+
+        <div id="aviso" class="aviso error oculto" role="alert"></div>
+
+        <nav class="pestanas" role="tablist" aria-label="Vistas">
+          <button type="button" class="pestana activa" role="tab" aria-selected="true" data-pestana="resumen">Resumen</button>
+          <button type="button" class="pestana" role="tab" aria-selected="false" data-pestana="maqueta">Maqueta 3D</button>
+        </nav>
+
+        <!-- ===================== RESUMEN ===================== -->
+        <div id="vista-resumen">
+          <div id="cargando" class="cargando">Cargando…</div>
+
+          <div id="resumen" class="oculto">
+
+            <!-- 1. Lectura ejecutiva -->
+            <section class="tarjeta seccion lectura oculto" id="bloque-lectura">
+              <div class="tarjeta-cabecera" style="margin-bottom: var(--e2);">
+                <h3>Lectura ejecutiva <span class="badge" id="badge-origen-lectura"></span></h3>
+                <div class="estado-ia" id="estado-ia"></div>
+              </div>
+              <p id="texto-lectura"></p>
+            </section>
+
+            <!-- 2. KPIs -->
+            <div class="kpis">
+              <div class="tarjeta kpi">
+                <div class="kpi-etiqueta">Respuestas</div>
+                <div class="kpi-valor" id="kpi-respuestas">—</div>
+                <div class="kpi-nota" id="kpi-respuestas-nota"></div>
+              </div>
+              <div class="tarjeta kpi">
+                <div class="kpi-etiqueta">Participación global</div>
+                <div class="kpi-valor" id="kpi-participacion">—</div>
+                <div class="kpi-nota" id="kpi-participacion-nota"></div>
+              </div>
+              <div class="tarjeta kpi">
+                <div class="kpi-etiqueta">Segmentos no representativos</div>
+                <div class="kpi-valor" id="kpi-segmentos">—</div>
+                <div class="kpi-nota" id="kpi-segmentos-nota"></div>
+              </div>
+              <div class="tarjeta kpi">
+                <div class="kpi-etiqueta">Valoración media</div>
+                <div class="kpi-valor" id="kpi-valoracion">—</div>
+                <div class="kpi-nota" id="kpi-valoracion-nota"></div>
+              </div>
+            </div>
+
+            <!-- 3. Alertas -->
+            <section class="tarjeta seccion">
+              <div class="tarjeta-cabecera" style="margin-bottom: var(--e2);">
+                <h3 id="titulo-alertas">Alertas</h3>
+                <button type="button" class="btn-texto oculto" id="btn-ver-alertas">Ver todas</button>
+              </div>
+              <ul class="lista-alertas" id="lista-alertas"></ul>
+            </section>
+
+            <!-- 4. Gráficos -->
+            <div class="dos-columnas">
+              <section class="tarjeta">
+                <div class="tarjeta-cabecera">
+                  <h3>Participación frente al objetivo</h3>
+                  <span class="nota">Objetivo: 20&#8239;%</span>
+                </div>
+                <div class="grafico" id="caja-participacion"><canvas id="grafico-participacion" aria-label="Participación por sector y turno"></canvas></div>
+              </section>
+
+              <section class="tarjeta">
+                <div class="tarjeta-cabecera">
+                  <h3>Temas: antes y ahora</h3>
+                  <span class="nota" id="nota-temas">% de los comentarios</span>
+                </div>
+                <div class="grafico" id="caja-temas"><canvas id="grafico-temas" aria-label="Temas del periodo actual frente al anterior"></canvas></div>
+                <div class="tema-detalle" id="tema-detalle"><span class="nota">Pulsa un tema para ver su resumen.</span></div>
+              </section>
+            </div>
+
+            <section class="tarjeta seccion">
+              <div class="tarjeta-cabecera">
+                <h3>Cómo han respondido</h3>
+                <div class="leyenda">
+                  <span><span class="cuadro" style="background:#B91C1C"></span>1</span>
+                  <span><span class="cuadro" style="background:#FCA5A5"></span>2</span>
+                  <span><span class="cuadro" style="background:#D4D4D8"></span>3</span>
+                  <span><span class="cuadro" style="background:#86EFAC"></span>4</span>
+                  <span><span class="cuadro" style="background:#15803D"></span>5</span>
+                </div>
+              </div>
+              <div class="grafico" id="caja-distribuciones"><canvas id="grafico-distribuciones" aria-label="Distribución de respuestas por pregunta"></canvas></div>
+            </section>
+
+            <section class="tarjeta seccion" id="seccion-calor">
+              <div class="tarjeta-cabecera">
+                <h3>Valoraciones</h3>
+                <span class="nota">Media de 1 a 5 · flecha si cambia 0,3 o más · — sin datos suficientes</span>
+              </div>
+              <div class="tabla-envoltura">
+                <table class="tabla calor" id="tabla-calor"></table>
+              </div>
+              <div id="calor-sectores"></div>
+            </section>
+
+            <!-- 5. Pregunta a tus datos -->
+            <section class="tarjeta seccion" id="seccion-preguntar">
+              <div class="tarjeta-cabecera" style="margin-bottom: var(--e2);">
+                <h3>Pregunta a tus datos</h3>
+                <span class="nota">Solo usa datos agregados. No identifica a nadie.</span>
+              </div>
+              <form id="form-preguntar" class="preguntar">
+                <label class="sr-only" for="input-pregunta">Tu pregunta</label>
+                <input type="text" id="input-pregunta" class="entrada" maxlength="300"
+                       placeholder="Escribe una pregunta sobre estos resultados">
+                <button type="submit" class="btn btn-secundario" id="btn-preguntar">Preguntar</button>
+              </form>
+              <div class="sugerencias" id="sugerencias">
+                <button type="button" class="chip">¿Qué sector está peor y por qué?</button>
+                <button type="button" class="chip">¿Qué ha cambiado respecto al mes pasado?</button>
+                <button type="button" class="chip">¿Es fiable el dato del turno de noche?</button>
+              </div>
+              <div id="respuesta-datos" class="respuesta-datos oculto" aria-live="polite"></div>
+            </section>
+
+            <!-- 6. Recomendaciones -->
+            <section class="seccion">
+              <div class="tarjeta-cabecera">
+                <h3>Recomendaciones <span class="badge oculto" id="badge-origen-recs"></span></h3>
+                <span class="nota">Propuestas para que RRHH decida</span>
+              </div>
+              <div class="recomendaciones" id="lista-recomendaciones"></div>
+              <div class="tarjeta seguimiento oculto" id="bloque-seguimiento">
+                <div>
+                  <div class="etiqueta">Encuesta de seguimiento propuesta</div>
+                  <div class="texto-2" id="seguimiento-objetivo" style="margin-top: var(--e1);"></div>
+                  <div class="nota" id="seguimiento-sectores" style="margin-top: var(--e1);"></div>
+                </div>
+                <button type="button" class="btn btn-principal" id="btn-seguimiento">Crear encuesta de seguimiento</button>
+              </div>
+            </section>
+
+            <!-- 7. Límites -->
+            <div class="limites" id="limites"></div>
+          </div>
+        </div>
+
+        <!-- ===================== MAQUETA 3D ===================== -->
+        <div id="vista-maqueta" class="oculto">
+          <div class="instalaciones-barra">
+            <div style="display: flex; gap: var(--e3); align-items: center; flex-wrap: wrap;">
+              <span class="etiqueta">Capa</span>
+              <div class="segmentado" role="group" aria-label="Capa" id="selector-capa">
+                <button type="button" class="activo" data-capa="participacion">Participación</button>
+                <button type="button" data-capa="valoracion">Valoración</button>
+                <button type="button" data-capa="alertas">Alertas</button>
+              </div>
+              <button type="button" class="btn btn-secundario" id="btn-noche" aria-pressed="false">Día/Noche (turno de noche)</button>
+            </div>
+            <div class="leyenda" id="leyenda-capa"></div>
+          </div>
+          <div class="instalaciones">
+            <div class="visor-3d-contenedor" id="contenedor-3d"></div>
+            <div class="tarjeta panel-3d-detalle" id="panel-3d-detalle">
+              <p class="texto-2">Haz clic en un edificio para ver su detalle. Arrastra para girar y usa la rueda para acercar.</p>
+            </div>
+          </div>
+          <div class="aviso-directo oculto" id="aviso-directo" role="status"></div>
+        </div>
+
       </div>
-      <nav>
-        <ul class="nav-links">
-          <li><a href="/" class="nav-link">← Volver a Encuestas</a></li>
-          <li><a href="/crear.html" class="btn btn-secondary">+ Nueva necesidad</a></li>
-        </ul>
-      </nav>
+    </main>
+  </div>
+
+  <!-- Formulario (QR) -->
+  <dialog class="dialogo" id="dialogo-formulario" aria-labelledby="titulo-formulario">
+    <h3 id="titulo-formulario">Formulario de la encuesta</h3>
+    <img id="formulario-qr" alt="Código QR de la encuesta">
+    <div class="campo">
+      <label for="formulario-url">Enlace</label>
+      <div class="copiar">
+        <input type="text" id="formulario-url" class="entrada" readonly>
+        <button type="button" class="btn btn-secundario" id="btn-copiar">Copiar</button>
+      </div>
     </div>
-  </header>
-
-  <!-- Contenido principal -->
-  <main class="main-content">
-    <div class="container">
-
-      <!-- Encabezado del Dashboard -->
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
-        <div>
-          <div style="display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.4rem;">
-            <span class="badge badge-publicada" id="badge-estado">Publicada</span>
-            <span class="text-muted text-small" id="badge-id" style="font-family: monospace; font-weight: 600;">enc_001</span>
-            <span class="badge badge-colectivo" id="badge-colectivo">planta</span>
-          </div>
-          <h1 id="titulo-encuesta" style="margin-bottom: 0.35rem;">Análisis de Resultados</h1>
-          <p class="text-muted" id="subtitulo-encuesta">Resultados agregados. Los segmentos con menos de 5 respuestas se ocultan por protección del anonimato.</p>
-        </div>
-        <div style="display: flex; gap: 0.5rem;" id="acciones-cabecera">
-          <!-- Botón de acceso al formulario QR -->
-        </div>
-      </div>
-
-      <!-- Selector de Vistas (Apartado 5.1): Vista analítica / Vista de instalaciones -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color);">
-        <div style="display: inline-flex; background-color: var(--bg-surface-alt); padding: 0.35rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-          <button type="button" id="btn-vista-analitica" class="btn btn-primary" style="padding: 0.45rem 1.15rem; font-size: 0.875rem;">
-            📊 Vista analítica
-          </button>
-          <button type="button" id="btn-vista-instalaciones" class="btn btn-secondary" style="padding: 0.45rem 1.15rem; font-size: 0.875rem; border: none; background: transparent;">
-            🏭 Vista de instalaciones
-          </button>
-          <button type="button" id="btn-vista-3d" class="btn btn-secondary" style="padding: 0.45rem 1.15rem; font-size: 0.875rem; border: none; background: transparent;">
-            🧊 Maqueta 3D
-          </button>
-        </div>
-        <div class="text-muted text-small" id="texto-modo-vista">
-          Métricas numéricas y desglose temático detallado
-        </div>
-      </div>
-
-      <!-- Contenedor de Error -->
-      <div id="panel-error" style="display: none;" class="alerta">
-        <div>
-          <div class="alerta-tipo">Error al cargar datos</div>
-          <div class="alerta-mensaje" id="mensaje-error"></div>
-        </div>
-      </div>
-
-      <!-- =================================================================== -->
-      <!-- VISTA MAQUETA 3D (INSTRUCCIONES_3D.md)                              -->
-      <!-- =================================================================== -->
-      <div id="vista-3d" style="display: none; margin-bottom: 2.5rem;">
-        <div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-            <div>
-              <h3 style="margin-bottom: 0.2rem;">Complejo Industrial Damm · Maqueta 3D</h3>
-              <p class="text-muted text-small">Rota con el ratón, haz zoom con la rueda y haz clic en cada zona para inspeccionar la participación.</p>
-            </div>
-            <button type="button" id="toggle-dia-noche" class="toggle-dia-noche" aria-label="Alternar modo día / noche">
-              ☀️ Día
-            </button>
-          </div>
-        </div>
-
-        <div class="visor-3d-grid" style="display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1.1fr); gap: 1.5rem; align-items: start;">
-          <div class="visor-3d-contenedor" id="contenedor-3d">
-            <!-- Three.js canvas se inyecta aquí -->
-          </div>
-          <div class="card panel-3d-detalle" id="panel-3d-detalle">
-            <p class="text-muted text-small">Haz clic en una zona para ver su detalle.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- =================================================================== -->
-      <!-- VISTA DE INSTALACIONES (APARTADO 5.1)                                -->
-      <!-- =================================================================== -->
-      <div id="vista-instalaciones" style="display: none; margin-bottom: 2.5rem;">
-        <div class="card" style="margin-bottom: 1.5rem; padding: 1.25rem 1.5rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-            <div>
-              <h3 style="margin-bottom: 0.25rem;">Complejo Industrial Damm · Mapa Isométrico</h3>
-              <p class="text-muted text-small">Haz clic o pasa el cursor sobre cada zona para consultar la participación, turnos y alertas asociadas.</p>
-            </div>
-            <!-- Leyenda de colores -->
-            <div style="display: flex; align-items: center; gap: 0.85rem; font-size: 0.8rem; flex-wrap: wrap;">
-              <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
-                <span style="width: 12px; height: 12px; border-radius: 3px; background: #C8E1C2; border: 1px solid #2D5E2E; display: inline-block;"></span>
-                <span>Alta (≥40%)</span>
-              </span>
-              <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
-                <span style="width: 12px; height: 12px; border-radius: 3px; background: #FFE6B3; border: 1px solid #C7A97B; display: inline-block;"></span>
-                <span>Media (20–40%)</span>
-              </span>
-              <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
-                <span style="width: 12px; height: 12px; border-radius: 3px; background: #FDE8E8; border: 1px solid var(--color-damm); display: inline-block;"></span>
-                <span>Alerta / &lt;20%</span>
-              </span>
-              <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
-                <span style="width: 12px; height: 12px; border-radius: 3px; background: #ECE4D6; border: 1px dashed #9B8E8E; opacity: 0.6; display: inline-block;"></span>
-                <span>Oculto (n&lt;5)</span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Grid de Mapa + Panel de Inspección -->
-        <div style="display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1.1fr); gap: 1.5rem; align-items: start;">
-          
-          <!-- Contenedor del SVG Isométrico -->
-          <div class="card" style="padding: 1rem; background: #FAF7F2; border: 1px solid var(--border-color); overflow: hidden; position: relative;">
-            <svg id="svg-instalaciones" viewBox="0 0 920 540" style="width: 100%; height: auto; display: block;" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <filter id="sombra-edificio" x="-20%" y="-20%" width="140%" height="140%">
-                  <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#2A1A1A" flood-opacity="0.16"/>
-                </filter>
-                <filter id="sombra-activa" x="-30%" y="-30%" width="160%" height="160%">
-                  <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#B5121B" flood-opacity="0.25"/>
-                </filter>
-              </defs>
-
-              <!-- Terreno / Campus Base isométrico -->
-              <polygon points="460,40 880,245 460,465 40,245" fill="#F4EFE6" stroke="rgba(42,26,26,0.18)" stroke-width="2"/>
-              <!-- Vías de circulación interna -->
-              <polygon points="460,245 560,195 460,145 360,195" fill="#E8DEC8" opacity="0.7"/>
-              <polygon points="360,195 460,245 460,375 360,325" fill="#E8DEC8" opacity="0.7"/>
-              <polygon points="560,195 460,245 460,375 560,325" fill="#E8DEC8" opacity="0.7"/>
-              <polygon points="460,375 580,315 640,345 520,405" fill="#E8DEC8" opacity="0.6"/>
-
-              <!-- ============================================================= -->
-              <!-- ZONA 2: ALMACÉN (Logística) - Fondo Norte                      -->
-              <!-- ============================================================= -->
-              <g class="zona-iso" id="zona-logistica" data-colectivo="logistica" style="cursor: pointer;">
-                <!-- Sombra proyectada -->
-                <polygon points="340,185 470,250 580,195 580,205 470,260 340,195" fill="rgba(42,26,26,0.12)"/>
-                <!-- Pared izquierda -->
-                <polygon class="iso-pared-izq" points="340,130 470,195 470,250 340,185" fill="#D6C8B2" stroke="rgba(42,26,26,0.25)" stroke-width="1.2"/>
-                <!-- Pared derecha (muelles de carga) -->
-                <polygon class="iso-pared-der" points="470,195 580,140 580,195 470,250" fill="#BEB09A" stroke="rgba(42,26,26,0.25)" stroke-width="1.2"/>
-                <!-- Techo del almacén -->
-                <polygon class="iso-techo" id="techo-logistica" points="450,75 580,140 470,195 340,130" fill="#EFE8DA" stroke="rgba(42,26,26,0.3)" stroke-width="1.5"/>
-                
-                <!-- Puertas de muelles de carga -->
-                <polygon points="490,205 515,192 515,225 490,238" fill="#3D2A2A"/>
-                <polygon points="525,187 550,174 550,207 525,220" fill="#3D2A2A"/>
-                <polygon points="555,172 575,162 575,192 555,202" fill="#3D2A2A"/>
-
-                <!-- Etiqueta Flotante SVG -->
-                <g class="etiqueta-iso" transform="translate(460, 95)">
-                  <rect x="-75" y="-14" width="150" height="28" rx="14" fill="#FFFFFF" stroke="rgba(42,26,26,0.18)" stroke-width="1.2"/>
-                  <text x="0" y="4" text-anchor="middle" font-family="'Inter', sans-serif" font-size="12" font-weight="600" fill="#2A1A1A">
-                    📦 Almacén <tspan id="tag-tasa-logistica" font-weight="700" fill="#B5121B">10%</tspan>
-                  </text>
-                </g>
-              </g>
-
-              <!-- ============================================================= -->
-              <!-- ZONA 1: FÁBRICA (Planta) - Centro Izquierda                    -->
-              <!-- ============================================================= -->
-              <g class="zona-iso" id="zona-planta" data-colectivo="planta" style="cursor: pointer;">
-                <!-- Sombra proyectada -->
-                <polygon points="190,290 300,345 430,280 430,290 300,355 190,300" fill="rgba(42,26,26,0.14)"/>
-                <!-- Pared izquierda nave -->
-                <polygon class="iso-pared-izq" points="200,210 300,260 300,340 200,290" fill="#C5B59C" stroke="rgba(42,26,26,0.25)" stroke-width="1.2"/>
-                <!-- Pared derecha nave -->
-                <polygon class="iso-pared-der" points="300,260 430,195 430,275 300,340" fill="#AAA08E" stroke="rgba(42,26,26,0.25)" stroke-width="1.2"/>
-                
-                <!-- Techo industrial en diente de sierra (sawtooth) -->
-                <polygon class="iso-techo" id="techo-planta" points="200,210 330,145 370,165 240,230" fill="#E8DEC8" stroke="rgba(42,26,26,0.3)" stroke-width="1.2"/>
-                <polygon points="240,230 370,165 410,185 280,250" fill="#E2D6BE" stroke="rgba(42,26,26,0.3)" stroke-width="1.2"/>
-                <polygon points="280,250 410,185 430,195 300,260" fill="#DFD2BA" stroke="rgba(42,26,26,0.3)" stroke-width="1.2"/>
-
-                <!-- Silos cilíndricos de elaboración Damm en primer plano -->
-                <!-- Silo 1 -->
-                <ellipse cx="185" cy="315" rx="18" ry="9" fill="#BFAF96"/>
-                <rect x="167" y="260" width="36" height="55" fill="#B8A487"/>
-                <ellipse cx="185" cy="260" rx="18" ry="9" fill="#D9C7AA" stroke="rgba(42,26,26,0.2)" stroke-width="1"/>
-                <!-- Silo 2 -->
-                <ellipse cx="225" cy="335" rx="18" ry="9" fill="#BFAF96"/>
-                <rect x="207" y="280" width="36" height="55" fill="#B8A487"/>
-                <ellipse cx="225" cy="280" rx="18" ry="9" fill="#D9C7AA" stroke="rgba(42,26,26,0.2)" stroke-width="1"/>
-
-                <!-- Ventanales de la nave -->
-                <polygon points="315,265 350,248 350,265 315,282" fill="#EBF2FA" opacity="0.8"/>
-                <polygon points="365,240 400,223 400,240 365,257" fill="#EBF2FA" opacity="0.8"/>
-
-                <!-- Etiqueta Flotante SVG -->
-                <g class="etiqueta-iso" transform="translate(290, 160)">
-                  <rect x="-75" y="-14" width="150" height="28" rx="14" fill="#FFFFFF" stroke="rgba(42,26,26,0.18)" stroke-width="1.2"/>
-                  <text x="0" y="4" text-anchor="middle" font-family="'Inter', sans-serif" font-size="12" font-weight="600" fill="#2A1A1A">
-                    🏭 Fábrica <tspan id="tag-tasa-planta" font-weight="700" fill="#B5121B">25% ⚠️</tspan>
-                  </text>
-                </g>
-              </g>
-
-              <!-- ============================================================= -->
-              <!-- ZONA 3: OFICINAS (Oficina) - Plantas 1 a 3                    -->
-              <!-- ============================================================= -->
-              <g class="zona-iso" id="zona-oficina" data-colectivo="oficina" style="cursor: pointer;">
-                <!-- Pared izquierda (fachada continua) -->
-                <polygon class="iso-pared-izq" points="570,235 680,290 680,380 570,325" fill="#C5BDB0" stroke="rgba(42,26,26,0.25)" stroke-width="1.2"/>
-                <!-- Pared derecha -->
-                <polygon class="iso-pared-der" points="680,290 770,245 770,335 680,380" fill="#B2A99B" stroke="rgba(42,26,26,0.25)" stroke-width="1.2"/>
-                <!-- Techo planta 3 / terraza -->
-                <polygon class="iso-techo" id="techo-oficina" points="660,190 770,245 680,290 570,235" fill="#E8E2D5" stroke="rgba(42,26,26,0.3)" stroke-width="1.2"/>
-
-                <!-- Bandas horizontales de ventanas (plantas 1, 2 y 3) -->
-                <!-- Planta 3 -->
-                <polygon points="585,250 665,290 665,298 585,258" fill="#88A3BC" opacity="0.85"/>
-                <polygon points="690,285 755,252 755,260 690,293" fill="#6A859E" opacity="0.85"/>
-                <!-- Planta 2 -->
-                <polygon points="585,275 665,315 665,323 585,283" fill="#88A3BC" opacity="0.85"/>
-                <polygon points="690,310 755,277 755,285 690,318" fill="#6A859E" opacity="0.85"/>
-                <!-- Planta 1 / Entrada -->
-                <polygon points="585,300 665,340 665,348 585,308" fill="#88A3BC" opacity="0.85"/>
-                <polygon points="690,335 755,302 755,310 690,343" fill="#6A859E" opacity="0.85"/>
-
-                <!-- Etiqueta Flotante SVG -->
-                <g class="etiqueta-iso" transform="translate(680, 310)">
-                  <rect x="-65" y="-14" width="130" height="28" rx="14" fill="#FFFFFF" stroke="rgba(42,26,26,0.18)" stroke-width="1.2"/>
-                  <text x="0" y="4" text-anchor="middle" font-family="'Inter', sans-serif" font-size="12" font-weight="600" fill="#2A1A1A">
-                    🏢 Oficinas <tspan id="tag-tasa-oficina" font-weight="700" fill="#2D5E2E">45% ✓</tspan>
-                  </text>
-                </g>
-              </g>
-
-              <!-- ============================================================= -->
-              <!-- ZONA 4: DIRECCIÓN (Manager) - Planta Superior de Oficinas     -->
-              <!-- ============================================================= -->
-              <g class="zona-iso" id="zona-manager" data-colectivo="manager" style="cursor: pointer;">
-                <!-- Pared izquierda ático de cristal -->
-                <polygon class="iso-pared-izq" points="600,150 680,190 680,235 600,195" fill="#759CB8" stroke="rgba(42,26,26,0.35)" stroke-width="1.4"/>
-                <!-- Pared derecha ático de cristal -->
-                <polygon class="iso-pared-der" points="680,190 740,160 740,205 680,235" fill="#5A829E" stroke="rgba(42,26,26,0.35)" stroke-width="1.4"/>
-                <!-- Techo pérgola ejecutiva / Ático Dirección -->
-                <polygon class="iso-techo" id="techo-manager" points="660,115 740,155 680,185 600,145" fill="#D5C5B0" stroke="#B5121B" stroke-width="1.5"/>
-
-                <!-- Remate superior / terraza ejecutiva -->
-                <line x1="600" y1="145" x2="600" y2="135" stroke="#B5121B" stroke-width="2"/>
-                <line x1="680" y1="185" x2="680" y2="175" stroke="#B5121B" stroke-width="2"/>
-                <line x1="740" y1="155" x2="740" y2="145" stroke="#B5121B" stroke-width="2"/>
-
-                <!-- Etiqueta Flotante SVG -->
-                <g class="etiqueta-iso" transform="translate(680, 135)">
-                  <rect x="-75" y="-14" width="150" height="28" rx="14" fill="#FFFFFF" stroke="rgba(42,26,26,0.18)" stroke-width="1.2"/>
-                  <text x="0" y="4" text-anchor="middle" font-family="'Inter', sans-serif" font-size="12" font-weight="600" fill="#2A1A1A">
-                    💼 Dirección <tspan id="tag-tasa-manager" font-weight="700" fill="#2D5E2E">60% ✓</tspan>
-                  </text>
-                </g>
-              </g>
-
-              <!-- ============================================================= -->
-              <!-- ZONA 5: FURGONETAS (Comercial) - Dársena y Flota Sur          -->
-              <!-- ============================================================= -->
-              <g class="zona-iso" id="zona-comercial" data-colectivo="comercial" style="cursor: pointer;">
-                <!-- Dársena / Parking pintado -->
-                <polygon points="360,400 520,320 600,360 440,440" fill="#DFD6C5" stroke="rgba(42,26,26,0.2)" stroke-width="1"/>
-                
-                <!-- Líneas de aparcamiento en dársena -->
-                <line x1="400" y1="380" x2="430" y2="395" stroke="#FFFFFF" stroke-width="2"/>
-                <line x1="450" y1="355" x2="480" y2="370" stroke="#FFFFFF" stroke-width="2"/>
-                <line x1="500" y1="330" x2="530" y2="345" stroke="#FFFFFF" stroke-width="2"/>
-
-                <!-- Furgoneta 1 (izq) -->
-                <g transform="translate(0, 0)">
-                  <polygon points="390,380 430,360 450,370 410,390" fill="#FFFFFF" stroke="rgba(42,26,26,0.3)"/>
-                  <polygon points="390,380 410,390 410,408 390,398" fill="#B5121B"/>
-                  <polygon points="410,390 450,370 450,388 410,408" fill="#DFDFDF"/>
-                  <circle cx="400" cy="405" r="4" fill="#2A1A1A"/>
-                  <circle cx="435" cy="388" r="4" fill="#2A1A1A"/>
-                </g>
-
-                <!-- Furgoneta 2 (centro) -->
-                <g transform="translate(45, -22)">
-                  <polygon points="390,380 430,360 450,370 410,390" fill="#FFFFFF" stroke="rgba(42,26,26,0.3)"/>
-                  <polygon points="390,380 410,390 410,408 390,398" fill="#B5121B"/>
-                  <polygon points="410,390 450,370 450,388 410,408" fill="#DFDFDF"/>
-                  <circle cx="400" cy="405" r="4" fill="#2A1A1A"/>
-                  <circle cx="435" cy="388" r="4" fill="#2A1A1A"/>
-                </g>
-
-                <!-- Furgoneta 3 (der) -->
-                <g transform="translate(90, -45)">
-                  <polygon points="390,380 430,360 450,370 410,390" fill="#FFFFFF" stroke="rgba(42,26,26,0.3)"/>
-                  <polygon points="390,380 410,390 410,408 390,398" fill="#B5121B"/>
-                  <polygon points="410,390 450,370 450,388 410,408" fill="#DFDFDF"/>
-                  <circle cx="400" cy="405" r="4" fill="#2A1A1A"/>
-                  <circle cx="435" cy="388" r="4" fill="#2A1A1A"/>
-                </g>
-
-                <!-- Etiqueta Flotante SVG -->
-                <g class="etiqueta-iso" transform="translate(470, 420)">
-                  <rect x="-80" y="-14" width="160" height="28" rx="14" fill="#FFFFFF" stroke="rgba(42,26,26,0.18)" stroke-width="1.2"/>
-                  <text x="0" y="4" text-anchor="middle" font-family="'Inter', sans-serif" font-size="12" font-weight="600" fill="#2A1A1A">
-                    🚐 Furgonetas <tspan id="tag-tasa-comercial" font-weight="700" fill="#2A1A1A">30% ✓</tspan>
-                  </text>
-                </g>
-              </g>
-
-            </svg>
-            
-            <div style="margin-top: 0.5rem; text-align: center; font-size: 0.8rem; color: var(--text-muted);">
-              💡 Consejo: Selecciona cualquier zona del plano para actualizar el panel de inspección.
-            </div>
-          </div>
-
-          <!-- Panel de Inspección de Colectivo / Instalación -->
-          <div class="card" id="panel-detalle-colectivo" style="padding: 1.5rem; background: #FFFFFF; border: 1px solid var(--border-color);">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; gap: 0.5rem;">
-              <div>
-                <span class="badge badge-colectivo" id="zona-detalle-centro" style="margin-bottom: 0.35rem;">Fábrica</span>
-                <h3 id="zona-detalle-titulo" style="font-size: 1.35rem;">Fábrica (Planta)</h3>
-              </div>
-              <span class="badge badge-no-representativo" id="zona-detalle-badge">No representativo</span>
-            </div>
-
-            <!-- Métricas clave de la zona -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.25rem; background: var(--bg-surface-alt); padding: 1rem; border-radius: var(--radius-md);">
-              <div>
-                <span class="text-muted text-small" style="font-size: 0.75rem; text-transform: uppercase;">Tasa global</span>
-                <div style="font-size: 1.5rem; font-weight: 700;" id="zona-detalle-tasa">25.3 %</div>
-              </div>
-              <div>
-                <span class="text-muted text-small" style="font-size: 0.75rem; text-transform: uppercase;">Muestra / Censo</span>
-                <div style="font-size: 1.15rem; font-weight: 600; margin-top: 0.25rem;" id="zona-detalle-recuentos">79 / 400</div>
-              </div>
-            </div>
-
-            <!-- Desglose de turnos (si la encuesta tiene turnos para este colectivo) -->
-            <div id="zona-seccion-turnos" style="margin-bottom: 1.25rem;">
-              <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Desglose de turnos de trabajo</h4>
-              <div id="zona-lista-turnos" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                <!-- Filas de turnos dinámicas -->
-              </div>
-            </div>
-
-            <!-- Alertas específicas de la zona -->
-            <div id="zona-seccion-alertas">
-              <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Alertas específicas</h4>
-              <div id="zona-lista-alertas">
-                <!-- Alertas dinámicas -->
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- =================================================================== -->
-      <!-- VISTA ANALÍTICA (ORIGINAL, SIN TOCAR)                                -->
-      <!-- =================================================================== -->
-      <div id="vista-analitica">
-
-      <!-- 1. ALERTAS ARRIBA -->
-      <section id="seccion-alertas" style="margin-bottom: 2rem;">
-        <!-- Se rellena dinámicamente -->
-      </section>
-
-      <!-- 2. RESUMEN: N_RESPUESTAS Y PERIODOS -->
-      <section style="margin-bottom: 2rem;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem;">
-          <div class="card" style="padding: 1.5rem;">
-            <span class="text-muted text-small" style="text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Muestra total</span>
-            <div style="font-size: 2.25rem; font-weight: 700; color: var(--text-main); line-height: 1.1; margin-top: 0.4rem;" id="val-n-respuestas">--</div>
-            <span class="text-muted text-small">Respuestas recogidas</span>
-          </div>
-
-          <div class="card" style="padding: 1.5rem;">
-            <span class="text-muted text-small" style="text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Periodo actual</span>
-            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-main); line-height: 1.2; margin-top: 0.6rem;" id="val-periodo-actual">--</div>
-            <span class="text-muted text-small">Mes de medición activa</span>
-          </div>
-
-          <div class="card" style="padding: 1.5rem;">
-            <span class="text-muted text-small" style="text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Periodo anterior</span>
-            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-muted); line-height: 1.2; margin-top: 0.6rem;" id="val-periodo-anterior">--</div>
-            <span class="text-muted text-small">Para cálculo de tendencias</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- 3. PARTICIPACIÓN POR COLECTIVO Y TURNO -->
-      <section class="card" style="margin-bottom: 2rem;">
-        <div class="card-title">
-          <div>
-            <h3>Participación por colectivo y turno</h3>
-            <p class="text-muted text-small">Representatividad mínima requerida: ≥ 5 respuestas y tasa ≥ 20%.</p>
-          </div>
-        </div>
-
-        <div class="table-responsive">
-          <table class="table-custom">
-            <thead>
-              <tr>
-                <th>Colectivo</th>
-                <th>Turno</th>
-                <th>Respuestas</th>
-                <th>Censo</th>
-                <th>Tasa</th>
-                <th style="min-width: 160px;">Distribución</th>
-                <th>Estado representatividad</th>
-              </tr>
-            </thead>
-            <tbody id="tabla-participacion-body">
-              <tr>
-                <td colspan="7" style="text-align: center; padding: 2rem;" class="text-muted">Cargando métricas de participación...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- 4. MEDIAS POR PREGUNTA -->
-      <section class="card" style="margin-bottom: 2rem;">
-        <div class="card-title">
-          <div>
-            <h3>Medias por pregunta (Escala 1 a 5)</h3>
-            <p class="text-muted text-small">Puntuaciones medias de satisfacción. Se omiten segmentos con menos de 5 respuestas.</p>
-          </div>
-        </div>
-
-        <div id="contenedor-medias">
-          <p class="text-muted" style="padding: 1rem 0;">Cargando medias por pregunta...</p>
-        </div>
-      </section>
-
-      <!-- 5. TEMAS Y TENDENCIAS -->
-      <section class="card" style="margin-bottom: 2rem;">
-        <div class="card-title">
-          <div>
-            <h3>Temas clave detectados</h3>
-            <p class="text-muted text-small">Agrupación temática de comentarios cualitativos analizados por la IA.</p>
-          </div>
-        </div>
-
-        <div class="temas-grid" id="grid-temas">
-          <p class="text-muted" style="padding: 1rem 0;">Cargando temas...</p>
-        </div>
-      </section>
-
-      <!-- 6. LÍMITES DEL ANÁLISIS -->
-      <section class="card card-alt" style="margin-bottom: 2rem;">
-        <h4 style="margin-bottom: 0.5rem;">Límites del análisis</h4>
-        <p style="font-weight: 600; color: var(--color-damm); font-size: 0.9rem; margin-bottom: 0.75rem;">
-          Segmentos con menos de 5 respuestas ocultos
-        </p>
-        <ul id="lista-limites" style="padding-left: 1.25rem; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
-          <li>Cargando consideraciones metodológicas...</li>
-        </ul>
-      </section>
-
-      <!-- 7. RECOMENDACIONES Y ENCUESTA DE SEGUIMIENTO -->
-      <section class="card" id="seccion-recomendaciones" style="border: 1px solid rgba(42, 26, 26, 0.2);">
-        <div class="card-title">
-          <div>
-            <h3>Recomendaciones e impacto</h3>
-            <p class="text-muted text-small" style="color: var(--color-damm); font-weight: 600;">Propuesta para que RRHH decida</p>
-          </div>
-        </div>
-
-        <div id="contenedor-acciones" style="margin-bottom: 2rem;">
-          <p class="text-muted">Cargando recomendaciones propuestas...</p>
-        </div>
-
-        <!-- Encuesta de seguimiento -->
-        <div id="bloque-seguimiento" style="background-color: var(--bg-surface-alt); border: 1px dashed var(--border-color-hover); border-radius: var(--radius-md); padding: 1.5rem;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
-            <div style="max-width: 680px;">
-              <span class="badge badge-borrador" style="margin-bottom: 0.5rem;">Ciclo de escucha continua</span>
-              <h4 id="seguimiento-objetivo" style="margin-bottom: 0.4rem;">Nueva encuesta de seguimiento</h4>
-              <p class="text-muted text-small" id="seguimiento-contexto" style="margin-bottom: 0.5rem;"></p>
-              <div style="display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted);">
-                <span>Colectivo: <strong id="seguimiento-colectivo" style="text-transform: capitalize;">-</strong></span>
-                <span>Duración máx: <strong id="seguimiento-duracion">-</strong></span>
-              </div>
-            </div>
-            <div>
-              <button id="btn-crear-seguimiento" class="btn btn-primary">
-                Crear encuesta de seguimiento
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-      </div> <!-- /vista-analitica -->
-
+    <div class="pie-acciones">
+      <a class="btn btn-secundario" id="formulario-quiosco" target="_blank" rel="noopener">Abrir modo quiosco</a>
+      <button type="button" class="btn btn-secundario" id="btn-cerrar-formulario">Cerrar</button>
     </div>
-  </main>
+  </dialog>
 
-  <!-- Script Dashboard -->
+  <script type="module" src="/js/layout.js"></script>
   <script type="module">
     import {
-      obtenerAnalisis,
-      obtenerRecomendaciones,
-      obtenerEncuesta,
-      formatearColectivo,
-      formatearTema,
-      formatearTurno,
-      formatearEstado
+      obtenerAnalisis, obtenerRecomendaciones, obtenerEncuesta, obtenerSalud, simularRespuestas, preguntarDatos,
+      formatearColectivo, formatearTema, formatearTurno, formatearEstado, formatearPct, formatearMedia,
+      colectivosDe, ORDEN_COLECTIVOS
     } from '/js/api.js';
+    import { escapar, entero, nombrePeriodo, textoLegible, colorCalor } from '/js/ui.js';
 
-    const params = new URLSearchParams(window.location.search);
-    const encuestaId = params.get('id') || 'enc_001';
-
-    // Elementos del DOM
-    const panelError = document.getElementById('panel-error');
-    const mensajeError = document.getElementById('mensaje-error');
-    const badgeId = document.getElementById('badge-id');
-    const badgeColectivo = document.getElementById('badge-colectivo');
-    const tituloEncuesta = document.getElementById('titulo-encuesta');
-    const subtituloEncuesta = document.getElementById('subtitulo-encuesta');
-    const accionesCabecera = document.getElementById('acciones-cabecera');
-
-    const seccionAlertas = document.getElementById('seccion-alertas');
-    const valNRespuestas = document.getElementById('val-n-respuestas');
-    const valPeriodoActual = document.getElementById('val-periodo-actual');
-    const valPeriodoAnterior = document.getElementById('val-periodo-anterior');
-
-    const tablaPartBody = document.getElementById('tabla-participacion-body');
-    const contenedorMedias = document.getElementById('contenedor-medias');
-    const gridTemas = document.getElementById('grid-temas');
-    const listaLimites = document.getElementById('lista-limites');
-
-    const contenedorAcciones = document.getElementById('contenedor-acciones');
-    const bloqueSeguimiento = document.getElementById('bloque-seguimiento');
-    const seguimientoObjetivo = document.getElementById('seguimiento-objetivo');
-    const seguimientoContexto = document.getElementById('seguimiento-contexto');
-    const seguimientoColectivo = document.getElementById('seguimiento-colectivo');
-    const seguimientoDuracion = document.getElementById('seguimiento-duracion');
-    const btnCrearSeguimiento = document.getElementById('btn-crear-seguimiento');
-
-    let datosSeguimiento = null;
-    let mapaPreguntas = {};
-
-    async function cargarDashboard() {
-      badgeId.textContent = encuestaId;
-      let encuestaCargada = null;
-
-      // Intentar obtener definición de la encuesta para tener títulos de preguntas
-      try {
-        const enc = await obtenerEncuesta(encuestaId);
-        if (enc) {
-          encuestaCargada = enc;
-          tituloEncuesta.textContent = enc.titulo || `Análisis de ${encuestaId}`;
-          if (enc.intro) subtituloEncuesta.textContent = enc.intro;
-          badgeColectivo.textContent = formatearColectivo(enc.colectivo);
-          if (enc.preguntas) {
-            enc.preguntas.forEach(p => {
-              mapaPreguntas[p.id] = p.texto;
-            });
-          }
-          accionesCabecera.innerHTML = `
-            <a href="/responder/${encodeURIComponent(enc.id)}?canal=qr" class="btn btn-secondary text-small" target="_blank">
-              Abrir formulario móvil (QR)
-            </a>
-          `;
-        }
-      } catch (e) {
-        // Puede continuar aunque no exista la definición directa
-      }
-
-      // Cargar Análisis y Recomendaciones en paralelo
-      try {
-        const [analisis, recomendaciones] = await Promise.all([
-          obtenerAnalisis(encuestaId),
-          obtenerRecomendaciones(encuestaId)
-        ]);
-
-        renderizarAlertas(analisis.alertas || []);
-        renderizarResumen(analisis);
-        renderizarParticipacion(analisis.participacion || []);
-        renderizarMedias(analisis.medias || []);
-        renderizarTemas(analisis.temas || []);
-        renderizarLimites(analisis.limites || []);
-        renderizarRecomendaciones(recomendaciones);
-
-        // Configuración de la vista de instalaciones (Apartado 5.1)
-        configurarVistaInstalaciones(analisis, encuestaCargada);
-
-        // Guardar analisis para la vista 3D (carga diferida)
-        vista3dAnalisis = analisis;
-
-      } catch (err) {
-        console.error('Error al cargar dashboard:', err);
-        panelError.style.display = 'flex';
-        mensajeError.textContent = err.message || 'No se pudieron recuperar los datos de análisis para esta encuesta.';
-      }
-    }
-
-    // 1. Alertas
-    function renderizarAlertas(alertas) {
-      if (!alertas || alertas.length === 0) {
-        seccionAlertas.innerHTML = `
-          <div class="aviso-ia">
-            ✓ No se han detectado alertas críticas de representatividad ni caídas abruptas en este periodo.
-          </div>
-        `;
-        return;
-      }
-
-      seccionAlertas.innerHTML = alertas.map(a => `
-        <div class="alerta">
-          <div>
-            <div class="alerta-tipo">Alerta · ${a.tipo || 'Aviso'}</div>
-            <div class="alerta-mensaje">${a.mensaje}</div>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    // 2. Resumen
-    function renderizarResumen(analisis) {
-      valNRespuestas.textContent = (analisis.n_respuestas ?? 0).toLocaleString();
-      valPeriodoActual.textContent = analisis.periodo_actual || 'Noviembre 2026';
-      valPeriodoAnterior.textContent = analisis.periodo_anterior || 'No disponible';
-    }
-
-    // 3. Participación
-    function renderizarParticipacion(filas) {
-      if (!filas || filas.length === 0) {
-        tablaPartBody.innerHTML = `
-          <tr><td colspan="7" class="text-muted" style="text-align: center; padding: 2rem;">No hay datos de participación desglosados.</td></tr>
-        `;
-        return;
-      }
-
-      tablaPartBody.innerHTML = filas.map(f => {
-        const porcentaje = Math.round((f.tasa || 0) * 100);
-        const porcentajeDecimal = ((f.tasa || 0) * 100).toFixed(1);
-        const noRep = !f.representativo;
-
-        return `
-          <tr class="${noRep ? 'row-no-rep' : ''}">
-            <td style="font-weight: 600;">${formatearColectivo(f.colectivo)}</td>
-            <td>${formatearTurno(f.turno)}</td>
-            <td style="font-weight: 600;">${f.respuestas}</td>
-            <td class="text-muted">${f.personas}</td>
-            <td style="font-weight: 600;">${porcentajeDecimal} %</td>
-            <td>
-              <div class="progress-bar-container">
-                <div class="progress-track">
-                  <div class="progress-fill ${noRep ? 'fill-damm' : ''}" style="width: ${Math.min(100, Math.max(4, porcentaje))}%;"></div>
-                </div>
-              </div>
-            </td>
-            <td>
-              ${noRep
-                ? '<span class="badge badge-no-representativo">No representativo</span>'
-                : '<span class="badge badge-aprobada">Representativo</span>'
-              }
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    // 4. Medias por pregunta
-    function renderizarMedias(medias) {
-      if (!medias || medias.length === 0) {
-        contenedorMedias.innerHTML = `
-          <p class="text-muted" style="padding: 1rem 0;">No hay preguntas de escala numérica con respuestas suficientes para calcular medias.</p>
-        `;
-        return;
-      }
-
-      contenedorMedias.innerHTML = medias.map(m => {
-        // Regla no negociable: Si n < 5 no se muestra
-        if (m.n < 5) {
-          return `
-            <div style="padding: 1rem 0; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <strong style="margin-right: 0.5rem;">${m.pregunta}</strong>
-                <span class="text-muted">${mapaPreguntas[m.pregunta] || ''}</span>
-              </div>
-              <span class="badge badge-no-representativo">Oculto por privacidad (n < 5)</span>
-            </div>
-          `;
-        }
-
-        const score = typeof m.media === 'number' ? m.media : 0;
-        const porcentajeEscala = Math.min(100, Math.max(0, (score / 5) * 100));
-
-        return `
-          <div style="padding: 1.1rem 0; border-bottom: 1px solid var(--border-color);">
-            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
-              <div>
-                <span style="font-family: monospace; font-weight: 700; color: var(--text-muted); margin-right: 0.4rem;">${m.pregunta}</span>
-                <span style="font-weight: 600;">${mapaPreguntas[m.pregunta] || 'Puntuación de la pregunta'}</span>
-                <span class="text-muted text-small" style="margin-left: 0.5rem;">(Colectivo: ${formatearColectivo(m.colectivo)}, n=${m.n})</span>
-              </div>
-              <div style="font-size: 1.25rem; font-weight: 700;">
-                ${score.toFixed(1)} <span class="text-muted text-small" style="font-weight: 400;">/ 5.0</span>
-              </div>
-            </div>
-            <div class="progress-track" style="height: 10px;">
-              <div class="progress-fill" style="width: ${porcentajeEscala}%;"></div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    // 5. Temas y tendencias
-    function renderizarTemas(temas) {
-      if (!temas || temas.length === 0) {
-        gridTemas.innerHTML = `
-          <p class="text-muted" style="padding: 1rem 0;">No se han agrupado temas cualitativos para esta encuesta.</p>
-        `;
-        return;
-      }
-
-      function formatTendenciaBadge(tendencia) {
-        if (tendencia === 'nuevo') {
-          return '<span class="badge badge-nuevo">Nuevo ↑</span>';
-        } else if (tendencia === 'sube') {
-          return '<span class="badge badge-borrador" style="color: var(--color-damm); font-weight:700;">↑ Sube</span>';
-        } else if (tendencia === 'baja') {
-          return '<span class="badge badge-borrador" style="color: #2D5E2E; font-weight:700;">↓ Baja</span>';
-        }
-        return '<span class="badge badge-borrador">→ Estable</span>';
-      }
-
-      gridTemas.innerHTML = temas.map(t => `
-        <div class="tema-card">
-          <div>
-            <div class="tema-header">
-              <span class="tema-nombre">${formatearTema(t.tema)}</span>
-              ${formatTendenciaBadge(t.tendencia)}
-            </div>
-            <p class="tema-resumen">${t.resumen || 'Comentarios clasificados en esta categoría temática.'}</p>
-          </div>
-          <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color); font-size: 0.8rem; color: var(--text-muted);">
-            Volumen: <strong style="color: var(--text-main);">${t.n}</strong> comentarios
-          </div>
-        </div>
-      `).join('');
-    }
-
-    // 6. Límites
-    function renderizarLimites(limites) {
-      if (!limites || limites.length === 0) {
-        listaLimites.innerHTML = `<li>No se han especificado limitaciones metodológicas.</li>`;
-        return;
-      }
-      listaLimites.innerHTML = limites.map(l => `<li>${l}</li>`).join('');
-    }
-
-    // 7. Recomendaciones y Encuesta de seguimiento
-    function renderizarRecomendaciones(recs) {
-      if (!recs || !recs.acciones || recs.acciones.length === 0) {
-        contenedorAcciones.innerHTML = `
-          <p class="text-muted">No hay acciones automáticas recomendadas para este periodo.</p>
-        `;
-      } else {
-        contenedorAcciones.innerHTML = recs.acciones.map(a => `
-          <div class="recomendacion-card">
-            <div class="recomendacion-meta">
-              <span class="badge badge-colectivo">${formatearTema(a.tema)}</span>
-              <span class="text-muted text-small">Recomendación prioritaria</span>
-            </div>
-            <h4 style="margin-bottom: 0.4rem;">${a.titulo}</h4>
-            <p class="text-muted text-small" style="line-height: 1.5;">${a.motivo}</p>
-          </div>
-        `).join('');
-      }
-
-      // Configurar encuesta de seguimiento
-      if (recs && recs.seguimiento) {
-        datosSeguimiento = recs.seguimiento;
-        seguimientoObjetivo.textContent = recs.seguimiento.objetivo || 'Encuesta de seguimiento';
-        seguimientoContexto.textContent = recs.seguimiento.contexto || 'Diseñada para comprobar la efectividad de las medidas tomadas.';
-        seguimientoColectivo.textContent = formatearColectivo(recs.seguimiento.colectivo);
-        seguimientoDuracion.textContent = `${recs.seguimiento.duracion_max_seg || 60} seg`;
-
-        btnCrearSeguimiento.onclick = () => {
-          sessionStorage.setItem('necesidad_prefill', JSON.stringify(datosSeguimiento));
-          window.location.href = '/crear.html';
-        };
-      } else {
-        bloqueSeguimiento.style.display = 'none';
-      }
-    }
-
-    // =========================================================================
-    // VISTA DE INSTALACIONES (APARTADO 5.1) + MAQUETA 3D (INSTRUCCIONES_3D)
-    // =========================================================================
-    const btnVistaAnalitica = document.getElementById('btn-vista-analitica');
-    const btnVistaInstalaciones = document.getElementById('btn-vista-instalaciones');
-    const btnVista3D = document.getElementById('btn-vista-3d');
-    const vistaAnalitica = document.getElementById('vista-analitica');
-    const vistaInstalaciones = document.getElementById('vista-instalaciones');
-    const vista3D = document.getElementById('vista-3d');
-    const textoModoVista = document.getElementById('texto-modo-vista');
-
-    // Estado de la vista 3D: lazy-load, solo se crea una vez
-    let vista3dInstancia = null;
-    let vista3dAnalisis = null; // se asigna en cargarDashboard
-
-    const allBtns = [btnVistaAnalitica, btnVistaInstalaciones, btnVista3D].filter(Boolean);
-    const allVistas = [vistaAnalitica, vistaInstalaciones, vista3D].filter(Boolean);
-
-    function activarVista(btn, vistaEl, texto) {
-      allVistas.forEach(v => v.style.display = 'none');
-      vistaEl.style.display = 'block';
-      allBtns.forEach(b => {
-        b.className = 'btn btn-secondary';
-        b.style.background = 'transparent';
-        b.style.border = 'none';
-      });
-      btn.className = 'btn btn-primary';
-      btn.style.background = '';
-      btn.style.border = '';
-      textoModoVista.textContent = texto;
-    }
-
-    if (btnVistaAnalitica) {
-      btnVistaAnalitica.addEventListener('click', () => {
-        activarVista(btnVistaAnalitica, vistaAnalitica, 'Métricas numéricas y desglose temático detallado');
-        // Detener animación 3D si existía
-        if (vista3dInstancia) vista3dInstancia.dispose();
-        vista3dInstancia = null;
-      });
-    }
-
-    if (btnVistaInstalaciones) {
-      btnVistaInstalaciones.addEventListener('click', () => {
-        activarVista(btnVistaInstalaciones, vistaInstalaciones, 'Mapa isométrico interactivo de instalaciones');
-        if (vista3dInstancia) vista3dInstancia.dispose();
-        vista3dInstancia = null;
-      });
-    }
-
-    if (btnVista3D) {
-      btnVista3D.addEventListener('click', async () => {
-        activarVista(btnVista3D, vista3D, 'Maqueta 3D interactiva del complejo industrial');
-        // Carga diferida: solo la primera vez
-        if (!vista3dInstancia && vista3dAnalisis) {
-          try {
-            const { iniciarVista3D } = await import('/js/vista3d.js');
-            const contenedor3d = document.getElementById('contenedor-3d');
-            vista3dInstancia = iniciarVista3D(contenedor3d, vista3dAnalisis);
-            // La maqueta nueva arranca de día: sincroniza el interruptor
-            const toggleInicio = document.getElementById('toggle-dia-noche');
-            if (toggleInicio) {
-              toggleInicio.textContent = '☀️ Día';
-              toggleInicio.classList.remove('noche');
-              toggleInicio.dataset.noche = 'false';
-            }
-            // Si el modelo falla, volver a analítica
-            contenedor3d.addEventListener('vista3d-error', () => {
-              activarVista(btnVistaAnalitica, vistaAnalitica, 'Métricas numéricas y desglose temático detallado');
-              if (vista3dInstancia) vista3dInstancia.dispose();
-              vista3dInstancia = null;
-            }, { once: true });
-          } catch (e) {
-            console.error('Error al cargar vista 3D:', e);
-            activarVista(btnVistaAnalitica, vistaAnalitica, 'Métricas numéricas y desglose temático detallado');
-          }
-        }
-      });
-
-      // Toggle Día / Noche
-      const toggleDN = document.getElementById('toggle-dia-noche');
-      if (toggleDN) {
-        toggleDN.addEventListener('click', () => {
-          const esNoche = toggleDN.dataset.noche !== 'true';
-          toggleDN.dataset.noche = String(esNoche);
-          toggleDN.textContent = esNoche ? '🌙 Noche' : '☀️ Día';
-          toggleDN.classList.toggle('noche', esNoche);
-          const contenedor3d = document.getElementById('contenedor-3d');
-          if (contenedor3d && contenedor3d.__vista3d_setModo) {
-            contenedor3d.__vista3d_setModo(esNoche);
-          } else if (vista3dInstancia && vista3dInstancia.setModo) {
-            vista3dInstancia.setModo(esNoche);
-          }
-        });
-      }
-    }
-
-    const zonaDetalleCentro = document.getElementById('zona-detalle-centro');
-    const zonaDetalleTitulo = document.getElementById('zona-detalle-titulo');
-    const zonaDetalleBadge = document.getElementById('zona-detalle-badge');
-    const zonaDetalleTasa = document.getElementById('zona-detalle-tasa');
-    const zonaDetalleRecuentos = document.getElementById('zona-detalle-recuentos');
-    const zonaSeccionTurnos = document.getElementById('zona-seccion-turnos');
-    const zonaListaTurnos = document.getElementById('zona-lista-turnos');
-    const zonaListaAlertas = document.getElementById('zona-lista-alertas');
-
-    const ZONAS_MAPA = {
-      planta: {
-        nombre: 'Fábrica (Planta)',
-        centro: 'Fábrica',
-        techoId: 'techo-planta',
-        tagId: 'tag-tasa-planta',
-        grupoId: 'zona-planta'
-      },
-      logistica: {
-        nombre: 'Almacén (Logística)',
-        centro: 'Almacén',
-        techoId: 'techo-logistica',
-        tagId: 'tag-tasa-logistica',
-        grupoId: 'zona-logistica'
-      },
-      oficina: {
-        nombre: 'Oficinas (Corporativo)',
-        centro: 'Oficina',
-        techoId: 'techo-oficina',
-        tagId: 'tag-tasa-oficina',
-        grupoId: 'zona-oficina'
-      },
-      manager: {
-        nombre: 'Dirección (Managers)',
-        centro: 'Dirección (Planta Sup.)',
-        techoId: 'techo-manager',
-        tagId: 'tag-tasa-manager',
-        grupoId: 'zona-manager'
-      },
-      comercial: {
-        nombre: 'Furgonetas (Comercial)',
-        centro: 'Distribución',
-        techoId: null,
-        tagId: 'tag-tasa-comercial',
-        grupoId: 'zona-comercial'
-      }
+    const $ = id => document.getElementById(id);
+    const encuestaId = new URLSearchParams(window.location.search).get('id') || 'enc_000';
+    const ORDEN_TURNOS = ['manana', 'tarde', 'noche', 'sin_turno'];
+    const MAX_ALERTAS = 5;
+    const REFRESCO_MS = 10000;
+    const C = {
+      critico: '#B91C1C', critico2: '#FCA5A5', ok: '#15803D', ok2: '#86EFAC', aviso: '#B45309',
+      gris: '#D4D4D8', gris2: '#A1A1AA', texto: '#18181B', texto2: '#52525B', borde: '#E4E4E7',
     };
 
-    function configurarVistaInstalaciones(analisis, encuesta) {
-      if (!analisis) return;
+    let encuesta = null;
+    let analisis = null;
+    let recs = null;
+    let mapaPreguntas = {};
+    let alertasDesplegadas = false;
+    let cargandoAhora = false;
+    let primeraCarga = true;
+    let pestanaActual = 'resumen';
+    let vista3d = null;
+    let capa = 'participacion';
+    let noche = false;
+    const graficos = {};
 
-      Object.keys(ZONAS_MAPA).forEach(colKey => {
-        const info = ZONAS_MAPA[colKey];
-        const filas = (analisis.participacion || []).filter(f => f.colectivo === colKey);
-        const respuestas = filas.reduce((acc, f) => acc + (f.respuestas || 0), 0);
-        const personas = filas.reduce((acc, f) => acc + (f.personas || 0), 0);
-        const tasa = personas > 0 ? (respuestas / personas) : (filas[0]?.tasa || 0);
-        const tieneNoRep = filas.some(f => !f.representativo) || tasa < 0.20;
+    const legible = t => textoLegible(t, mapaPreguntas, formatearColectivo);
+    const sectores = () => colectivosDe(analisis?.colectivos?.length ? analisis : encuesta);
 
-        const tagEl = document.getElementById(info.tagId);
-        const techoEl = info.techoId ? document.getElementById(info.techoId) : null;
-        const grupoEl = document.getElementById(info.grupoId);
+    function mostrarError(texto) { $('aviso').textContent = texto; $('aviso').classList.remove('oculto'); }
+    function ocultarError() { $('aviso').classList.add('oculto'); }
 
-        if (respuestas < 5) {
-          if (tagEl) {
-            tagEl.textContent = 'Oculto (n<5)';
-            tagEl.setAttribute('fill', '#6E5F5F');
-          }
-          if (grupoEl) grupoEl.classList.add('zona-atenuada');
-          if (techoEl) {
-            techoEl.setAttribute('fill', '#ECE4D6');
-            techoEl.setAttribute('stroke', '#9B8E8E');
-            techoEl.setAttribute('stroke-dasharray', '4 2');
-          }
-        } else if (tieneNoRep) {
-          if (tagEl) {
-            tagEl.textContent = `${Math.round(tasa * 100)}% ⚠️`;
-            tagEl.setAttribute('fill', '#B5121B');
-          }
-          if (techoEl) {
-            techoEl.setAttribute('fill', '#FDE8E8');
-            techoEl.setAttribute('stroke', '#B5121B');
-            techoEl.setAttribute('stroke-width', '2');
-          }
-        } else if (tasa >= 0.40) {
-          if (tagEl) {
-            tagEl.textContent = `${Math.round(tasa * 100)}% ✓`;
-            tagEl.setAttribute('fill', '#2D5E2E');
-          }
-          if (techoEl) {
-            techoEl.setAttribute('fill', '#C8E1C2');
-            techoEl.setAttribute('stroke', '#2D5E2E');
-            techoEl.setAttribute('stroke-width', '1.5');
-          }
-        } else {
-          if (tagEl) {
-            tagEl.textContent = `${Math.round(tasa * 100)}%`;
-            tagEl.setAttribute('fill', '#2A1A1A');
-          }
-          if (techoEl) {
-            techoEl.setAttribute('fill', '#FFE6B3');
-            techoEl.setAttribute('stroke', '#C7A97B');
-            techoEl.setAttribute('stroke-width', '1.5');
-          }
-        }
-
-        if (grupoEl) {
-          grupoEl.onmouseenter = () => seleccionarZona(colKey, analisis, encuesta);
-          grupoEl.onclick = () => seleccionarZona(colKey, analisis, encuesta);
-        }
-      });
-
-      // Selección inicial de zona
-      const colInicial = (encuesta && encuesta.colectivo && ZONAS_MAPA[encuesta.colectivo])
-        ? encuesta.colectivo
-        : 'planta';
-      seleccionarZona(colInicial, analisis, encuesta);
+    // Valores por defecto de Chart.js: fuente del sistema, colores sobrios
+    if (window.Chart) {
+      Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+      Chart.defaults.font.size = 12;
+      Chart.defaults.color = C.texto2;
+      Chart.defaults.animation.duration = 300;
+      Chart.defaults.plugins.legend.display = false;
+      Chart.defaults.maintainAspectRatio = false;
     }
 
-    function seleccionarZona(colKey, analisis, encuesta) {
-      const info = ZONAS_MAPA[colKey];
-      if (!info) return;
+    // ---------------- Carga ----------------
+    async function cargarEncuesta() {
+      encuesta = await obtenerEncuesta(encuestaId);
+      $('titulo').textContent = encuesta.titulo || 'Análisis';
+      document.title = `${encuesta.titulo || 'Análisis'} · Damm Escucha activa`;
+      $('badge-estado').className = `badge badge-${encuesta.estado}`;
+      $('badge-estado').textContent = formatearEstado(encuesta.estado);
+      $('btn-informe').href = `/informe.html?id=${encodeURIComponent(encuestaId)}`;
+      actualizarMapaPreguntas();
+    }
 
-      // Resaltado visual en el SVG
-      document.querySelectorAll('.zona-iso').forEach(z => z.classList.remove('activa'));
-      document.getElementById(info.grupoId)?.classList.add('activa');
+    function actualizarMapaPreguntas() {
+      mapaPreguntas = {};
+      (encuesta?.preguntas || []).forEach(p => { mapaPreguntas[p.id] = p.texto; });
+      Object.values(encuesta?.preguntas_por_colectivo || {}).flat().forEach(p => { mapaPreguntas[p.id] = p.texto; });
+      (analisis?.preguntas || []).forEach(p => { mapaPreguntas[p.id] = p.texto; });
+    }
 
-      // Actualizar cabecera del panel de detalles
-      zonaDetalleCentro.textContent = info.centro;
-      zonaDetalleTitulo.textContent = info.nombre;
+    function pintarBadgesSectores() {
+      const cols = sectores();
+      $('badges-sectores').innerHTML = (encuesta?.colectivo === 'todos' || cols.length === 5)
+        ? '<span class="badge">Todos los sectores</span>'
+        : cols.map(c => `<span class="badge">${escapar(formatearColectivo(c))}</span>`).join('');
+    }
 
-      const filas = (analisis.participacion || []).filter(f => f.colectivo === colKey);
-      const respuestas = filas.reduce((acc, f) => acc + (f.respuestas || 0), 0);
-      const personas = filas.reduce((acc, f) => acc + (f.personas || 0), 0);
-      const tasa = personas > 0 ? (respuestas / personas) : (filas[0]?.tasa || 0);
-      const tieneNoRep = filas.some(f => !f.representativo) || tasa < 0.20;
-
-      // Si el colectivo tiene menos de 5 respuestas -> regla de privacidad
-      if (respuestas < 5) {
-        zonaDetalleBadge.className = 'badge badge-borrador';
-        zonaDetalleBadge.textContent = 'Oculto por privacidad (n<5)';
-        zonaDetalleTasa.textContent = 'Oculto';
-        zonaDetalleRecuentos.textContent = `< 5 / ${personas}`;
-        zonaListaTurnos.innerHTML = `
-          <div class="aviso-ia" style="margin-top:0.4rem;">
-            🔒 Información atenuada: segmento con menos de 5 respuestas.
-          </div>
-        `;
-      } else {
-        if (tieneNoRep) {
-          zonaDetalleBadge.className = 'badge badge-no-representativo';
-          zonaDetalleBadge.textContent = 'No representativo';
-        } else {
-          zonaDetalleBadge.className = 'badge badge-aprobada';
-          zonaDetalleBadge.textContent = 'Representativo';
-        }
-        zonaDetalleTasa.textContent = `${(tasa * 100).toFixed(1)} %`;
-        zonaDetalleRecuentos.textContent = `${respuestas} / ${personas}`;
-
-        // Mostrar turnos si la encuesta es de este colectivo o tiene turnos desglosados
-        if (filas.length > 0) {
-          const tieneVariosTurnos = filas.some(f => f.turno !== 'sin_turno');
-          if (tieneVariosTurnos) {
-            zonaSeccionTurnos.style.display = 'block';
-            zonaListaTurnos.innerHTML = filas.map(f => {
-              const fTasaPct = ((f.tasa || 0) * 100).toFixed(1);
-              const esNoRep = !f.representativo;
-              return `
-                <div style="background: var(--bg-surface-alt); padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; font-size: 0.85rem;">
-                    <div>
-                      <strong>${formatearTurno(f.turno)}</strong>
-                      <span class="text-muted text-small" style="margin-left: 0.4rem;">(${f.respuestas} / ${f.personas})</span>
-                    </div>
-                    <span style="font-weight: 700; ${esNoRep ? 'color: var(--color-damm);' : ''}">${fTasaPct} %</span>
-                  </div>
-                  <div class="progress-track" style="height: 6px;">
-                    <div class="progress-fill ${esNoRep ? 'fill-damm' : ''}" style="width: ${Math.min(100, Math.round((f.tasa || 0) * 100))}%;"></div>
-                  </div>
-                </div>
-              `;
-            }).join('');
-          } else {
-            zonaSeccionTurnos.style.display = 'block';
-            zonaListaTurnos.innerHTML = `
-              <p class="text-muted text-small" style="padding: 0.25rem 0;">Jornada continua / sin turnos rotativos para este centro.</p>
-            `;
-          }
-        } else {
-          zonaSeccionTurnos.style.display = 'none';
-        }
-      }
-
-      // Alertas específicas de la zona
-      const alertasColectivo = (analisis.alertas || []).filter(a => {
-        const msg = (a.mensaje || '').toLowerCase();
-        return msg.includes(colKey) ||
-               (colKey === 'planta' && msg.includes('noche')) ||
-               (colKey === 'logistica' && msg.includes('almacén'));
-      });
-
-      if (alertasColectivo.length > 0) {
-        zonaListaAlertas.innerHTML = alertasColectivo.map(a => `
-          <div class="alerta" style="margin-bottom: 0.5rem; padding: 0.65rem 0.85rem;">
-            <div>
-              <div class="alerta-tipo" style="font-size: 0.7rem;">${a.tipo}</div>
-              <div class="alerta-mensaje" style="font-size: 0.85rem;">${a.mensaje}</div>
-            </div>
-          </div>
-        `).join('');
-      } else {
-        zonaListaAlertas.innerHTML = `
-          <div class="aviso-ia" style="margin-top: 0.25rem; font-size: 0.825rem;">
-            ✓ Sin incidencias registradas en este colectivo.
-          </div>
-        `;
+    async function cargarDatos() {
+      if (cargandoAhora) return;
+      cargandoAhora = true;
+      const animar = primeraCarga;
+      try {
+        const [a, r] = await Promise.all([obtenerAnalisis(encuestaId), obtenerRecomendaciones(encuestaId)]);
+        analisis = a;
+        recs = r;
+        actualizarMapaPreguntas();
+        ocultarError();
+        pintarBadgesSectores();
+        pintarResumen(animar);
+        if (vista3d?.actualizar) vista3d.actualizar(analisis);
+        const ahora = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        $('texto-actualizado').textContent = `Actualizado a las ${ahora}`;
+        primeraCarga = false;
+      } catch (err) {
+        mostrarError(`No se pudo cargar el análisis: ${err.message}`);
+      } finally {
+        cargandoAhora = false;
+        $('cargando').classList.add('oculto');
+        $('resumen').classList.toggle('oculto', !analisis);
       }
     }
 
-    cargarDashboard();
+    function pintarResumen(animar) {
+      pintarLectura();
+      pintarKpis();
+      pintarAlertas();
+      graficoParticipacion(animar);
+      graficoTemas(animar);
+      graficoDistribuciones(animar);
+      pintarCalor();
+      pintarRecomendaciones();
+      pintarLimites();
+    }
+
+    // ---------------- 1. Lectura ejecutiva y estado de la IA ----------------
+    function pintarLectura() {
+      const lectura = analisis.lectura || recs?.lectura || '';
+      const tieneV2 = 'lectura' in analisis || 'estado_ia' in analisis;
+      $('bloque-lectura').classList.toggle('oculto', !tieneV2 && !lectura);
+      $('texto-lectura').textContent = lectura ? legible(lectura) : 'La lectura ejecutiva estará lista en unos segundos.';
+      $('texto-lectura').classList.toggle('texto-3', !lectura);
+
+      const ia = analisis.estado_ia || {};
+      const origen = ia.origen_recomendaciones || recs?.origen;
+      const badge = $('badge-origen-lectura');
+      badge.textContent = origen === 'ia' ? 'IA' : 'Reglas';
+      badge.className = `badge ${origen === 'ia' ? 'badge-ia' : ''}`;
+
+      const el = $('estado-ia');
+      if (!('estado_ia' in analisis)) { el.innerHTML = ''; return; }
+      if (!ia.llm) {
+        el.innerHTML = '<span class="punto punto-aviso"></span><span>Sin IA: análisis por reglas</span>';
+      } else if (ia.listo) {
+        el.innerHTML = '<span class="punto punto-ok"></span><span>Análisis con IA listo</span>';
+      } else {
+        const total = ia.comentarios_total || 0;
+        const hechos = ia.comentarios_ia || 0;
+        const pct = total ? Math.round((hechos / total) * 100) : 0;
+        el.innerHTML = `
+          <span>Analizando comentarios con IA · ${entero(hechos)} de ${entero(total)}</span>
+          <span class="barra-pista" style="width: 96px;"><span class="barra-relleno" style="width: ${pct}%; display: block;"></span></span>`;
+      }
+    }
+
+    // ---------------- 2. KPIs ----------------
+    function mediaPonderada(lista) {
+      const validas = (lista || []).filter(m => m.media !== null && m.media !== undefined && (m.n ?? m.respuestas ?? 0) > 0);
+      const peso = validas.reduce((s, m) => s + (m.n ?? m.respuestas), 0);
+      if (!peso) return null;
+      return validas.reduce((s, m) => s + m.media * (m.n ?? m.respuestas), 0) / peso;
+    }
+
+    function valoracionMedia() {
+      // v2: media de las zonas ponderada por respuestas; si no, la de las medias por pregunta
+      if (analisis.zonas?.length) {
+        const actual = mediaPonderada(analisis.zonas.map(z => ({ media: z.media, n: z.respuestas })));
+        const anterior = mediaPonderada(analisis.zonas.map(z => ({ media: z.media_anterior, n: z.respuestas })));
+        return { actual, anterior };
+      }
+      return { actual: mediaPonderada(analisis.medias), anterior: mediaPonderada(analisis.medias_anterior) };
+    }
+
+    function pintarKpis() {
+      const part = analisis.participacion || [];
+      const respuestas = part.reduce((s, f) => s + (f.respuestas || 0), 0);
+      const personas = part.reduce((s, f) => s + (f.personas || 0), 0);
+      const global = analisis.participacion_global ?? (personas ? respuestas / personas : null);
+      const noRep = part.filter(f => !f.representativo).length;
+
+      $('kpi-respuestas').textContent = entero(analisis.n_respuestas);
+      $('kpi-respuestas-nota').textContent = analisis.n_simuladas > 0
+        ? `Incluye ${entero(analisis.n_simuladas)} simuladas`
+        : `Periodo actual${analisis.n_anterior ? ` · ${entero(analisis.n_anterior)} en el anterior` : ''}`;
+
+      $('kpi-participacion').textContent = formatearPct(global);
+      $('kpi-participacion-nota').textContent = personas ? `${entero(respuestas)} de ${entero(personas)} personas` : '';
+
+      $('kpi-segmentos').textContent = `${noRep} de ${part.length}`;
+      $('kpi-segmentos').classList.toggle('critico', noRep > 0);
+      $('kpi-segmentos-nota').textContent = noRep ? 'Interpretar sus resultados con cautela' : 'Todos son representativos';
+
+      const v = valoracionMedia();
+      $('kpi-valoracion').innerHTML = v.actual === null ? '—' : `${formatearMedia(v.actual)} <span class="kpi-sobre">/ 5</span>`;
+      if (v.actual !== null && v.anterior !== null) {
+        const dif = v.actual - v.anterior;
+        const flecha = dif <= -0.05 ? '↓' : dif >= 0.05 ? '↑' : '=';
+        const clase = dif <= -0.3 ? 'texto-critico' : dif >= 0.3 ? 'texto-ok' : '';
+        $('kpi-valoracion-nota').innerHTML = `<span class="${clase}">${flecha} ${formatearMedia(Math.abs(dif))}</span> frente a ${escapar(nombrePeriodo(analisis.periodo_anterior))}`;
+      } else {
+        $('kpi-valoracion-nota').textContent = analisis.periodo_anterior ? '' : 'Sin periodo anterior para comparar';
+      }
+    }
+
+    // ---------------- 3. Alertas ----------------
+    const claseAlerta = tipo => (tipo === 'representatividad' ? 'critico' : 'aviso');
+    function pintarAlertas() {
+      const alertas = analisis.alertas || [];
+      $('titulo-alertas').textContent = `Alertas (${alertas.length})`;
+      const lista = $('lista-alertas');
+      if (!alertas.length) {
+        lista.innerHTML = '<li class="texto-2">Sin alertas en este periodo.</li>';
+        $('btn-ver-alertas').classList.add('oculto');
+        return;
+      }
+      const orden = { representatividad: 0, caida: 1, tema_emergente: 2 };
+      const ordenadas = [...alertas].sort((x, y) => (orden[x.tipo] ?? 3) - (orden[y.tipo] ?? 3));
+      const visibles = alertasDesplegadas ? ordenadas : ordenadas.slice(0, MAX_ALERTAS);
+      lista.innerHTML = visibles.map(al => `
+        <li><span class="punto punto-${claseAlerta(al.tipo)}"></span><span>${escapar(legible(al.mensaje))}</span></li>`).join('');
+      const b = $('btn-ver-alertas');
+      b.classList.toggle('oculto', alertas.length <= MAX_ALERTAS);
+      b.textContent = alertasDesplegadas ? 'Ver menos' : `Ver todas (${alertas.length})`;
+    }
+    $('btn-ver-alertas').addEventListener('click', () => { alertasDesplegadas = !alertasDesplegadas; pintarAlertas(); });
+
+    // ---------------- 4. Gráficos ----------------
+    function dibujar(nombre, canvasId, config, animar) {
+      if (!window.Chart) return;
+      if (graficos[nombre]) {
+        graficos[nombre].data = config.data;
+        graficos[nombre].options = config.options;
+        graficos[nombre].update(animar ? undefined : 'none');
+        return;
+      }
+      graficos[nombre] = new Chart($(canvasId), config);
+    }
+    function sinDatos(cajaId, texto) {
+      const caja = $(cajaId);
+      let v = caja.querySelector('.vacio');
+      if (!v) { v = document.createElement('p'); v.className = 'vacio'; caja.appendChild(v); }
+      v.textContent = texto;
+      caja.querySelector('canvas').classList.toggle('oculto', !!texto);
+      v.classList.toggle('oculto', !texto);
+    }
+    /** Parte un texto largo en varias líneas para las etiquetas del eje */
+    function partir(texto, max = 38) {
+      const palabras = String(texto).split(' ');
+      const lineas = [];
+      let linea = '';
+      palabras.forEach(p => {
+        if ((linea + ' ' + p).trim().length > max) { lineas.push(linea.trim()); linea = p; }
+        else linea += ' ' + p;
+      });
+      if (linea.trim()) lineas.push(linea.trim());
+      return lineas.slice(0, 3);
+    }
+
+    // Línea vertical del objetivo (20 %) en el gráfico de participación
+    const lineaObjetivo = {
+      id: 'lineaObjetivo',
+      afterDatasetsDraw(chart, args, opts) {
+        const x = chart.scales.x.getPixelForValue(opts.valor);
+        const { top, bottom } = chart.chartArea;
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.strokeStyle = C.texto;
+        ctx.setLineDash([4, 3]);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = C.texto;
+        ctx.font = `12px ${Chart.defaults.font.family}`;
+        ctx.fillText('20 %', x + 4, top + 10);
+        ctx.restore();
+      },
+    };
+
+    function graficoParticipacion(animar) {
+      const filas = [...(analisis.participacion || [])].sort((x, y) =>
+        ORDEN_COLECTIVOS.indexOf(x.colectivo) - ORDEN_COLECTIVOS.indexOf(y.colectivo) ||
+        ORDEN_TURNOS.indexOf(x.turno) - ORDEN_TURNOS.indexOf(y.turno));
+      if (!filas.length) { sinDatos('caja-participacion', 'Sin datos de participación.'); return; }
+      sinDatos('caja-participacion', '');
+      $('caja-participacion').style.height = `${Math.max(180, filas.length * 34 + 40)}px`;
+      const etiquetas = filas.map(f => f.turno === 'sin_turno'
+        ? formatearColectivo(f.colectivo)
+        : `${formatearColectivo(f.colectivo)} · ${formatearTurno(f.turno)}`);
+      const maximo = Math.max(40, ...filas.map(f => Math.ceil((f.tasa || 0) * 100 / 10) * 10 + 10));
+      dibujar('participacion', 'grafico-participacion', {
+        type: 'bar',
+        data: {
+          labels: etiquetas,
+          datasets: [{
+            data: filas.map(f => Math.round((f.tasa || 0) * 1000) / 10),
+            backgroundColor: filas.map(f => (f.representativo ? C.gris2 : C.critico)),
+            borderRadius: 3, barThickness: 16,
+          }],
+        },
+        options: {
+          indexAxis: 'y',
+          scales: {
+            x: { min: 0, max: Math.min(100, maximo), ticks: { callback: v => `${v} %` }, grid: { color: C.borde } },
+            y: { grid: { display: false } },
+          },
+          plugins: {
+            lineaObjetivo: { valor: 20 },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const f = filas[ctx.dataIndex];
+                  return ` ${formatearPct(f.tasa)} · ${entero(f.respuestas)} de ${entero(f.personas)}${f.representativo ? '' : ' · no representativo'}`;
+                },
+              },
+            },
+          },
+        },
+        plugins: [lineaObjetivo],
+      }, animar);
+    }
+
+    let temaSeleccionado = null;
+    function graficoTemas(animar) {
+      const temas = analisis.temas || [];
+      if (!temas.length) {
+        sinDatos('caja-temas', 'Todavía no hay comentarios suficientes para agrupar por temas.');
+        $('tema-detalle').classList.add('oculto');
+        return;
+      }
+      sinDatos('caja-temas', '');
+      $('tema-detalle').classList.remove('oculto');
+      // pct: v2; si no viene, se calcula con el total de comentarios clasificados
+      const total = temas.reduce((s, t) => s + (t.n || 0), 0) || 1;
+      const pct = t => (t.pct ?? (t.n || 0) / total);
+      const hayAnterior = temas.some(t => t.pct_anterior !== null && t.pct_anterior !== undefined);
+      $('caja-temas').style.height = `${Math.max(180, temas.length * (hayAnterior ? 40 : 30) + 40)}px`;
+      const marca = t => (t.tendencia === 'nuevo' ? '  · Nuevo' : t.tendencia === 'sube' ? '  ↑' : '');
+      const datasets = [];
+      if (hayAnterior) {
+        datasets.push({
+          label: nombrePeriodo(analisis.periodo_anterior) || 'Anterior',
+          data: temas.map(t => Math.round((t.pct_anterior || 0) * 1000) / 10),
+          backgroundColor: C.gris, borderRadius: 3, barThickness: 12,
+        });
+      }
+      datasets.push({
+        label: nombrePeriodo(analisis.periodo_actual) || 'Ahora',
+        data: temas.map(t => Math.round(pct(t) * 1000) / 10),
+        backgroundColor: temas.map(t => (t.tendencia === 'nuevo' || t.tendencia === 'sube' ? C.aviso : C.texto2)),
+        borderRadius: 3, barThickness: 12,
+      });
+      $('nota-temas').textContent = hayAnterior
+        ? `% de los comentarios · gris: ${nombrePeriodo(analisis.periodo_anterior)}`
+        : '% de los comentarios';
+      dibujar('temas', 'grafico-temas', {
+        type: 'bar',
+        data: { labels: temas.map(t => `${formatearTema(t.tema)}${marca(t)}`), datasets },
+        options: {
+          indexAxis: 'y',
+          scales: {
+            x: { min: 0, ticks: { callback: v => `${v} %` }, grid: { color: C.borde } },
+            y: { grid: { display: false } },
+          },
+          plugins: {
+            tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.x.toLocaleString('es-ES')} %` } },
+          },
+          onClick: (evt, elementos, chart) => {
+            const punto = chart.getElementsAtEventForMode(evt, 'y', { intersect: false }, true)[0];
+            if (punto) mostrarTema(temas[punto.index].tema);
+          },
+          onHover: (evt, elementos) => { evt.native.target.style.cursor = elementos.length ? 'pointer' : 'default'; },
+        },
+      }, animar);
+      if (temaSeleccionado && !temas.some(t => t.tema === temaSeleccionado)) temaSeleccionado = null;
+      if (temaSeleccionado) mostrarTema(temaSeleccionado);
+    }
+
+    function mostrarTema(nombre) {
+      const t = (analisis.temas || []).find(x => x.tema === nombre);
+      if (!t) return;
+      temaSeleccionado = nombre;
+      const etiqueta = t.tendencia === 'nuevo' ? '<span class="badge badge-nuevo">Nuevo</span>'
+        : t.tendencia === 'sube' ? '<span class="badge badge-nuevo">Sube</span>'
+        : t.tendencia === 'baja' ? '<span class="badge">Baja</span>' : '';
+      $('tema-detalle').innerHTML = `
+        <div class="tema-detalle-cabecera"><strong>${escapar(formatearTema(t.tema))}</strong> ${etiqueta}
+          <span class="nota">${entero(t.n)} comentarios${t.n_anterior !== undefined ? ` · ${entero(t.n_anterior)} en el periodo anterior` : ''}</span></div>
+        <p class="texto-2">${escapar(legible(t.resumen || 'Sin resumen todavía.'))}</p>`;
+    }
+
+    function graficoDistribuciones(animar) {
+      const dist = analisis.distribuciones || [];
+      if (!dist.length) {
+        sinDatos('caja-distribuciones', 'Todavía no hay preguntas de escala con al menos 5 respuestas.');
+        return;
+      }
+      sinDatos('caja-distribuciones', '');
+      $('caja-distribuciones').style.height = `${Math.max(160, dist.length * 52 + 40)}px`;
+      const pct = (d, i) => (d.n ? (d.conteos[i] || 0) * 100 / d.n : 0);
+      const r1 = v => Math.round(v * 10) / 10;
+      // Barras divergentes: 1–2 a la izquierda, 3 repartido en el centro, 4–5 a la derecha
+      const series = [
+        { label: '3', valores: dist.map(d => -r1(pct(d, 2) / 2)), color: C.gris, real: d => pct(d, 2) },
+        { label: '2', valores: dist.map(d => -r1(pct(d, 1))), color: C.critico2, real: d => pct(d, 1) },
+        { label: '1', valores: dist.map(d => -r1(pct(d, 0))), color: C.critico, real: d => pct(d, 0) },
+        { label: '3', valores: dist.map(d => r1(pct(d, 2) / 2)), color: C.gris, real: d => pct(d, 2) },
+        { label: '4', valores: dist.map(d => r1(pct(d, 3))), color: C.ok2, real: d => pct(d, 3) },
+        { label: '5', valores: dist.map(d => r1(pct(d, 4))), color: C.ok, real: d => pct(d, 4) },
+      ];
+      const limite = Math.min(100, Math.ceil(Math.max(...dist.map(d => Math.max(pct(d, 0) + pct(d, 1) + pct(d, 2) / 2, pct(d, 3) + pct(d, 4) + pct(d, 2) / 2))) / 10) * 10 + 10);
+      dibujar('distribuciones', 'grafico-distribuciones', {
+        type: 'bar',
+        data: {
+          labels: dist.map(d => partir(legible(d.texto || mapaPreguntas[d.pregunta] || d.pregunta))),
+          datasets: series.map(s => ({
+            label: s.label, data: s.valores, backgroundColor: s.color, stack: 'escala', barThickness: 20, borderSkipped: false,
+          })),
+        },
+        options: {
+          indexAxis: 'y',
+          scales: {
+            x: { stacked: true, min: -limite, max: limite, ticks: { callback: v => `${Math.abs(v)} %` }, grid: { color: ctx => (ctx.tick.value === 0 ? C.texto2 : C.borde) } },
+            y: { stacked: true, grid: { display: false } },
+          },
+          plugins: {
+            tooltip: {
+              filter: item => item.datasetIndex !== 3, // el 3 aparece una sola vez
+              callbacks: {
+                title: items => dist[items[0].dataIndex].texto || '',
+                label: ctx => {
+                  const d = dist[ctx.dataIndex];
+                  const s = series[ctx.datasetIndex];
+                  return ` ${s.label}: ${s.real(d).toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`;
+                },
+                footer: items => {
+                  const d = dist[items[0].dataIndex];
+                  return `Media ${formatearMedia(d.media)} · ${entero(d.n)} respuestas`;
+                },
+              },
+            },
+          },
+        },
+      }, animar);
+    }
+
+    // Mapa de calor: núcleo común × sectores; debajo, las preguntas propias de cada sector
+    function indice(lista) {
+      const m = {};
+      (lista || []).forEach(x => { m[`${x.pregunta}|${x.colectivo}`] = x; });
+      return m;
+    }
+    function celda(actual, anterior) {
+      if (!actual || actual.media === null || actual.n < 5) return '<td class="celda sin-dato" title="Sin datos suficientes">—</td>';
+      let flecha = '';
+      if (anterior && anterior.media !== null) {
+        const dif = actual.media - anterior.media;
+        if (dif <= -0.3) flecha = ' <span class="flecha-calor" title="Baja respecto al periodo anterior">↓</span>';
+        else if (dif >= 0.3) flecha = ' <span class="flecha-calor" title="Sube respecto al periodo anterior">↑</span>';
+      }
+      return `<td class="celda" style="background: ${colorCalor(actual.media)}" title="${entero(actual.n)} respuestas">${formatearMedia(actual.media)}${flecha}</td>`;
+    }
+
+    function pintarCalor() {
+      const cols = sectores();
+      const act = indice(analisis.medias);
+      const ant = indice(analisis.medias_anterior);
+      // Preguntas: v2 trae "preguntas" con ámbito; si no, todas las de la encuesta son comunes
+      const preguntas = (analisis.preguntas?.length ? analisis.preguntas : (encuesta?.preguntas || []).map(p => ({ ...p, ambito: 'comun' })))
+        .filter(p => p.tipo === 'escala_1_5');
+      const comunes = preguntas.filter(p => p.ambito === 'comun');
+      const tabla = $('tabla-calor');
+
+      if (!comunes.length || !cols.length) {
+        tabla.innerHTML = '<tbody><tr><td class="vacio">Todavía no hay valoraciones con al menos 5 respuestas.</td></tr></tbody>';
+      } else {
+        tabla.innerHTML = `
+          <thead><tr><th>${cols.length > 1 ? 'Preguntas comunes' : 'Pregunta'}</th>${cols.map(c => `<th data-col="${c}">${escapar(formatearColectivo(c))}</th>`).join('')}</tr></thead>
+          <tbody>${comunes.map(p => `
+            <tr><td>${escapar(p.texto)}</td>${cols.map(c => celda(act[`${p.id}|${c}`], ant[`${p.id}|${c}`]).replace('<td', `<td data-col="${c}"`)).join('')}</tr>`).join('')}
+          </tbody>`;
+      }
+
+      // Preguntas propias de cada sector, en una mini tabla
+      const propias = cols.map(c => ({ c, lista: preguntas.filter(p => p.ambito === c) })).filter(x => x.lista.length);
+      $('calor-sectores').innerHTML = propias.length ? `
+        <div class="calor-sectores">${propias.map(({ c, lista }) => `
+          <div class="calor-sector" data-col="${c}">
+            <h4>${escapar(formatearColectivo(c))}</h4>
+            <table class="tabla calor"><tbody>${lista.map(p => `
+              <tr><td>${escapar(p.texto)}</td>${celda(act[`${p.id}|${c}`], ant[`${p.id}|${c}`])}</tr>`).join('')}
+            </tbody></table>
+          </div>`).join('')}
+        </div>` : '';
+    }
+
+    /** Resalta la columna de un sector (lo usa "Ver en el análisis" de la maqueta 3D) */
+    function resaltarSector(colectivo) {
+      cambiarPestana('resumen');
+      document.querySelectorAll('[data-col]').forEach(el => el.classList.toggle('resaltado', el.dataset.col === colectivo));
+      $('seccion-calor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(() => document.querySelectorAll('.resaltado').forEach(el => el.classList.remove('resaltado')), 4000);
+    }
+
+    // ---------------- 5. Pregunta a tus datos ----------------
+    async function preguntar(texto) {
+      const pregunta = String(texto || '').trim();
+      if (!pregunta) { $('input-pregunta').focus(); return; }
+      const caja = $('respuesta-datos');
+      const boton = $('btn-preguntar');
+      boton.disabled = true;
+      $('input-pregunta').disabled = true;
+      caja.classList.remove('oculto');
+      caja.innerHTML = '<p class="cargando">Consultando los datos… (hasta 25 s)</p>';
+      try {
+        const r = await preguntarDatos(encuestaId, pregunta);
+        const confianza = { alta: 'Confianza alta', media: 'Confianza media', baja: 'Confianza baja' }[r.confianza] || '';
+        caja.innerHTML = `
+          <div class="respuesta-pregunta">${escapar(pregunta)}</div>
+          <p>${escapar(legible(r.respuesta || 'Sin respuesta.'))}</p>
+          ${r.cifras?.length ? `<ul class="cifras">${r.cifras.map(c => `<li>${escapar(legible(c))}</li>`).join('')}</ul>` : ''}
+          <div class="meta">
+            ${confianza ? `<span class="badge ${r.confianza === 'baja' ? 'badge-critico' : r.confianza === 'media' ? 'badge-aprobada' : 'badge-ok'}">${confianza}</span>` : ''}
+            <span class="badge ${r.origen === 'ia' ? 'badge-ia' : ''}">${r.origen === 'ia' ? 'IA' : 'Reglas'}</span>
+          </div>`;
+      } catch (err) {
+        caja.innerHTML = `<p class="texto-critico">No se pudo responder: ${escapar(err.message)}</p>`;
+      } finally {
+        boton.disabled = false;
+        $('input-pregunta').disabled = false;
+      }
+    }
+    $('form-preguntar').addEventListener('submit', e => { e.preventDefault(); preguntar($('input-pregunta').value); });
+    $('sugerencias').addEventListener('click', e => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      $('input-pregunta').value = chip.textContent.trim();
+      preguntar(chip.textContent);
+    });
+
+    // ---------------- 6. Recomendaciones ----------------
+    let seguimiento = null;
+    function pintarRecomendaciones() {
+      const acciones = recs?.acciones || [];
+      const badge = $('badge-origen-recs');
+      badge.classList.toggle('oculto', !recs?.origen);
+      badge.textContent = recs?.origen === 'ia' ? 'IA' : 'Reglas';
+      badge.className = `badge ${recs?.origen === 'ia' ? 'badge-ia' : ''} ${recs?.origen ? '' : 'oculto'}`;
+
+      $('lista-recomendaciones').innerHTML = acciones.length
+        ? acciones.map(ac => `
+            <article class="tarjeta recomendacion">
+              <div><span class="badge">Propuesta</span></div>
+              <h4>${escapar(legible(ac.titulo))}</h4>
+              <p class="motivo">${escapar(legible(ac.motivo))}</p>
+              ${ac.responsable || ac.plazo || ac.indicador ? `
+                <dl class="ficha">
+                  ${ac.responsable ? `<dt>Responsable</dt><dd>${escapar(ac.responsable)}</dd>` : ''}
+                  ${ac.plazo ? `<dt>Plazo</dt><dd>${escapar(ac.plazo)}</dd>` : ''}
+                  ${ac.indicador ? `<dt>Indicador</dt><dd>${escapar(legible(ac.indicador))}</dd>` : ''}
+                </dl>` : ''}
+            </article>`).join('')
+        : '<p class="vacio">Sin recomendaciones para este periodo.</p>';
+
+      seguimiento = recs?.seguimiento || null;
+      $('bloque-seguimiento').classList.toggle('oculto', !seguimiento);
+      if (seguimiento) {
+        $('seguimiento-objetivo').textContent = seguimiento.objetivo || '';
+        const cols = colectivosDe(seguimiento);
+        $('seguimiento-sectores').textContent = cols.length ? `Sectores: ${cols.map(c => formatearColectivo(c)).join(', ')}` : '';
+      }
+    }
+    $('btn-seguimiento').addEventListener('click', () => {
+      if (!seguimiento) return;
+      sessionStorage.setItem('necesidad_prefill', JSON.stringify(seguimiento));
+      window.location.href = '/crear.html';
+    });
+
+    // ---------------- 7. Límites ----------------
+    function pintarLimites() {
+      const textos = [...(analisis.limites || [])];
+      if (!textos.some(t => /menos de 5/i.test(t))) textos.push('Los segmentos con menos de 5 respuestas no se muestran.');
+      $('limites').innerHTML = '<p><strong>Límites del análisis.</strong></p>' + textos.map(t => `<p>${escapar(legible(t))}</p>`).join('');
+    }
+
+    // ---------------- Maqueta 3D ----------------
+    const LEYENDAS = {
+      participacion: [['punto-critico', 'Menos del 10 %'], ['punto-aviso', '10–20 %'], ['punto-ok', '20 % o más']],
+      valoracion: [['punto-critico', 'Menos de 2,5'], ['punto-aviso', '2,5–3,4'], ['punto-ok', '3,5 o más'], ['', 'Oculto (n < 5)']],
+      alertas: [['punto-ok', 'Sin alertas'], ['punto-aviso', '1 alerta'], ['punto-critico', '2 o más']],
+    };
+    function pintarLeyenda() {
+      $('leyenda-capa').innerHTML = LEYENDAS[capa].map(([clase, texto]) => `<span><span class="punto ${clase}"></span>${texto}</span>`).join('') +
+        (noche ? '<span class="nota">Mostrando el turno de noche</span>' : '');
+    }
+
+    async function abrirMaqueta() {
+      if (vista3d || !analisis) return;
+      try {
+        const { iniciarVista3D } = await import('/js/vista3d.js');
+        const contenedor = $('contenedor-3d');
+        // Contrato v2 (sección 3.7): iniciarVista3D(contenedor, analisis, opciones)
+        vista3d = iniciarVista3D(contenedor, analisis, {
+          mapaPreguntas,
+          capa,
+          noche,
+          alVerEnAnalisis: colectivo => resaltarSector(colectivo),
+          alNuevasRespuestas: (colectivo, n) => avisoDirecto(`+${n} respuesta${n === 1 ? '' : 's'} en ${formatearColectivo(colectivo)}`),
+        });
+        vista3d?.setCapa?.(capa);
+        vista3d?.setModo?.(noche);
+        contenedor.addEventListener('vista3d-error', () => {
+          cerrarMaqueta();
+          cambiarPestana('resumen');
+          mostrarError('No se pudo cargar la maqueta 3D.');
+        }, { once: true });
+      } catch (err) {
+        console.error(err);
+        mostrarError('No se pudo cargar la maqueta 3D.');
+      }
+    }
+    function cerrarMaqueta() { vista3d?.dispose?.(); vista3d = null; }
+
+    let temporizadorAviso = null;
+    function avisoDirecto(texto) {
+      const el = $('aviso-directo');
+      el.textContent = texto;
+      el.classList.remove('oculto');
+      clearTimeout(temporizadorAviso);
+      temporizadorAviso = setTimeout(() => el.classList.add('oculto'), 4000);
+    }
+
+    $('selector-capa').addEventListener('click', e => {
+      const b = e.target.closest('[data-capa]');
+      if (!b) return;
+      capa = b.dataset.capa;
+      $('selector-capa').querySelectorAll('button').forEach(x => x.classList.toggle('activo', x === b));
+      vista3d?.setCapa?.(capa);
+      pintarLeyenda();
+    });
+    $('btn-noche').addEventListener('click', () => {
+      noche = !noche;
+      $('btn-noche').setAttribute('aria-pressed', String(noche));
+      $('btn-noche').classList.toggle('activo', noche);
+      vista3d?.setModo?.(noche);
+      pintarLeyenda();
+    });
+
+    // ---------------- Pestañas ----------------
+    function cambiarPestana(nombre) {
+      pestanaActual = nombre;
+      document.querySelectorAll('.pestanas .pestana').forEach(p => {
+        const activa = p.dataset.pestana === nombre;
+        p.classList.toggle('activa', activa);
+        p.setAttribute('aria-selected', String(activa));
+      });
+      $('vista-resumen').classList.toggle('oculto', nombre !== 'resumen');
+      $('vista-maqueta').classList.toggle('oculto', nombre !== 'maqueta');
+      if (nombre === 'maqueta') { pintarLeyenda(); abrirMaqueta(); }
+      else cerrarMaqueta();
+    }
+    document.querySelectorAll('.pestanas .pestana').forEach(p => p.addEventListener('click', () => cambiarPestana(p.dataset.pestana)));
+
+    // ---------------- Cabecera ----------------
+    $('btn-actualizar').addEventListener('click', async () => {
+      $('btn-actualizar').disabled = true;
+      await cargarDatos();
+      $('btn-actualizar').disabled = false;
+    });
+
+    function qrDataUrl(texto) {
+      if (typeof window.qrcode !== 'function') return '';
+      const qr = window.qrcode(0, 'M');
+      qr.addData(texto);
+      qr.make();
+      return qr.createDataURL(6, 2);
+    }
+    $('btn-formulario').addEventListener('click', () => {
+      const url = encuesta?.url || `${window.location.origin}/responder/${encodeURIComponent(encuestaId)}`;
+      $('formulario-url').value = url;
+      const quiosco = new URL(url, window.location.origin);
+      quiosco.searchParams.set('canal', 'quiosco');
+      $('formulario-quiosco').href = quiosco.toString();
+      $('formulario-qr').src = encuesta?.qr || qrDataUrl(url);
+      $('dialogo-formulario').showModal();
+    });
+    $('btn-cerrar-formulario').addEventListener('click', () => $('dialogo-formulario').close());
+    $('btn-copiar').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText($('formulario-url').value); }
+      catch { $('formulario-url').select(); document.execCommand('copy'); }
+      $('btn-copiar').textContent = 'Copiado';
+      setTimeout(() => { $('btn-copiar').textContent = 'Copiar'; }, 1500);
+    });
+
+    async function configurarSimulacion() {
+      if (encuesta?.estado !== 'publicada') return;
+      try {
+        const salud = await obtenerSalud();
+        if (!salud?.modo_demo) return;
+      } catch { return; }
+      const b = $('btn-simular');
+      b.classList.remove('oculto');
+      b.addEventListener('click', async () => {
+        b.disabled = true;
+        b.textContent = 'Simulando…';
+        try {
+          const res = await simularRespuestas(encuestaId, { n: 150 });
+          try { sessionStorage.removeItem('encuestas_activas'); } catch { /* nada */ }
+          await cargarDatos();
+          b.textContent = `${entero(res.simuladas)} respuestas añadidas`;
+          setTimeout(() => { b.textContent = 'Simular respuestas'; b.disabled = false; }, 2500);
+        } catch (err) {
+          mostrarError(`No se pudieron simular respuestas: ${err.message}`);
+          b.textContent = 'Simular respuestas';
+          b.disabled = false;
+        }
+      });
+    }
+
+    // ---------------- Inicio y recarga automática ----------------
+    async function iniciar() {
+      try {
+        await cargarEncuesta();
+      } catch {
+        $('cargando').classList.add('oculto');
+        mostrarError(`No existe la encuesta ${encuestaId}.`);
+        return;
+      }
+      configurarSimulacion();
+      await cargarDatos();
+      setInterval(() => { if (document.visibilityState === 'visible') cargarDatos(); }, REFRESCO_MS);
+    }
+
+    iniciar();
   </script>
 </body>
 </html>

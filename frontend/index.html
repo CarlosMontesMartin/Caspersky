@@ -1,117 +1,106 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Damm · Escucha Activa</title>
+  <title>Mis encuestas · Damm Escucha activa</title>
   <link rel="stylesheet" href="/css/estilos.css">
 </head>
+<body>
+  <div class="app">
+    <aside class="barra-lateral" id="barra-lateral"></aside>
 
-<body class="pagina-encuestas">
+    <main class="contenido">
+      <div class="contenido-interior">
 
-  <!-- Cabecera -->
-  <header class="site-header">
-    <div class="container">
-      <div style="display: flex; align-items: baseline; gap: 0.75rem;">
-        <a href="/" class="brand">Damm</a>
-        <span class="brand-badge">Escucha Activa</span>
+        <div class="cabecera-pagina">
+          <h1>Mis encuestas</h1>
+          <div class="acciones">
+            <a href="/crear.html" class="btn btn-principal">Nueva necesidad</a>
+          </div>
+        </div>
+
+        <div id="mensaje-error" class="aviso error oculto" role="alert"></div>
+
+        <section class="tarjeta" style="padding: 0;">
+          <div class="tabla-envoltura">
+            <table class="tabla">
+              <thead>
+                <tr>
+                  <th style="padding-left: var(--e5);">Título</th>
+                  <th>Colectivo</th>
+                  <th>Estado</th>
+                  <th class="der">Respuestas</th>
+                  <th>Periodo</th>
+                  <th class="der" style="padding-right: var(--e5);"><span class="sr-only">Acción</span></th>
+                </tr>
+              </thead>
+              <tbody id="lista-encuestas">
+                <tr><td colspan="6" class="cargando" style="padding-left: var(--e5);">Cargando…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
       </div>
-      <nav>
-        <ul class="nav-links">
-          <li><a href="/" class="nav-link active">Encuestas</a></li>
-          <li><a href="/crear.html" class="btn btn-primary">+ Nueva necesidad</a></li>
-        </ul>
-      </nav>
-    </div>
-  </header>
+    </main>
+  </div>
 
-  <!-- Contenido principal -->
-  <main class="main-content">
-    <div class="container">
-
-      <h1>Mis encuestas</h1>
-      <p class="actividad-subtitulo" id="contador-encuestas">Cargando tus encuestas…</p>
-
-      <!-- Aviso de estado / error -->
-      <div id="mensaje-estado" style="display: none;"></div>
-
-      <div class="encuestas-grid" id="lista-encuestas">
-        <!-- Tarjetas generadas por JS -->
-      </div>
-
-    </div>
-  </main>
-
-  <!-- Script con llamada a api.js -->
   <script type="module" src="/js/layout.js"></script>
   <script type="module">
     import { listarEncuestas, formatearColectivo, formatearEstado } from '/js/api.js';
+    import { escapar, entero, nombrePeriodo } from '/js/ui.js';
 
-    const lista = document.getElementById('lista-encuestas');
-    const contador = document.getElementById('contador-encuestas');
-    const mensajeEstado = document.getElementById('mensaje-estado');
+    const cuerpo = document.getElementById('lista-encuestas');
+    const error = document.getElementById('mensaje-error');
 
-    const TARJETA_NUEVA = `
-      <div class="encuesta-nueva">
-        <p>Describe una necesidad y la IA te propondrá una microencuesta</p>
-        <a href="/crear.html" class="btn btn-primary">Nueva necesidad</a>
-      </div>`;
-
-    function escapar(texto) {
-      return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    function destino(enc) {
+      const id = encodeURIComponent(enc.id);
+      return enc.estado === 'publicada' ? `/dashboard.html?id=${id}` : `/crear.html?id=${id}`;
     }
 
-    function tarjeta(enc) {
-      const id = encodeURIComponent(enc.id);
-      const publicada = enc.estado === 'publicada';
-      const enlace = publicada ? `/dashboard.html?id=${id}` : `/crear.html?id=${id}`;
-      const acciones = publicada
-        ? `<a href="/dashboard.html?id=${id}" class="btn btn-primary">Ver análisis</a>
-           <a href="/responder/${id}?canal=qr" class="btn btn-secondary">Formulario</a>`
-        : `<a href="/crear.html?id=${id}" class="btn btn-primary">${enc.estado === 'aprobada' ? 'Publicar' : 'Revisar y aprobar'}</a>`;
+    function fila(enc) {
+      const url = destino(enc);
       return `
-        <article class="encuesta-tarjeta">
-          <div class="encuesta-tarjeta-meta">
-            <span>${escapar(formatearColectivo(enc.colectivo))}</span>
-            <span class="badge badge-${escapar(enc.estado)}">${escapar(formatearEstado(enc.estado))}</span>
-          </div>
-          <a href="${enlace}" class="encuesta-tarjeta-titulo">${escapar(enc.titulo || 'Sin título')}</a>
-          <div class="encuesta-tarjeta-datos">
-            <div><strong>${enc.n_respuestas ?? 0}</strong>respuestas</div>
-            <div><strong>${escapar(enc.periodo || '-')}</strong>periodo</div>
-          </div>
-          <div class="encuesta-tarjeta-acciones">${acciones}</div>
-        </article>`;
+        <tr class="clicable" data-url="${url}">
+          <td style="padding-left: var(--e5);">
+            <a href="${url}" class="titulo-fila">${escapar(enc.titulo || 'Sin título')}</a>
+            <span class="sub">${escapar(enc.id)}</span>
+          </td>
+          <td>${escapar(formatearColectivo(enc.colectivo))}</td>
+          <td><span class="badge badge-${escapar(enc.estado)}">${escapar(formatearEstado(enc.estado))}</span></td>
+          <td class="der num">${entero(enc.n_respuestas)}</td>
+          <td class="texto-2">${escapar(nombrePeriodo(enc.periodo))}</td>
+          <td class="der" style="padding-right: var(--e5);"><a href="${url}" class="btn btn-secundario">Abrir</a></td>
+        </tr>`;
     }
 
     async function cargar() {
       try {
         const encuestas = await listarEncuestas();
         if (!encuestas || encuestas.length === 0) {
-          contador.textContent = 'Todavía no hay encuestas. Empieza describiendo una necesidad.';
-          lista.innerHTML = TARJETA_NUEVA;
+          cuerpo.innerHTML = `
+            <tr><td colspan="6" class="vacio" style="padding-left: var(--e5);">
+              Todavía no hay encuestas. <a href="/crear.html">Crear la primera</a>
+            </td></tr>`;
           return;
         }
-        contador.textContent = `${encuestas.length} encuesta${encuestas.length === 1 ? '' : 's'} · resultados siempre agregados y anónimos.`;
-        lista.innerHTML = TARJETA_NUEVA + encuestas.map(tarjeta).join('');
+        cuerpo.innerHTML = encuestas.map(fila).join('');
       } catch (err) {
-        console.error('Error al cargar encuestas:', err);
-        contador.textContent = 'No se pudieron cargar las encuestas.';
-        mensajeEstado.style.display = 'block';
-        mensajeEstado.innerHTML = `
-          <div class="alerta">
-            <div>
-              <div class="alerta-tipo">Error de conexión</div>
-              <div class="alerta-mensaje">${escapar(err.message || 'No se pudieron cargar las encuestas')}</div>
-            </div>
-          </div>`;
-        lista.innerHTML = TARJETA_NUEVA;
+        error.textContent = `No se pudieron cargar las encuestas: ${err.message}`;
+        error.classList.remove('oculto');
+        cuerpo.innerHTML = '';
       }
     }
+
+    // Toda la fila es clicable (además del enlace del título y el botón)
+    cuerpo.addEventListener('click', e => {
+      if (e.target.closest('a')) return;
+      const tr = e.target.closest('tr[data-url]');
+      if (tr) window.location.href = tr.dataset.url;
+    });
 
     cargar();
   </script>
 </body>
-
 </html>

@@ -1,95 +1,136 @@
 /**
- * layout.js — Estructura común de las pantallas de RRHH (estética "Tu Rincón")
+ * layout.js — barra lateral común (contratos v2, 4.2; diseño en contratos/diseno.md §5)
  *
- * - Sustituye la cabecera antigua por una cabecera con imagen y título en cursiva.
- * - Convierte el contenido principal en dos columnas: menú lateral + contenido.
- * No llama a la API ni toca la lógica de cada página.
- *
- * Imagen de cabecera: pon una foto propia o de licencia libre en
- * frontend/public/cabecera.jpg. Si no existe, se usa un degradado mediterráneo.
+ * Va en index, crear, dashboard e informe (nunca en responder). Cada página tiene
+ * <aside class="barra-lateral" id="barra-lateral"></aside> y este módulo la rellena:
+ *   - "Mis encuestas", con una flecha que despliega las encuestas publicadas
+ *     (título corto y nº de respuestas; la abierta, resaltada).
+ *   - "Nueva necesidad".
+ *   - Abajo, el estado del servidor (IA conectada o respaldo, modo demo).
  */
+import { obtenerSalud, listarEncuestasActivas } from '/js/api.js';
+import { ICONOS, escapar, entero } from '/js/ui.js';
 
-const params = new URLSearchParams(window.location.search);
-const idActual = params.get('id');
 const pagina = window.location.pathname.replace(/^\//, '') || 'index.html';
+const idAbierto = new URLSearchParams(window.location.search).get('id');
+const CLAVE_CACHE = 'encuestas_activas';
+const CACHE_MS = 30000;
+const CLAVE_DESPLEGADO = 'menu_encuestas_abierto';
 
-function idParaAnalisis() {
-  // En el dashboard y en crear se usa la encuesta abierta; si no, el pulso general
-  return idActual || 'enc_000';
+function recortar(texto, max = 32) {
+  const t = String(texto || 'Sin título').trim();
+  return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t;
 }
 
-const OPCIONES = [
-  { texto: 'Mis encuestas', href: '/', activa: p => p === 'index.html' },
-  { texto: 'Nueva necesidad', href: '/crear.html', activa: p => p === 'crear.html' && !idActual },
-  // Solo aparece cuando hay una encuesta abierta
-  ...(idActual ? [{ texto: 'Revisar y publicar', href: `/crear.html?id=${encodeURIComponent(idActual)}`, activa: p => p === 'crear.html' }] : []),
-  { texto: 'Análisis', href: `/dashboard.html?id=${encodeURIComponent(idParaAnalisis())}`, activa: p => p === 'dashboard.html' && window.location.hash !== '#seccion-recomendaciones' },
-  { texto: 'Recomendaciones', href: `/dashboard.html?id=${encodeURIComponent(idParaAnalisis())}#seccion-recomendaciones`, activa: p => p === 'dashboard.html' && window.location.hash === '#seccion-recomendaciones' },
-];
-
-function crearCabecera() {
-  const cabecera = document.createElement('header');
-  cabecera.className = 'hero';
-  // Cada pantalla tiene su propia foto de cabecera (ver css/estilos.css)
-  const fotoPorPagina = { 'index.html': 'inicio', 'crear.html': 'crear', 'dashboard.html': 'analisis' };
-  cabecera.dataset.pagina = fotoPorPagina[pagina] || 'inicio';
-  cabecera.innerHTML = `
-    <div class="hero-barra">
-      <a href="/" class="hero-marca">Damm</a>
-      <span class="hero-contexto">Estás en <strong>Escucha activa</strong> · RRHH</span>
-    </div>
-    <a href="/" class="hero-titulo">Escucha activa</a>
-  `;
-  return cabecera;
+/** Encuestas publicadas, guardadas 30 s en sessionStorage */
+async function encuestasActivas(forzar = false) {
+  if (!forzar) {
+    try {
+      const guardado = JSON.parse(sessionStorage.getItem(CLAVE_CACHE) || 'null');
+      if (guardado && Date.now() - guardado.hora < CACHE_MS) return guardado.lista;
+    } catch { /* caché no disponible */ }
+  }
+  const lista = await listarEncuestasActivas();
+  try {
+    sessionStorage.setItem(CLAVE_CACHE, JSON.stringify({ hora: Date.now(), lista }));
+  } catch { /* sin almacenamiento: no pasa nada */ }
+  return lista;
 }
 
-function crearMenu() {
-  const menu = document.createElement('nav');
-  menu.className = 'menu-lateral';
-  menu.setAttribute('aria-label', 'Secciones');
-  menu.innerHTML = OPCIONES.map(o => {
-    const activa = o.activa(pagina);
-    return `<a href="${o.href}" class="menu-lateral-item${activa ? ' activo' : ''}"${activa ? ' aria-current="page"' : ''}>${activa ? '_' : ''}${o.texto}</a>`;
-  }).join('');
+/** Permite a otras páginas pedir que se recargue la lista (por ejemplo, tras publicar o simular) */
+export function refrescarMisEncuestas() {
+  try { sessionStorage.removeItem(CLAVE_CACHE); } catch { /* nada */ }
+  pintarLista(true);
+}
 
-  // Al cambiar el hash dentro del dashboard, actualizar el elemento activo
-  window.addEventListener('hashchange', () => {
-    menu.querySelectorAll('.menu-lateral-item').forEach((a, i) => {
-      const activa = OPCIONES[i].activa(pagina);
-      a.classList.toggle('activo', activa);
-      a.textContent = (activa ? '_' : '') + OPCIONES[i].texto;
-    });
-  });
-  return menu;
+function estaDesplegado() {
+  try {
+    const v = sessionStorage.getItem(CLAVE_DESPLEGADO);
+    if (v !== null) return v === '1';
+  } catch { /* nada */ }
+  return pagina === 'dashboard.html'; // abierto por defecto en el dashboard
+}
+
+async function pintarLista(forzar = false) {
+  const ul = document.getElementById('mis-encuestas');
+  if (!ul) return;
+  try {
+    const lista = await encuestasActivas(forzar);
+    if (!lista.length) {
+      ul.innerHTML = '<li class="submenu-vacio">Sin encuestas publicadas</li>';
+      return;
+    }
+    ul.innerHTML = lista.map(e => {
+      const activa = e.id === idAbierto && (pagina === 'dashboard.html' || pagina === 'informe.html');
+      return `
+        <li>
+          <a href="/dashboard.html?id=${encodeURIComponent(e.id)}" class="${activa ? 'activo' : ''}"
+             ${activa ? 'aria-current="page"' : ''} title="${escapar(e.titulo || '')}">
+            <span class="submenu-titulo">${escapar(recortar(e.titulo))}</span>
+            <span class="submenu-n num">${entero(e.n_respuestas)}</span>
+          </a>
+        </li>`;
+    }).join('');
+  } catch {
+    ul.innerHTML = '<li class="submenu-vacio">No se pudo cargar la lista</li>';
+  }
 }
 
 function montar() {
-  const antigua = document.querySelector('.site-header');
-  const main = document.querySelector('main.main-content');
-  if (!main) return;
+  const barra = document.getElementById('barra-lateral');
+  if (!barra) return;
+  const desplegado = estaDesplegado();
+  const enListado = pagina === 'index.html';
 
-  document.body.insertBefore(crearCabecera(), document.body.firstChild);
-  if (antigua) antigua.remove();
+  barra.innerHTML = `
+    <a href="/" class="marca" aria-label="Damm · Escucha activa, ir a Mis encuestas">
+      <span class="marca-damm">Damm</span>
+      <span class="marca-producto">Escucha activa</span>
+    </a>
+    <nav class="menu" aria-label="Secciones">
+      <div class="menu-grupo">
+        <div class="menu-fila ${enListado ? 'activo' : ''}">
+          <a href="/" ${enListado ? 'aria-current="page"' : ''}>${ICONOS.lista}<span>Mis encuestas</span></a>
+          <button type="button" class="menu-flecha ${desplegado ? 'abierto' : ''}" id="btn-mis-encuestas"
+                  aria-expanded="${desplegado}" aria-controls="mis-encuestas" aria-label="Mostrar encuestas publicadas">
+            ${ICONOS.chevron}
+          </button>
+        </div>
+        <ul class="submenu ${desplegado ? '' : 'oculto'}" id="mis-encuestas">
+          <li class="submenu-vacio">Cargando…</li>
+        </ul>
+      </div>
+      <a href="/crear.html" class="${pagina === 'crear.html' ? 'activo' : ''}" ${pagina === 'crear.html' ? 'aria-current="page"' : ''}>
+        ${ICONOS.mas}<span>Nueva necesidad</span>
+      </a>
+    </nav>
+    <div class="estado-servidor" id="estado-servidor"></div>
+  `;
 
-  const contenedor = main.querySelector(':scope > .container');
-  if (!contenedor) return;
+  const boton = document.getElementById('btn-mis-encuestas');
+  boton.addEventListener('click', () => {
+    const abrir = boton.getAttribute('aria-expanded') !== 'true';
+    boton.setAttribute('aria-expanded', String(abrir));
+    boton.classList.toggle('abierto', abrir);
+    document.getElementById('mis-encuestas').classList.toggle('oculto', !abrir);
+    try { sessionStorage.setItem(CLAVE_DESPLEGADO, abrir ? '1' : '0'); } catch { /* nada */ }
+  });
 
-  const columna = document.createElement('div');
-  columna.className = 'layout-contenido';
-  while (contenedor.firstChild) columna.appendChild(contenedor.firstChild);
+  pintarLista();
 
-  contenedor.removeAttribute('style');
-  contenedor.classList.add('layout');
-  contenedor.appendChild(crearMenu());
-  contenedor.appendChild(columna);
-
-  // Si se llega con #seccion-recomendaciones, bajar hasta ella cuando cargue
-  if (window.location.hash) {
-    setTimeout(() => {
-      const destino = document.querySelector(window.location.hash);
-      if (destino) destino.scrollIntoView({ behavior: 'smooth' });
-    }, 600);
-  }
+  // Estado del servidor: IA conectada o modo de respaldo
+  obtenerSalud()
+    .then(salud => {
+      const el = document.getElementById('estado-servidor');
+      if (!el || !salud) return;
+      const ia = salud.llm ? 'IA conectada' : 'IA en modo de respaldo';
+      const demo = salud.modo_demo ? ' · Modo demo' : '';
+      el.innerHTML = `<span class="punto ${salud.llm ? 'punto-ok' : 'punto-aviso'}"></span><span>${ia}${demo}</span>`;
+    })
+    .catch(() => {
+      const el = document.getElementById('estado-servidor');
+      if (el) el.innerHTML = '<span class="punto punto-critico"></span><span>Sin conexión con el servidor</span>';
+    });
 }
 
 if (document.readyState === 'loading') {
