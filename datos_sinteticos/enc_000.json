@@ -1,0 +1,61 @@
+{
+  "id": "enc_000",
+  "estado": "publicada",
+  "titulo": "Pulso de clima general",
+  "intro": "Queremos saber cómo te sientes en tu trabajo para mejorar lo que haga falta. Es anónima: solo se ven resultados agregados.",
+  "colectivo": "todos",
+  "periodo": "2026-10",
+  "tiempo_estimado_seg": 105,
+  "url": null,
+  "qr": null,
+  "preguntas": [
+    {
+      "id": "p1",
+      "texto": "¿Cómo te sientes en general en tu trabajo?",
+      "tipo": "escala_1_5",
+      "opciones": [],
+      "dimension": "bienestar",
+      "condicion": null
+    },
+    {
+      "id": "p2",
+      "texto": "¿Te sientes escuchado/a por tu responsable?",
+      "tipo": "escala_1_5",
+      "opciones": [],
+      "dimension": "liderazgo",
+      "condicion": null
+    },
+    {
+      "id": "p3",
+      "texto": "¿Tienes oportunidades para aprender y crecer?",
+      "tipo": "escala_1_5",
+      "opciones": [],
+      "dimension": "desarrollo",
+      "condicion": null
+    },
+    {
+      "id": "p4",
+      "texto": "¿Cómo valoras tu carga de trabajo y tus turnos u horarios?",
+      "tipo": "escala_1_5",
+      "opciones": [],
+      "dimension": "condiciones",
+      "condicion": null
+    },
+    {
+      "id": "p5",
+      "texto": "¿Cómo es el ambiente con tus compañeros?",
+      "tipo": "escala_1_5",
+      "opciones": [],
+      "dimension": "entorno",
+      "condicion": null
+    },
+    {
+      "id": "p6",
+      "texto": "¿Qué cambiarías?",
+      "tipo": "texto",
+      "opciones": [],
+      "dimension": "condiciones",
+      "condicion": null
+    }
+  ]
+}

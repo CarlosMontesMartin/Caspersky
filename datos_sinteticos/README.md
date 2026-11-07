@@ -1,34 +1,30 @@
-# Datos sintéticos
+# Datos sintéticos (UPC 1)
 
-Respuestas de encuesta **100 % ficticias** para desarrollo y demo.
-No contienen nombres, correos, teléfonos ni ningún dato real.
+Datos **100 % ficticios** para desarrollo y demo. Ninguna persona ni dato real de Damm.
 
 ## Cómo generar
 
 ```bash
-python3 datos_sinteticos/generar.py            # seed=42, salida por defecto
-python3 datos_sinteticos/generar.py --seed 99  # otra semilla
-python3 datos_sinteticos/generar.py --salida /tmp/test.json
+python3 datos_sinteticos/generar.py            # busca sola una semilla que cuente la historia del demo
+python3 datos_sinteticos/generar.py --seed 42  # semilla fija
 ```
 
-Solo usa la librería estándar de Python 3 (sin dependencias).
+Solo usa la librería estándar de Python 3. Lee `contenido/plantilla.json` (UAB 2) si existe; si no, usa una plantilla por defecto.
 
-## Qué genera
+## Qué escribe
 
-- `respuestas.json`: array de ~600 objetos `Respuesta` para la encuesta `enc_001`.
-- Dos periodos: `2026-10` y `2026-11`.
-- 9 segmentos (colectivo × turno) con plantilla y tasas de participación distintas.
+- `enc_000.json`: encuesta "Pulso de clima general" (colectivo `todos`, `publicada`, periodo `2026-10`). p1–p5 son `escala_1_5` (bienestar, liderazgo, desarrollo, condiciones, entorno) y p6 es `texto` ("¿Qué cambiarías?").
+- `respuestas.json`: unas 600–700 `Respuesta` de `enc_000` en los periodos `2026-09` y `2026-10`, con `tema_real`. La respuesta a p6 va en `comentario`, no en `valores`.
 
-## Sesgos introducidos a propósito
+## La historia que cuentan (MODULOS.md §5)
 
-| Sesgo | Descripción |
-|-------|-------------|
-| **Participación desigual** | Planta/noche responde ~6 %, oficina ~40 %, manager ~50 %. |
-| **Temas por periodo** | En nov, `descansos` sube (×2 en planta/noche y planta/tarde), `comunicacion_cambio` aparece como nuevo y `herramientas` baja. |
-| **Notas sesgadas** | Cada colectivo tiene media base distinta (planta 3.0, manager 3.8…). Se resta 0.8 si el tema es descansos o carga_trabajo, y 0.5 más a planta/noche en noviembre. |
-| **Canal** | Planta y logística: 60 % QR / 40 % quiosco. El resto: 80 % Teams / 20 % QR. |
-| **Ruido en comentarios** | 60 % con faltas de ortografía, abreviaturas y emojis. ~20 % en catalán. |
-| **Comentarios vacíos** | 15 % de respuestas sin comentario (simulan gente que no escribe nada). |
-| **Datos ficticios** | ~3 % incluyen un nombre inventado, correo `@example.com` o teléfono falso para probar `anonimizar()`. |
-| **Seguridad** | En noviembre, el tema `seguridad` casi solo aparece en planta y logística. |
+| Qué | Cómo |
+|---|---|
+| Participación desigual | manager ~60 %, oficina ~45 %, comercial ~30 %, planta mañana/tarde ~25 %, logística ~10 %, **planta noche ~7 %** |
+| Condiciones en planta | La media de p4 en planta baja ≥ 0,8 puntos de 2026-09 a 2026-10 |
+| Temas | En 2026-10 **descansos** y **turnos** suben y **comunicacion** aparece como tema nuevo; el resto se mantiene estable (regla ±30 % de `calcular_tendencia`) |
+| Coherencia | Oficina, comercial y manager nunca hablan de turnos, planta ni almacén |
+| Ruido | Faltas, abreviaturas, emojis, muletillas, ~20 % en catalán y 15 % sin comentario |
+| Privacidad | ~5 % de comentarios con nombres, correos `@example.com` y teléfonos inventados para demostrar `anonimizar()` |
 
+Los temas de los comentarios se reparten con proporciones exactas por periodo y grupo (planta / resto), así que la historia no depende del azar. El script comprueba la historia al final e imprime un resumen.

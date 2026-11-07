@@ -1,854 +1,691 @@
 #!/usr/bin/env python3
-"""Generador de respuestas sintéticas para la encuesta de clima laboral.
+"""Generador de datos sintéticos (UPC 1) · según MODULOS.md, sección 5.
 
 Uso:
-    python datos_sinteticos/generar.py [--seed N] [--salida datos_sinteticos/respuestas.json]
+    python datos_sinteticos/generar.py            # busca una semilla con la historia del demo
+    python datos_sinteticos/generar.py --seed 42  # semilla fija
+
+Escribe:
+    datos_sinteticos/enc_000.json      Encuesta "Pulso de clima general"
+    datos_sinteticos/respuestas.json   ~600 Respuesta (periodos 2026-09 y 2026-10)
 
 Solo librería estándar. Datos 100 % ficticios.
 """
 
 import argparse
 import calendar
+import contextlib
+import io
 import json
 import os
 import random
 import re
-import sys
 import unicodedata
-
-# ---------------------------------------------------------------------------
-# CONSTANTES
-# ---------------------------------------------------------------------------
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
-
-ENCUESTA_PATH = os.path.join(PROJECT_ROOT, "contratos", "ejemplos", "encuesta.json")
 PLANTILLA_PATH = os.path.join(PROJECT_ROOT, "contenido", "plantilla.json")
+SALIDA_ENCUESTA = os.path.join(SCRIPT_DIR, "enc_000.json")
+SALIDA_RESPUESTAS = os.path.join(SCRIPT_DIR, "respuestas.json")
+
+# ---------------------------------------------------------------------------
+# VALORES CERRADOS (MODULOS.md §0 y contratos/formatos.md)
+# ---------------------------------------------------------------------------
 
 COLECTIVOS = ["planta", "logistica", "comercial", "oficina", "manager"]
-TURNOS = ["manana", "tarde", "noche", "sin_turno"]
-CANALES = ["qr", "quiosco", "teams"]
-CENTRO_MAP = {
-    "planta": "fabrica",
-    "logistica": "almacen",
-    "comercial": "oficina",
-    "oficina": "oficina",
-    "manager": "oficina",
-}
-TEMAS = [
-    "descansos", "comunicacion_cambio", "carga_trabajo", "herramientas",
-    "liderazgo", "desarrollo", "seguridad", "conciliacion",
-]
-PERIODOS = ["2026-10", "2026-11"]
+TURNOS_PLANTA = ["manana", "tarde", "noche"]
+CENTRO_MAP = {"planta": "fabrica", "logistica": "almacen",
+              "comercial": "oficina", "oficina": "oficina", "manager": "oficina"}
+TEMAS = ["descansos", "turnos", "carga_trabajo", "comunicacion", "liderazgo",
+         "herramientas", "formacion", "reconocimiento", "seguridad", "ambiente",
+         "conciliacion", "otros"]
+PERIODO_ANTERIOR, PERIODO_ACTUAL = "2026-09", "2026-10"
+PERIODOS = [PERIODO_ANTERIOR, PERIODO_ACTUAL]
+ENCUESTA_ID = "enc_000"
 
-# Colectivos "de planta/logística" vs "de oficina/campo"
-COLECTIVOS_PLANTA = {"planta", "logistica"}
-COLECTIVOS_OFICINA = {"comercial", "oficina", "manager"}
+# ---------------------------------------------------------------------------
+# PLANTILLA Y PARTICIPACIÓN
+# ---------------------------------------------------------------------------
 
-# Plantilla por defecto (colectivo, turno, personas)
+# Por defecto, si contenido/plantilla.json no existe o no es válido.
 PLANTILLA_DEFAULT = [
-    ("planta", "manana", 250),
-    ("planta", "tarde", 250),
-    ("planta", "noche", 200),
-    ("logistica", "manana", 120),
-    ("logistica", "tarde", 120),
-    ("logistica", "noche", 100),
-    ("comercial", "sin_turno", 150),
-    ("oficina", "sin_turno", 180),
-    ("manager", "sin_turno", 60),
+    {"colectivo": "planta", "turno": "manana", "personas": 300},
+    {"colectivo": "planta", "turno": "tarde", "personas": 280},
+    {"colectivo": "planta", "turno": "noche", "personas": 220},
+    {"colectivo": "logistica", "turno": "sin_turno", "personas": 220},
+    {"colectivo": "comercial", "turno": "sin_turno", "personas": 130},
+    {"colectivo": "oficina", "turno": "sin_turno", "personas": 170},
+    {"colectivo": "manager", "turno": "sin_turno", "personas": 50},
 ]
 
-# Tasas de respuesta por segmento
+# Tasas de respuesta por periodo (MODULOS.md §5)
 TASAS = {
-    ("planta", "manana"): 0.25,
-    ("planta", "tarde"): 0.22,
-    ("planta", "noche"): 0.06,
-    ("logistica", "manana"): 0.10,
-    ("logistica", "tarde"): 0.08,
-    ("logistica", "noche"): 0.05,
-    ("comercial", "sin_turno"): 0.22,
-    ("oficina", "sin_turno"): 0.40,
-    ("manager", "sin_turno"): 0.50,
+    ("planta", "manana"): 0.25, ("planta", "tarde"): 0.25, ("planta", "noche"): 0.07,
+    ("logistica", "sin_turno"): 0.10, ("comercial", "sin_turno"): 0.30,
+    ("oficina", "sin_turno"): 0.45, ("manager", "sin_turno"): 0.60,
 }
 
-# Canal por colectivo: (canal, probabilidad)
-CANAL_PROBS = {
-    "planta": [("qr", 0.60), ("quiosco", 0.40)],
-    "logistica": [("qr", 0.60), ("quiosco", 0.40)],
-    "comercial": [("teams", 0.80), ("qr", 0.20)],
-    "oficina": [("teams", 0.80), ("qr", 0.20)],
-    "manager": [("teams", 0.80), ("qr", 0.20)],
-}
-
-# Media base de escala por colectivo
-MEDIA_BASE = {
-    "planta": 3.0,
-    "logistica": 2.9,
-    "comercial": 3.3,
-    "oficina": 3.6,
-    "manager": 3.8,
-}
-
-# Distribución de temas por periodo
-TEMAS_PROB = {
-    "2026-10": {
-        "descansos": 0.10, "comunicacion_cambio": 0.00, "carga_trabajo": 0.19,
-        "herramientas": 0.17, "liderazgo": 0.15, "desarrollo": 0.14,
-        "seguridad": 0.10, "conciliacion": 0.15,
-    },
-    "2026-11": {
-        "descansos": 0.21, "comunicacion_cambio": 0.13, "carga_trabajo": 0.16,
-        "herramientas": 0.04, "liderazgo": 0.13, "desarrollo": 0.11,
-        "seguridad": 0.09, "conciliacion": 0.13,
-    },
+CANAL_PROBS = {  # canal: qr | quiosco | teams
+    "planta": [("qr", 0.6), ("quiosco", 0.4)],
+    "logistica": [("qr", 0.6), ("quiosco", 0.4)],
+    "comercial": [("teams", 0.8), ("qr", 0.2)],
+    "oficina": [("teams", 0.8), ("qr", 0.2)],
+    "manager": [("teams", 0.8), ("qr", 0.2)],
 }
 
 # ---------------------------------------------------------------------------
-# BANCO DE COMENTARIOS POR TEMA
-#
-# Cada frase lleva una marca:
-#   "P" = solo para planta/logistica (menciona turno, noche, planta, fábrica,
-#         almacén, máquinas, quiosco, EPIs, línea)
-#   "N" = neutra, vale para cualquier colectivo
+# HISTORIA DEL DEMO
+# ---------------------------------------------------------------------------
+
+# Peso de cada tema por periodo y tipo de colectivo (se normaliza).
+# En 2026-10, en planta suben descansos y turnos y aparece comunicacion.
+PESOS_TEMA = {
+    ("planta", PERIODO_ANTERIOR): {
+        "descansos": 8, "turnos": 7, "carga_trabajo": 13, "comunicacion": 0,
+        "liderazgo": 10, "herramientas": 11, "formacion": 8, "reconocimiento": 9,
+        "seguridad": 10, "ambiente": 8, "conciliacion": 10, "otros": 6},
+    ("planta", PERIODO_ACTUAL): {   # igual que septiembre + los temas que suben
+        "descansos": 19, "turnos": 16, "carga_trabajo": 13, "comunicacion": 8,
+        "liderazgo": 10, "herramientas": 11, "formacion": 8, "reconocimiento": 9,
+        "seguridad": 10, "ambiente": 8, "conciliacion": 10, "otros": 6},
+    ("resto", PERIODO_ANTERIOR): {
+        "descansos": 6, "turnos": 1, "carga_trabajo": 15, "comunicacion": 0,
+        "liderazgo": 13, "herramientas": 12, "formacion": 12, "reconocimiento": 11,
+        "seguridad": 3, "ambiente": 10, "conciliacion": 11, "otros": 6},
+    ("resto", PERIODO_ACTUAL): {
+        "descansos": 6, "turnos": 1, "carga_trabajo": 15, "comunicacion": 3,
+        "liderazgo": 13, "herramientas": 12, "formacion": 12, "reconocimiento": 11,
+        "seguridad": 3, "ambiente": 10, "conciliacion": 11, "otros": 6},
+}
+
+# Tendencias que deben salir (regla de calcular_tendencia en MODULOS.md §4).
+TENDENCIAS_ESPERADAS = {"descansos": "sube", "turnos": "sube", "comunicacion": "nuevo"}
+
+# Media base de las escalas por colectivo
+MEDIA_BASE = {"planta": 3.2, "logistica": 3.0, "comercial": 3.4,
+              "oficina": 3.6, "manager": 3.8}
+
+# Qué pregunta penaliza cada tema (p1 bienestar, p2 liderazgo, p3 desarrollo,
+# p4 condiciones: carga y turnos, p5 entorno)
+EFECTO_TEMA = {
+    "descansos": {"p1": -0.6, "p4": -0.8}, "turnos": {"p1": -0.4, "p4": -0.9},
+    "carga_trabajo": {"p1": -0.5, "p4": -0.7}, "comunicacion": {"p2": -0.7},
+    "liderazgo": {"p2": -0.8}, "formacion": {"p3": -0.8},
+    "reconocimiento": {"p2": -0.3, "p3": -0.4}, "herramientas": {"p4": -0.4},
+    "seguridad": {"p5": -0.6}, "ambiente": {"p5": -0.8},
+    "conciliacion": {"p1": -0.5, "p4": -0.3}, "otros": {},
+}
+CAIDA_P4_PLANTA = -1.2  # p4 de planta en 2026-10 (debe bajar >= 0,8 de media)
+
+# ---------------------------------------------------------------------------
+# BANCO DE COMENTARIOS
+# "P" = solo planta/logistica (habla de turnos, planta, almacén, máquinas, quiosco...)
+# "N" = neutra, vale para cualquier colectivo
 # ---------------------------------------------------------------------------
 
 COMENTARIOS = {
     "descansos": [
-        # -- Planta/logística --
         ("P", "entre turno y turno no da tiempo ni a comer bien"),
         ("P", "yo pido q amplien el descanso de noche, es inhumano"),
-        ("P", "no hay ni 10 min para tomar algo entre turnos"),
-        ("P", "hace falta un descanso mas largo x la noche"),
+        ("P", "no hay ni 10 min para tomar algo en el turno"),
         ("P", "descansem molt poc entre torn i torn"),
-        ("P", "si empalmas dos noches seguidas se nota mucho la falta de descanso"),
+        ("P", "si empalmas dos noches seguidas no descansas nada"),
         ("P", "el descanso de 15 min es una broma con 8h de turno"),
         ("P", "amb el nou sistema no tenim temps de desconnectar entre torns"),
         ("P", "en el almacen no hay sitio decente para descansar"),
-        # -- Neutras --
+        ("P", "desde el cambio de turnos la pausa se ha quedado en nada"),
+        ("P", "en linea no te dejan parar ni cuando toca"),
         ("N", "el descanso es muy corto, acabas agotado"),
         ("N", "necesitamos mas tiempo de pausa, no llegamos"),
         ("N", "els descansos son massa curts, no puc ni seure"),
         ("N", "la pausa no da para nada, ni para ir al baño tranquilo"),
-        ("N", "las pausas de antes eran mejores, ahora no llegan"),
         ("N", "la pausa del mediodia se queda corta para desconectar"),
-        ("N", "necesitamos pausas mas largas para rendir bien"),
         ("N", "no tenemos tiempo real de descanso durante la jornada"),
-        ("N", "el tiempo de desconexion entre tareas es insuficiente"),
-        ("N", "els descansos no son suficients per recuperar energia"),
         ("N", "falta un espacio tranquilo donde poder descansar de verdad"),
+        ("N", "els descansos no son suficients per recuperar energia"),
     ],
-    "comunicacion_cambio": [
-        # -- Planta/logística --
-        ("P", "nadie nos dijo nada oficial del cambio de turnos"),
-        ("P", "si van a cambiar los turnos almenos q avisen bien"),
-        ("P", "me cambiaron el turno sin preguntarme"),
-        ("P", "falta informacion clara sobre los nuevos horarios de planta"),
-        ("P", "no hi va haver cap comunicat oficial sobre els torns, molt malament"),
-        ("P", "el cambio de turnos llego de un dia para otro sin explicacion"),
-        ("P", "en el almacen nos enteramos por casualidad del cambio"),
-        ("P", "als de nit no ens van dir res del canvi"),
-        # -- Neutras --
-        ("N", "nos enteramos del cambio x el grupo de wasa"),
-        ("N", "me entere por un compañero, no por la empresa"),
-        ("N", "la comunicacion del cambio fue pesima"),
-        ("N", "ens van avisar amb molt poc temps, fatal"),
-        ("N", "no hubo reunion ni correo, nos enteramos de rebote"),
-        ("N", "el cambio llego de un dia para otro sin explicacion"),
-        ("N", "la info llego tarde y mal, como siempre"),
-        ("N", "ens haurien d'haver informat amb mes antelacio"),
-        ("N", "no se comunican los cambios con tiempo suficiente"),
-        ("N", "falta un canal oficial para avisar de novedades"),
-        ("N", "siempre nos enteramos de los cambios por rumores"),
-        ("N", "la comunicacion interna es el punto mas debil"),
+    "turnos": [
+        ("P", "el nuevo sistema de turnos es un caos"),
+        ("P", "cambiar de turno cada semana te destroza el cuerpo"),
+        ("P", "la rotacion nueva no tiene ningun sentido"),
+        ("P", "els torns rotatius nous son impossibles"),
+        ("P", "me ponen de noche mas veces q antes"),
+        ("P", "no sabemos el cuadrante hasta el ultimo dia"),
+        ("P", "con los turnos nuevos no hay manera de organizarse"),
+        ("P", "el cuadrante cambia sin avisar y asi no se puede"),
+        ("P", "preferia el sistema de turnos de antes, era mas estable"),
+        ("P", "el torn de nit s'hauria de repartir millor"),
+        ("P", "los cambios de turno de ultima hora son constantes"),
+        ("P", "deberiamos poder opinar sobre como se hacen los turnos"),
+        ("N", "los horarios cambian demasiado a menudo"),
+        ("N", "no se respeta el calendario que se publica"),
+        ("N", "l'horari canvia massa sovint"),
     ],
     "carga_trabajo": [
-        # -- Planta/logística --
         ("P", "no damos abasto en el turno de tarde"),
         ("P", "necesitamos mas personal en linea"),
-        ("P", "se nota la falta de gente en los turnos rotativos"),
         ("P", "falta personal para cubrir todos los turnos"),
         ("P", "la produccion sube pero el equipo no crece"),
-        ("P", "en la fabrica estamos al limite cada noche"),
         ("P", "el almacen necesita mas gente para los picos"),
         ("P", "a planta estem desbordats amb la feina"),
-        # -- Neutras --
         ("N", "hay demasiado trabajo para la gente que somos"),
-        ("N", "desde el cambio la carga ha subido un monton"),
         ("N", "la carga de trabajo es excesiva ultimamente"),
         ("N", "cada vez mas faena amb menys gent"),
         ("N", "la carrega de treball ha augmentat molt"),
         ("N", "hay picos de trabajo q no se pueden gestionar"),
         ("N", "estamos al limite de capacidad"),
         ("N", "no pueden pedir mas con menos gente"),
-        ("N", "se necesita refuerzo en los momentos de mas volumen"),
         ("N", "el ritmo de trabajo no es sostenible asi"),
         ("N", "cada dia hay mas tareas y menos recursos"),
         ("N", "necessitem mes mans per treure la feina endavant"),
     ],
-    "herramientas": [
-        # -- Planta/logística --
-        ("P", "las maquinas fallan mucho y nadie las arregla rapido"),
-        ("P", "faltan EPIs en condiciones"),
-        ("P", "las tablets del quiosco van fatal"),
-        ("P", "la wifi en planta es malisima, no carga nada"),
-        ("P", "hay herramientas rotas q llevan meses sin reparar"),
-        ("P", "necesitamos mejor equipo para el turno de noche"),
-        ("P", "el material de proteccion esta viejo"),
-        ("P", "les eines de la fabrica son molt antigues"),
-        ("P", "en el almacen faltan carretillas en buen estado"),
-        # -- Neutras --
-        ("N", "necesitamos herramientas mas modernas"),
-        ("N", "el software de gestion es lentisimo"),
-        ("N", "les eines que fem servir son molt antigues"),
-        ("N", "el sistema se cuelga cada dos por tres"),
-        ("N", "no tenemos material suficiente para trabajar bien"),
-        ("N", "les eines no estan al dia, necessitem actualitzar"),
-        ("N", "la plataforma interna va muy lenta y falla mucho"),
-        ("N", "necesitamos herramientas digitales decentes"),
-        ("N", "el portatil q tengo es muy antiguo y va fatal"),
-        ("N", "el software nuevo tiene muchos bugs"),
-        ("N", "falta inversion en tecnologia para el dia a dia"),
+    "comunicacion": [
+        ("P", "nadie nos dijo nada oficial del cambio de turnos"),
+        ("P", "si van a cambiar los turnos almenos q avisen bien"),
+        ("P", "me cambiaron el turno sin explicarme por que"),
+        ("P", "no hi va haver cap comunicat oficial sobre els torns"),
+        ("P", "el cambio de turnos llego de un dia para otro sin explicacion"),
+        ("P", "en planta nos enteramos del cambio por casualidad"),
+        ("P", "als de nit no ens van dir res del canvi"),
+        ("P", "nos enteramos del cambio de turnos x el grupo de wasa"),
+        ("N", "me entere del cambio por un compañero, no por la empresa"),
+        ("N", "la comunicacion del cambio fue pesima"),
+        ("N", "ens van avisar del canvi amb molt poc temps"),
+        ("N", "no hubo reunion ni correo, nos enteramos de rebote"),
+        ("N", "falta un canal oficial para avisar de los cambios"),
+        ("N", "siempre nos enteramos de los cambios por rumores"),
     ],
     "liderazgo": [
-        # -- Planta/logística --
         ("P", "necesitamos jefes q bajen a planta mas a menudo"),
         ("P", "el encargado de noche no sabe gestionar conflictos"),
         ("P", "el responsable del almacen nunca esta cuando se le necesita"),
-        # -- Neutras --
         ("N", "mi jefe no escucha las quejas del equipo"),
         ("N", "falta apoyo de los mandos intermedios"),
-        ("N", "el responsable no esta cuando se le necesita"),
         ("N", "el lideratge ha de millorar molt"),
         ("N", "no hay feedback de los superiores nunca"),
-        ("N", "el encargado no sabe gestionar conflictos"),
         ("N", "els caps haurien de comunicar-se millor amb nosaltres"),
         ("N", "siento q las decisiones se toman sin contar con nosotros"),
         ("N", "los mandos no se mojan cuando hay problemas"),
         ("N", "falta liderazgo de verdad, no solo ordenes"),
         ("N", "el responsable deberia preguntar mas al equipo"),
-        ("N", "a mi jefe le da igual lo q le digamos"),
         ("N", "se necesita mas cercania por parte de los responsables"),
-        ("N", "falta comunicacion entre jefes y equipo"),
-        ("N", "las decisiones se toman arriba sin consultar"),
         ("N", "el lideratge hauria de ser mes participatiu"),
     ],
-    "desarrollo": [
-        # -- Planta/logística --
+    "herramientas": [
+        ("P", "las maquinas fallan mucho y nadie las arregla rapido"),
+        ("P", "las tablets del quiosco van fatal"),
+        ("P", "la wifi en planta es malisima, no carga nada"),
+        ("P", "hay herramientas rotas q llevan meses sin reparar"),
+        ("P", "les eines de la fabrica son molt antigues"),
+        ("P", "en el almacen faltan carretillas en buen estado"),
+        ("N", "necesitamos herramientas mas modernas"),
+        ("N", "el software de gestion es lentisimo"),
+        ("N", "el sistema se cuelga cada dos por tres"),
+        ("N", "les eines no estan al dia, necessitem actualitzar"),
+        ("N", "la plataforma interna va muy lenta y falla mucho"),
+        ("N", "el portatil q tengo es muy antiguo y va fatal"),
+        ("N", "el software nuevo tiene muchos bugs"),
+        ("N", "falta inversion en tecnologia para el dia a dia"),
+    ],
+    "formacion": [
         ("P", "no hay formacion para las nuevas maquinas"),
-        ("P", "no se promociona a nadie de planta"),
-        ("P", "al magatzem no hi ha cap opcio de creixer"),
-        # -- Neutras --
-        ("N", "quiero crecer en la empresa pero no hay plan"),
-        ("N", "no hi ha opcions de formacio aqui"),
+        ("P", "al magatzem no hi ha cap formacio"),
+        ("P", "nos ponen en linea nueva sin explicarnos nada"),
         ("N", "llevamos meses sin hacer ningun curso"),
+        ("N", "no hi ha opcions de formacio aqui"),
         ("N", "me gustaria aprender cosas nuevas pero no hay oferta"),
         ("N", "la formacion es nula, todo se aprende sobre la marcha"),
         ("N", "necessitem formacio per als nous processos"),
-        ("N", "quiero mejorar pero no me dan oportunidades"),
         ("N", "falta un plan de carrera claro"),
         ("N", "la empresa no invierte en formacion del personal"),
-        ("N", "no hay cursos ni nada para mejorar"),
-        ("N", "el desenvolupament professional es inexistent"),
-        ("N", "no existe un plan real de crecimiento interno"),
         ("N", "me gustaria tener acceso a formacion online"),
-        ("N", "las oportunidades de mejora son nulas"),
         ("N", "no hi ha cap programa de mentoria ni res semblant"),
+        ("N", "quiero crecer aqui pero no hay plan de formacion"),
+    ],
+    "reconocimiento": [
+        ("P", "en planta nadie valora el esfuerzo q hacemos"),
+        ("P", "los de noche somos invisibles para la empresa"),
+        ("N", "nunca te dicen que has hecho algo bien"),
+        ("N", "el esfuerzo no se reconoce para nada"),
+        ("N", "ningu valora la feina que fem"),
+        ("N", "solo te dicen algo cuando fallas"),
+        ("N", "estaria bien un gracias de vez en cuando"),
+        ("N", "los logros del equipo no se celebran nunca"),
+        ("N", "no se reconoce a quien se esfuerza mas"),
+        ("N", "falta reconeixement per part de la direccio"),
+        ("N", "da igual lo q hagas, nadie lo ve"),
     ],
     "seguridad": [
-        # -- Planta/logística --
         ("P", "hay zonas de la planta que son peligrosas"),
         ("P", "falta señalizacion en la zona de carga"),
         ("P", "el suelo esta resbaladizo y nadie lo limpia"),
         ("P", "la seguretat a la fabrica ha de millorar"),
         ("P", "he visto cables sueltos cerca de las maquinas"),
-        ("P", "les sortides d'emergencia estan bloquejades a la fabrica"),
-        ("P", "la iluminacion en el almacen es muy pobre"),
         ("P", "faltan EPIs nuevos en la zona de carga"),
-        ("P", "el almacen tiene zonas con poca visibilidad"),
-        # -- Neutras --
-        ("N", "los extintores estan caducados"),
+        ("P", "la iluminacion en el almacen es muy pobre"),
         ("N", "no hay protocolos claros de emergencia"),
         ("N", "necesitamos mas formacion en prevencion"),
-        ("N", "no tenemos botiquin actualizado en la zona"),
         ("N", "falta un plan de evacuacion visible"),
-        ("N", "la seguridad deberia ser prioridad uno"),
         ("N", "las visitas a cliente no tienen protocolo de seguridad"),
-        ("N", "falta formacion en seguridad vial para los comerciales"),
-        ("N", "no hay revision periodica de riesgos en la oficina"),
         ("N", "la silla y la pantalla no cumplen ergonomia basica"),
-        ("N", "caldria revisar els protocols de seguretat de l'oficina"),
         ("N", "no se hacen simulacros de evacuacion desde hace mucho"),
     ],
+    "ambiente": [
+        ("P", "en planta el ambiente con los compañeros es bueno"),
+        ("P", "hay mal rollo entre el turno de mañana y el de tarde"),
+        ("N", "el ambiente con los compañeros es lo mejor de aqui"),
+        ("N", "hay bastante tension en el equipo ultimamente"),
+        ("N", "l'ambient entre companys es bo"),
+        ("N", "falta compañerismo, cada uno va a lo suyo"),
+        ("N", "hay grupitos y eso crea mal ambiente"),
+        ("N", "el equipo se ayuda mucho, eso se agradece"),
+        ("N", "se nota cansancio y mal humor en el equipo"),
+        ("N", "hi ha bon rotllo pero molta pressio"),
+        ("N", "deberiamos hacer mas cosas juntos como equipo"),
+    ],
     "conciliacion": [
-        # -- Planta/logística --
         ("P", "con los nuevos turnos no veo a mis hijos"),
         ("P", "el turno de noche me esta destrozando la vida social"),
         ("P", "la conciliacio es molt dificil amb aquests torns"),
         ("P", "necessito canviar de torn per motius familiars"),
-        ("P", "me gustaria poder elegir turno en algun momento"),
-        ("P", "el horario del almacen no me permite conciliar"),
-        # -- Neutras --
         ("N", "no puedo compaginar el trabajo con mi vida"),
-        ("N", "el horario nuevo es imposible para conciliar"),
         ("N", "necesito mas flexibilidad para temas de familia"),
         ("N", "no llego a recoger a los niños del cole"),
         ("N", "no hay ningun tipo de flexibilidad horaria"),
-        ("N", "la empresa no se preocupa de la conciliacion"),
-        ("N", "amb el nou horari no puc portar els nens a escola"),
-        ("N", "necesito q me tengan en cuenta para conciliar"),
+        ("N", "amb l'horari actual no puc portar els nens a escola"),
         ("N", "no existe opcion de teletrabajo ni flexibilidad"),
-        ("N", "la jornada no permite compaginar con la vida personal"),
         ("N", "falta flexibilidad real, no solo de palabra"),
-        ("N", "el horari no es compatible amb la meva vida familiar"),
-        ("N", "necesitamos mas opciones para la conciliacion"),
+        ("N", "l'horari no es compatible amb la meva vida familiar"),
+    ],
+    "otros": [
+        ("P", "el comedor de la fabrica deja mucho q desear"),
+        ("P", "los uniformes nuevos pican y dan calor"),
+        ("N", "el parking siempre esta lleno"),
+        ("N", "la maquina de cafe lleva semanas rota"),
+        ("N", "la calefaccion no funciona bien"),
+        ("N", "el menjador hauria de tenir mes opcions"),
+        ("N", "el transporte para llegar es fatal"),
+        ("N", "todo bien, nada especial q comentar"),
+        ("N", "res a dir, tot correcte"),
+        ("N", "los vestuarios necesitan una reforma"),
     ],
 }
 
-# Datos ficticios para probar anonimización (nombres inventados, correos y
-# teléfonos falsos; NO son datos reales).
+# Datos personales INVENTADOS para demostrar anonimizar() (~5 %)
 DATOS_FICTICIOS_PLANTA = [
     "preguntale a Manolo q el lo sabe bien",
-    "mi compañera Pepa dice q esto no puede seguir asi",
-    "llama al 612 345 678 q te lo explican",
     "Carlos del turno de noche tb lo dice",
-    "habla con Jordi q lleva 20 anios aqui",
     "q se lo digan a la Maria del almacen",
+    "llama al 612 345 678 q te lo explican",
 ]
 DATOS_FICTICIOS_NEUTROS = [
     "yo soy Lucia y estoy harta de esto",
     "escribe a prueba@example.com y te lo confirmo",
     "el correo es demo@example.com por si quieres quejas",
-    "contacta al 698 123 456 y pregunta por Pedro",
+    "contacta al +34 698 123 456 y pregunta por Pedro",
     "habla con Elena q ella te lo confirma",
-    "pregunta a Raul del equipo, el te lo cuenta",
+    "pregunta a Jordi del equipo, el te lo cuenta",
+    "mi movil es 655 111 222 si quereis mas info",
 ]
 
-# ---------------------------------------------------------------------------
-# MULETILLAS Y CIERRES (variedad)
-# ---------------------------------------------------------------------------
+MULETILLAS = ["la verdad", "pues", "sinceramente", "bueno", "doncs", "la veritat",
+              "mira", "oye", "vamos", "es que", "home"]
+CIERRES = ["a ver si se arregla", "estamos cansados", "esto no puede seguir así",
+           "a veure si millora", "ya está bien", "esperemos que cambien algo",
+           "ojala mejore pronto", "a veure que fan", "en fin"]
 
-MULETILLAS = [
-    "la verdad", "pues", "sinceramente", "bueno", "doncs", "la veritat",
-    "mira", "oye", "jo", "vamos", "es que", "home",
-]
-CIERRES = [
-    "a ver si se arregla", "estamos cansados", "esto no puede seguir así",
-    "a veure si millora", "ya está bien", "no sé qué más decir",
-    "esperemos que cambien algo", "ojala mejore pronto",
-    "a veure que fan", "en fin",
-]
-
-# ---------------------------------------------------------------------------
-# ABREVIATURAS Y RUIDO
-# ---------------------------------------------------------------------------
-
-ABREVIATURAS = {
-    "que": "q", "porque": "xq", "también": "tb",
-    "por": "x", "para": "pa", "muy": "mu", "bueno": "bno",
-    "nada": "na", "todos": "tos",
-}
-# Compilar patrones con word boundaries para no romper palabras parciales
-_ABREV_PATTERNS = {
-    re.compile(r"\b" + re.escape(larga) + r"\b", re.IGNORECASE): corta
-    for larga, corta in ABREVIATURAS.items()
-}
-
+ABREVIATURAS = {"que": "q", "porque": "xq", "también": "tb", "por": "x",
+                "para": "pa", "muy": "mu", "nada": "na", "todos": "tos"}
+_ABREV = [(re.compile(r"\b" + re.escape(l) + r"\b"), c) for l, c in ABREVIATURAS.items()]
 EMOJIS = ["😤", "😞", "🤦", "💪", "👎", "😡", "🙄", "😩", "🤷", "👀"]
+
+# ---------------------------------------------------------------------------
+# UTILIDADES
+# ---------------------------------------------------------------------------
 
 
 def quitar_tildes(texto):
-    """Elimina tildes manteniendo la ñ y la ç."""
-    resultado = []
+    out = []
     for c in texto:
-        if c in ("ñ", "Ñ", "ç", "Ç"):
-            resultado.append(c)
+        if c in "ñÑçÇ":
+            out.append(c)
         else:
-            nfkd = unicodedata.normalize("NFKD", c)
-            resultado.append("".join(ch for ch in nfkd if unicodedata.category(ch) != "Mn"))
-    return "".join(resultado)
+            out.append("".join(ch for ch in unicodedata.normalize("NFKD", c)
+                               if unicodedata.category(ch) != "Mn"))
+    return "".join(out)
 
 
 def aplicar_ruido(texto, rng):
-    """Aplica ruido casual al texto: quita tildes, abreviaturas, etc."""
     t = texto.lower()
     if rng.random() < 0.7:
         t = quitar_tildes(t)
-    # Abreviaturas con word boundaries
-    for patron, corta in _ABREV_PATTERNS.items():
+    for patron, corta in _ABREV:
         if patron.search(t) and rng.random() < 0.4:
             t = patron.sub(corta, t, count=1)
-    # Quitar puntuación final
     t = t.rstrip(".,;:!?")
-    # Duplicar alguna letra
     if rng.random() < 0.15 and len(t) > 10:
         pos = rng.randint(3, len(t) - 2)
         t = t[:pos] + t[pos] + t[pos:]
-    # Emoji al final
     if rng.random() < 0.12:
-        t = t + " " + rng.choice(EMOJIS)
+        t += " " + rng.choice(EMOJIS)
     return t
 
 
-# ---------------------------------------------------------------------------
-# FUNCIONES AUXILIARES
-# ---------------------------------------------------------------------------
+def elegir_ponderado(pesos, rng):
+    """pesos: dict clave -> peso (>= 0). Devuelve una clave."""
+    total = sum(pesos.values())
+    r = rng.random() * total
+    acum = 0.0
+    for k, w in pesos.items():
+        acum += w
+        if r <= acum and w > 0:
+            return k
+    return [k for k, w in pesos.items() if w > 0][-1]
 
-def cargar_encuesta():
-    with open(ENCUESTA_PATH, encoding="utf-8") as f:
-        return json.load(f)
+
+def dias_laborables(periodo):
+    anio, mes = map(int, periodo.split("-"))
+    _, n = calendar.monthrange(anio, mes)
+    return [f"{anio}-{mes:02d}-{d:02d}" for d in range(1, n + 1)
+            if calendar.weekday(anio, mes, d) < 5]
 
 
-def obtener_tasa(colectivo, turno):
-    """Obtiene la tasa de respuesta para un segmento (colectivo, turno).
-    Devuelve (tasa, es_defecto, descripcion_motivo)."""
+def tasa_de(colectivo, turno):
     if (colectivo, turno) in TASAS:
-        return TASAS[(colectivo, turno)], False, ""
-
-    tasas_colectivo = [t for (c, _), t in TASAS.items() if c == colectivo]
-    if tasas_colectivo:
-        media = sum(tasas_colectivo) / len(tasas_colectivo)
-        return media, True, f"media de {colectivo} ({media:.3f})"
-
-    return 0.15, True, "tasa por defecto 0.15 (colectivo no en TASAS)"
+        return TASAS[(colectivo, turno)], False
+    del_colectivo = [t for (c, _), t in TASAS.items() if c == colectivo]
+    if del_colectivo:
+        return sum(del_colectivo) / len(del_colectivo), True
+    return 0.15, True
 
 
 def cargar_plantilla():
-    """Usa SIEMPRE contenido/plantilla.json si existe y es JSON válido.
-    Para cada segmento (colectivo, turno), usa su tasa de TASAS; si no está,
-    usa la media de las tasas de ese colectivo en TASAS; si el colectivo tampoco
-    está, 0.15. Imprime qué segmentos usan tasa por defecto.
-    Solo usa PLANTILLA_DEFAULT si el fichero no existe o no es válido."""
-    if os.path.exists(PLANTILLA_PATH):
-        try:
-            with open(PLANTILLA_PATH, encoding="utf-8") as f:
-                data = json.load(f)
-            if isinstance(data, list) and len(data) > 0:
-                print(f"  Plantilla: {PLANTILLA_PATH}")
-                segmentos = []
-                por_defecto = []
-                for item in data:
-                    c = quitar_tildes(str(item["colectivo"]).strip().lower())
-                    t = quitar_tildes(str(item["turno"]).strip().lower())
-                    p = int(item["personas"])
-                    if c not in COLECTIVOS or t not in TURNOS or p <= 0:
-                        print(f"    ! Segmento ignorado (valor no válido): {item}")
-                        continue
-                    if c in COLECTIVOS_OFICINA and t != "sin_turno":
-                        print(f"    ! {c}/{t}: {c} siempre es sin_turno, se corrige")
-                        t = "sin_turno"
-                    tasa, es_def, desc = obtener_tasa(c, t)
-                    segmentos.append((c, t, p, tasa))
-                    if es_def:
-                        por_defecto.append((c, t, tasa, desc))
-                if por_defecto:
-                    print("  Segmentos con tasa por defecto:")
-                    for c, t, tasa, desc in por_defecto:
-                        print(f"    - {c}/{t}: {tasa:.3f} ({desc})")
-                if segmentos:
-                    return segmentos
-                print("  Plantilla sin segmentos válidos. Se usa PLANTILLA_DEFAULT.")
-        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
-            print(f"  Plantilla: {PLANTILLA_PATH} no es válida ({e}). Se usa PLANTILLA_DEFAULT.")
-    else:
-        print(f"  Plantilla: {PLANTILLA_PATH} no existe. Se usa PLANTILLA_DEFAULT.")
-
-    segmentos = []
-    for c, t, p in PLANTILLA_DEFAULT:
-        tasa, _, _ = obtener_tasa(c, t)
-        segmentos.append((c, t, p, tasa))
-    return segmentos
-
-
-def dias_laborables(anio, mes, dia_max=None):
-    """Devuelve una lista de fechas laborables (lun-vie) del mes.
-    Si dia_max se indica, solo hasta ese día (inclusive)."""
-    dias = []
-    _, n_dias = calendar.monthrange(anio, mes)
-    tope = min(n_dias, dia_max) if dia_max else n_dias
-    for d in range(1, tope + 1):
-        wd = calendar.weekday(anio, mes, d)
-        if wd < 5:  # lunes=0 .. viernes=4
-            dias.append(f"{anio}-{mes:02d}-{d:02d}")
-    return dias
-
-
-def elegir_canal(colectivo, rng):
-    probs = CANAL_PROBS[colectivo]
-    r = rng.random()
-    acum = 0.0
-    for canal, p in probs:
-        acum += p
-        if r <= acum:
-            return canal
-    return probs[-1][0]
-
-
-def normalizar_probs(d):
-    """Normaliza un dict de probabilidades para que sume 1."""
-    total = sum(d.values())
-    if total == 0:
-        n = len(d)
-        return {k: 1.0 / n for k in d}
-    return {k: v / total for k, v in d.items()}
-
-
-def elegir_tema(periodo, colectivo, turno, rng):
-    """Elige un tema_real con las probabilidades ajustadas por segmento."""
-    probs = dict(TEMAS_PROB[periodo])
-
-    # En 2026-11, "descansos" se concentra en planta/noche y planta/tarde
-    if periodo == "2026-11" and colectivo == "planta" and turno in ("noche", "tarde"):
-        probs["descansos"] *= 2.0
-
-    # "seguridad" casi solo en planta y logistica (en ambos periodos)
-    if colectivo not in ("planta", "logistica"):
-        probs["seguridad"] *= 0.1
-
-    probs = normalizar_probs(probs)
-    r = rng.random()
-    acum = 0.0
-    for tema in TEMAS:
-        acum += probs.get(tema, 0)
-        if r <= acum:
-            return tema
-    return TEMAS[-1]
-
-
-def generar_nota(media_base, tema, colectivo, turno, periodo, rng):
-    """Genera una nota de escala 1-5 con sesgo por tema/segmento."""
-    mu = media_base
-    if tema in ("descansos", "carga_trabajo"):
-        mu -= 0.8
-    if colectivo == "planta" and turno == "noche" and periodo == "2026-11":
-        mu -= 0.5
-    # Generar con distribución normal discreta, truncada a 1-5
-    valor = rng.gauss(mu, 1.0)
-    valor = max(1, min(5, round(valor)))
-    return valor
-
-
-def generar_valores(encuesta, tema, colectivo, turno, periodo, rng):
-    """Genera el dict de valores según las preguntas de la encuesta."""
-    media_base = MEDIA_BASE[colectivo]
-    preguntas = encuesta["preguntas"]
-    valores = {}
-
-    for p in preguntas:
-        pid = p["id"]
-        tipo = p["tipo"]
-
-        # Omitir la pregunta de texto (va en "comentario")
-        if tipo == "texto":
-            continue
-
-        # Evaluar condición
-        if p["condicion"] is not None:
-            ref = p["condicion"]["pregunta"]
-            vmax = p["condicion"]["valor_max"]
-            ref_val = valores.get(ref)
-            if ref_val is None or ref_val > vmax:
+    """contenido/plantilla.json si existe y es válido; si no, PLANTILLA_DEFAULT.
+    Normaliza mayúsculas/tildes y corrige turnos imposibles."""
+    if not os.path.exists(PLANTILLA_PATH):
+        print(f"  Plantilla: {PLANTILLA_PATH} no existe → se usa la plantilla por defecto")
+        return [dict(s) for s in PLANTILLA_DEFAULT]
+    try:
+        with open(PLANTILLA_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+        segmentos = []
+        for item in data:
+            c = quitar_tildes(str(item["colectivo"]).strip().lower())
+            t = quitar_tildes(str(item["turno"]).strip().lower()).replace("ñ", "n").replace(" ", "_")
+            p = int(item["personas"])
+            if c not in COLECTIVOS or p <= 0:
+                print(f"    ! Segmento ignorado (valor no válido): {item}")
                 continue
+            if c == "planta" and t not in TURNOS_PLANTA:
+                print(f"    ! Segmento ignorado (planta necesita manana/tarde/noche): {item}")
+                continue
+            if c != "planta" and t != "sin_turno":
+                print(f"    ! {c}/{t}: {c} no tiene turnos, se usa sin_turno")
+                t = "sin_turno"
+            segmentos.append({"colectivo": c, "turno": t, "personas": p})
+        if not segmentos:
+            raise ValueError("sin segmentos válidos")
+        print(f"  Plantilla: {PLANTILLA_PATH}")
+        for s in segmentos:
+            if tasa_de(s["colectivo"], s["turno"])[1]:
+                print(f"    - {s['colectivo']}/{s['turno']} usa tasa por defecto")
+        return segmentos
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
+        print(f"  Plantilla no válida ({e}) → se usa la plantilla por defecto")
+        return [dict(s) for s in PLANTILLA_DEFAULT]
 
-        if tipo == "escala_1_5":
-            valores[pid] = generar_nota(media_base, tema, colectivo, turno, periodo, rng)
-        elif tipo == "opcion":
-            opciones = p["opciones"]
-            # Sesgar la opción según el tema
-            pesos = [1.0] * len(opciones)
-            for i, op in enumerate(opciones):
-                op_lower = op.lower()
-                if tema == "descansos" and "descanso" in op_lower:
-                    pesos[i] = 4.0
-                elif tema == "comunicacion_cambio" and "comunicaci" in op_lower:
-                    pesos[i] = 4.0
-                elif tema == "conciliacion" and "conciliaci" in op_lower:
-                    pesos[i] = 4.0
-                elif "nada" in op_lower or "especial" in op_lower:
-                    if tema in ("descansos", "comunicacion_cambio", "carga_trabajo"):
-                        pesos[i] = 0.3
-            total_w = sum(pesos)
-            pesos = [w / total_w for w in pesos]
-            r = rng.random()
-            acum = 0.0
-            for i, w in enumerate(pesos):
-                acum += w
-                if r <= acum:
-                    valores[pid] = opciones[i]
-                    break
-            else:
-                valores[pid] = opciones[-1]
-        elif tipo == "si_no":
-            # Sesgar: si comunicacion_cambio, más probable "no"
-            prob_si = 0.5
-            if tema == "comunicacion_cambio":
-                prob_si = 0.2
-            elif tema in ("descansos", "carga_trabajo"):
-                prob_si = 0.35
-            valores[pid] = "si" if rng.random() < prob_si else "no"
-
-    return valores
+# ---------------------------------------------------------------------------
+# FUNCIONES DEL MÓDULO (MODULOS.md §5)
+# ---------------------------------------------------------------------------
 
 
-def _filtrar_frases(banco_tema, colectivo):
-    """Devuelve solo las frases del banco válidas para el colectivo."""
-    if colectivo in COLECTIVOS_PLANTA:
-        return [texto for _, texto in banco_tema]
-    else:
-        return [texto for marca, texto in banco_tema if marca == "N"]
+def generar_encuesta_base():
+    """enc_000: "Pulso de clima general", colectivo todos, publicada, 2026-10."""
+    def pregunta(pid, texto, tipo, dimension):
+        return {"id": pid, "texto": texto, "tipo": tipo, "opciones": [],
+                "dimension": dimension, "condicion": None}
+    return {
+        "id": ENCUESTA_ID,
+        "estado": "publicada",
+        "titulo": "Pulso de clima general",
+        "intro": ("Queremos saber cómo te sientes en tu trabajo para mejorar lo que haga falta. "
+                  "Es anónima: solo se ven resultados agregados."),
+        "colectivo": "todos",
+        "periodo": PERIODO_ACTUAL,
+        "tiempo_estimado_seg": 5 * 15 + 30,
+        "url": None,
+        "qr": None,
+        "preguntas": [
+            pregunta("p1", "¿Cómo te sientes en general en tu trabajo?", "escala_1_5", "bienestar"),
+            pregunta("p2", "¿Te sientes escuchado/a por tu responsable?", "escala_1_5", "liderazgo"),
+            pregunta("p3", "¿Tienes oportunidades para aprender y crecer?", "escala_1_5", "desarrollo"),
+            pregunta("p4", "¿Cómo valoras tu carga de trabajo y tus turnos u horarios?",
+                     "escala_1_5", "condiciones"),
+            pregunta("p5", "¿Cómo es el ambiente con tus compañeros?", "escala_1_5", "entorno"),
+            pregunta("p6", "¿Qué cambiarías?", "texto", "condiciones"),
+        ],
+    }
 
 
-def generar_comentario(tema, colectivo, rng, usar_dato_ficticio=False):
-    """Genera un comentario para el tema dado, filtrado por colectivo."""
-    frases = _filtrar_frases(COMENTARIOS[tema], colectivo)
-    comentario = rng.choice(frases)
+def _nota(mu, rng):
+    return max(1, min(5, round(rng.gauss(mu, 0.9))))
 
-    # 10 % mezcla con otro tema (filtrada por colectivo también)
-    if rng.random() < 0.10:
-        otro_tema = rng.choice([t for t in TEMAS if t != tema])
-        frases_extra = _filtrar_frases(COMENTARIOS[otro_tema], colectivo)
-        frase_extra = rng.choice(frases_extra)
-        comentario = comentario + ", y " + frase_extra
 
-    # Dato ficticio para probar anonimización
-    if usar_dato_ficticio:
-        if colectivo in COLECTIVOS_PLANTA:
-            dato = rng.choice(DATOS_FICTICIOS_PLANTA + DATOS_FICTICIOS_NEUTROS)
-        else:
-            dato = rng.choice(DATOS_FICTICIOS_NEUTROS)
-        comentario = comentario + ". " + dato
+def _comentario(tema, colectivo, rng, con_dato_ficticio):
+    planta_like = colectivo in ("planta", "logistica")
 
-    # 30 % muletilla al inicio o cierre al final
+    def frases(t):
+        return [txt for marca, txt in COMENTARIOS[t] if planta_like or marca == "N"]
+
+    texto = rng.choice(frases(tema))
+    if rng.random() < 0.10:  # mezcla con un segundo tema
+        otro = rng.choice([t for t in TEMAS if t not in (tema, "otros")])
+        texto += ", y " + rng.choice(frases(otro))
+    if con_dato_ficticio:
+        texto += ". " + rng.choice((DATOS_FICTICIOS_PLANTA if planta_like else [])
+                                   + DATOS_FICTICIOS_NEUTROS)
     if rng.random() < 0.30:
         if rng.random() < 0.5:
-            muletilla = rng.choice(MULETILLAS)
-            comentario = muletilla + ", " + comentario
+            texto = rng.choice(MULETILLAS) + ", " + texto
         else:
-            cierre = rng.choice(CIERRES)
-            comentario = comentario + ", " + cierre
-
-    # Ruido al 60 %
+            texto += ", " + rng.choice(CIERRES)
     if rng.random() < 0.60:
-        comentario = aplicar_ruido(comentario, rng)
-
-    return comentario
-
-
-# ---------------------------------------------------------------------------
-# GENERACIÓN PRINCIPAL
-# ---------------------------------------------------------------------------
-
-TENDENCIAS_ESPERADAS = {
-    "descansos": "SUBE", "comunicacion_cambio": "NUEVO", "herramientas": "BAJA",
-}
+        texto = aplicar_ruido(texto, rng)
+    return texto
 
 
-def calcular_tendencias(respuestas):
-    """Tendencia por tema (proporción sobre el total del periodo).
-    NUEVO si oct < 3 y nov >= 5; SUBE si ratio >= 1.5; BAJA si <= 0.6."""
-    cont = {}
-    for r in respuestas:
-        cont[(r["periodo"], r["tema_real"])] = cont.get((r["periodo"], r["tema_real"]), 0) + 1
-    total_oct = sum(cont.get(("2026-10", t), 0) for t in TEMAS)
-    total_nov = sum(cont.get(("2026-11", t), 0) for t in TEMAS)
-    res = {}
-    for tema in TEMAS:
-        n_oct = cont.get(("2026-10", tema), 0)
-        n_nov = cont.get(("2026-11", tema), 0)
-        p_oct = n_oct / total_oct if total_oct else 0.0
-        p_nov = n_nov / total_nov if total_nov else 0.0
-        if n_oct < 3 and n_nov >= 5:
-            tend = "NUEVO"
-        elif p_oct > 0:
-            ratio = p_nov / p_oct
-            tend = "SUBE" if ratio >= 1.5 else "BAJA" if ratio <= 0.6 else "ESTABLE"
-        else:
-            tend = "SUBE" if p_nov > 0 else "ESTABLE"
-        res[tema] = (n_oct, n_nov, tend)
-    return res
+def _reparto_exacto(pesos, n, rng):
+    """Lista de n temas con las proporciones exactas de 'pesos' (mayor resto), barajada."""
+    total = sum(pesos.values())
+    cuotas = {t: n * w / total for t, w in pesos.items()}
+    cuenta = {t: int(q) for t, q in cuotas.items()}
+    restos = sorted(cuotas, key=lambda t: (cuotas[t] - cuenta[t], rng.random()), reverse=True)
+    for t in restos[: n - sum(cuenta.values())]:
+        cuenta[t] += 1
+    lista = [t for t, k in cuenta.items() for _ in range(k)]
+    rng.shuffle(lista)
+    return lista
 
 
-def tendencias_ok(respuestas):
-    """True si salen exactamente las tendencias del demo y el resto ESTABLE."""
-    for tema, (_, _, tend) in calcular_tendencias(respuestas).items():
-        if tend != TENDENCIAS_ESPERADAS.get(tema, "ESTABLE"):
-            return False
-    return True
+def generar_respuestas(semilla=42, plantilla=None):
+    """~600 Respuesta en 2026-09 y 2026-10 para enc_000, con tema_real.
 
-
-def generar(seed=42, salida=None, guardar=True, verbose=True):
-    rng = random.Random(seed)
-
-    if salida is None:
-        salida = os.path.join(SCRIPT_DIR, "respuestas.json")
-
-    encuesta = cargar_encuesta()
-    if verbose:
-        plantilla = cargar_plantilla()
-    else:
-        import contextlib, io
+    Los temas de los comentarios se reparten con proporciones exactas por periodo y
+    grupo (planta / resto), así la historia del demo no depende del azar."""
+    rng = random.Random(semilla)
+    if plantilla is None:
         with contextlib.redirect_stdout(io.StringIO()):
             plantilla = cargar_plantilla()
 
-    # Generar IDs únicos
-    ids_usados = set()
-
-    def nuevo_id():
-        while True:
-            n = rng.randint(0, 99999)
-            rid = f"r_{n:05d}"
-            if rid not in ids_usados:
-                ids_usados.add(rid)
-                return rid
-
-    # Precalcular días laborables
-    # Noviembre: solo días laborables del 2 al 6 (demo el 8)
-    dias_lab = {
-        "2026-10": dias_laborables(2026, 10),
-        "2026-11": dias_laborables(2026, 11, dia_max=6),
-    }
-
-    respuestas = []
-    resumen_segmentos = {}  # (periodo, colectivo, turno) -> count
-    resumen_temas = {}      # (periodo, tema) -> count
-    comentarios_ficticios = 0
-    indices_ficticios = []
-
+    # 1. Huecos de respuesta por periodo y segmento
+    huecos = []
     for periodo in PERIODOS:
-        for colectivo, turno, personas, tasa in plantilla:
-            n_base = round(personas * tasa)
-            # Pequeña variación aleatoria (±12 %)
-            variacion = rng.uniform(-0.12, 0.12)
-            n_resp = max(1, round(n_base * (1 + variacion)))
+        for seg in plantilla:
+            c, t = seg["colectivo"], seg["turno"]
+            tasa, _ = tasa_de(c, t)
+            n = max(1, round(seg["personas"] * tasa * (1 + rng.uniform(-0.1, 0.1))))
+            huecos += [{"periodo": periodo, "colectivo": c, "turno": t} for _ in range(n)]
 
-            clave_seg = (periodo, colectivo, turno)
-            resumen_segmentos[clave_seg] = {
-                "respuestas": n_resp,
-                "personas": personas,
-                "tasa_real": n_resp / personas if personas > 0 else 0,
-            }
+    # 2. Comentario vacío (15 %) y tema: reparto exacto entre los que comentan
+    for periodo in PERIODOS:
+        for grupo in ("planta", "resto"):
+            del_grupo = [h for h in huecos if h["periodo"] == periodo
+                         and (h["colectivo"] == "planta") == (grupo == "planta")]
+            rng.shuffle(del_grupo)
+            n_vacios = round(len(del_grupo) * 0.15)
+            pesos = PESOS_TEMA[(grupo, periodo)]
+            temas = _reparto_exacto(pesos, len(del_grupo) - n_vacios, rng)
+            for i, h in enumerate(del_grupo):
+                h["vacio"] = i < n_vacios
+                h["tema"] = elegir_ponderado(pesos, rng) if h["vacio"] else temas[i - n_vacios]
 
-            dias = dias_lab[periodo]
-
-            for _ in range(n_resp):
-                tema = elegir_tema(periodo, colectivo, turno, rng)
-                valores = generar_valores(
-                    encuesta, tema, colectivo, turno, periodo, rng
-                )
-                canal = elegir_canal(colectivo, rng)
-                fecha = rng.choice(dias)
-
-                # Comentario: 15 % vacío
-                usar_ficticio = False
-                if rng.random() < 0.15:
-                    comentario = ""
-                else:
-                    # 3 % con datos ficticios
-                    usar_ficticio = rng.random() < 0.035
-                    comentario = generar_comentario(
-                        tema, colectivo, rng, usar_dato_ficticio=usar_ficticio
-                    )
-
-                resp = {
-                    "id": nuevo_id(),
-                    "encuesta_id": encuesta["id"],
-                    "fecha": fecha,
-                    "periodo": periodo,
-                    "colectivo": colectivo,
-                    "centro_tipo": CENTRO_MAP[colectivo],
-                    "turno": turno,
-                    "canal": canal,
-                    "valores": valores,
-                    "comentario": comentario,
-                    "tema_real": tema,
-                }
-                respuestas.append(resp)
-
-                if usar_ficticio:
-                    comentarios_ficticios += 1
-                    indices_ficticios.append(len(respuestas) - 1)
-
-                # Resumen de temas
-                clave_tema = (periodo, tema)
-                resumen_temas[clave_tema] = resumen_temas.get(clave_tema, 0) + 1
-
-    if not guardar:
-        return respuestas
-
-    # Guardar JSON
-    os.makedirs(os.path.dirname(os.path.abspath(salida)), exist_ok=True)
-    with open(salida, "w", encoding="utf-8") as f:
-        json.dump(respuestas, f, ensure_ascii=False, indent=2)
-
-    # ---------------------------------------------------------------------------
-    # RESUMEN POR CONSOLA
-    # ---------------------------------------------------------------------------
-
-    print(f"\n{'='*70}")
-    print(f"  GENERADOR DE DATOS SINTÉTICOS — Resumen")
-    print(f"{'='*70}")
-    print(f"\n  Total de respuestas: {len(respuestas)}")
-    print(f"  Semilla: {seed}")
-    print(f"  Fichero: {salida}\n")
-
-    print(f"  {'Periodo':<10} {'Colectivo':<12} {'Turno':<10} {'Resp':>5} {'Pers':>5} {'Tasa':>7}")
-    print(f"  {'-'*55}")
-    for (periodo, colectivo, turno), info in sorted(resumen_segmentos.items()):
-        print(f"  {periodo:<10} {colectivo:<12} {turno:<10} {info['respuestas']:>5} "
-              f"{info['personas']:>5} {info['tasa_real']:>6.1%}")
-
-    print(f"\n  {'Periodo':<10} {'Tema':<24} {'N':>5}")
-    print(f"  {'-'*42}")
-    for (periodo, tema), n in sorted(resumen_temas.items()):
-        print(f"  {periodo:<10} {tema:<24} {n:>5}")
-
-    # Tendencias basadas en proporciones sobre el total del periodo
-    print(f"\n  Tendencias (2026-10 vs 2026-11):")
-    for tema, (n_oct, n_nov, tend) in calcular_tendencias(respuestas).items():
-        marca = "" if tend == TENDENCIAS_ESPERADAS.get(tema, "ESTABLE") else "   <-- no esperada"
-        print(f"    {tema:<24} oct={n_oct:>3}  nov={n_nov:>3}  -> {tend}{marca}")
-
-    # Comentarios únicos
-    comentarios_no_vacios = [r["comentario"] for r in respuestas if r["comentario"]]
-    unicos = len(set(comentarios_no_vacios))
-    print(f"\n  Comentarios no vacíos: {len(comentarios_no_vacios)}")
-    print(f"  Comentarios únicos:   {unicos}")
-
-    print(f"\n  Comentarios con datos ficticios (para probar anonimización): "
-          f"{comentarios_ficticios}")
-    if indices_ficticios:
-        print(f"    IDs: {', '.join(respuestas[i]['id'] for i in indices_ficticios)}")
-
-    # Verificación de fechas nov
-    fechas_nov = [r["fecha"] for r in respuestas if r["periodo"] == "2026-11"]
-    fecha_max_nov = max(fechas_nov) if fechas_nov else "N/A"
-    print(f"\n  Fecha máxima en noviembre: {fecha_max_nov}")
-
-    print(f"\n{'='*70}\n")
-
+    # 3. Construir cada Respuesta
+    ids = set()
+    dias = {p: dias_laborables(p) for p in PERIODOS}
+    respuestas = []
+    for h in huecos:
+        c, t, periodo, tema = h["colectivo"], h["turno"], h["periodo"], h["tema"]
+        valores = {}
+        for pid in ("p1", "p2", "p3", "p4", "p5"):
+            mu = MEDIA_BASE[c] + EFECTO_TEMA[tema].get(pid, 0.0)
+            if pid == "p4" and c == "planta" and periodo == PERIODO_ACTUAL:
+                mu += CAIDA_P4_PLANTA
+            valores[pid] = _nota(mu, rng)
+        comentario = "" if h["vacio"] else _comentario(tema, c, rng, rng.random() < 0.06)
+        while True:
+            rid = "r_" + "".join(rng.choice("0123456789abcdef") for _ in range(8))
+            if rid not in ids:
+                ids.add(rid)
+                break
+        respuestas.append({
+            "id": rid,
+            "encuesta_id": ENCUESTA_ID,
+            "fecha": rng.choice(dias[periodo]),
+            "periodo": periodo,
+            "colectivo": c,
+            "centro_tipo": CENTRO_MAP[c],
+            "turno": t,
+            "canal": elegir_ponderado(dict(CANAL_PROBS[c]), rng),
+            "valores": valores,          # p6 (texto) va en "comentario"
+            "comentario": comentario,
+            "tema_real": tema,
+        })
     return respuestas
 
+# ---------------------------------------------------------------------------
+# COMPROBACIONES DE LA HISTORIA
+# ---------------------------------------------------------------------------
+
+
+def calcular_tendencia(n_actual, total_actual, n_anterior, total_anterior):
+    """Misma regla que backend/ia/analizar.py (MODULOS.md §4)."""
+    if total_anterior == 0:
+        return "estable"
+    if n_anterior == 0:
+        return "nuevo" if n_actual >= 5 else "estable"
+    p_act = n_actual / total_actual if total_actual else 0.0
+    p_ant = n_anterior / total_anterior
+    cambio = (p_act - p_ant) / p_ant
+    if cambio >= 0.30:
+        return "sube"
+    if cambio <= -0.30:
+        return "baja"
+    return "estable"
+
+
+def resumen_temas(respuestas):
+    """Solo comentarios no vacíos (como hará analizar_comentarios). Temas con n < 5 se omiten."""
+    cont = {}
+    totales = {p: 0 for p in PERIODOS}
+    for r in respuestas:
+        if r["comentario"]:
+            cont[(r["periodo"], r["tema_real"])] = cont.get((r["periodo"], r["tema_real"]), 0) + 1
+            totales[r["periodo"]] += 1
+    res = {}
+    for tema in TEMAS:
+        n_ant = cont.get((PERIODO_ANTERIOR, tema), 0)
+        n_act = cont.get((PERIODO_ACTUAL, tema), 0)
+        tend = calcular_tendencia(n_act, totales[PERIODO_ACTUAL], n_ant, totales[PERIODO_ANTERIOR])
+        res[tema] = (n_ant, n_act, tend if n_act >= 5 else "oculto")
+    return res
+
+
+def caida_p4_planta(respuestas):
+    def media(periodo):
+        v = [r["valores"]["p4"] for r in respuestas
+             if r["colectivo"] == "planta" and r["periodo"] == periodo]
+        return sum(v) / len(v) if v else 0.0
+    return media(PERIODO_ANTERIOR), media(PERIODO_ACTUAL)
+
+
+def historia_ok(respuestas):
+    for tema, (_, _, tend) in resumen_temas(respuestas).items():
+        esperada = TENDENCIAS_ESPERADAS.get(tema)
+        if esperada and tend != esperada:
+            return False
+        if not esperada and tend not in ("estable", "oculto"):
+            return False
+    antes, ahora = caida_p4_planta(respuestas)
+    return antes - ahora >= 0.8
 
 # ---------------------------------------------------------------------------
-# CLI
+# MAIN
 # ---------------------------------------------------------------------------
+
+
+def imprimir_resumen(respuestas, plantilla, semilla):
+    print(f"\n{'=' * 66}\n  DATOS SINTÉTICOS · semilla {semilla} · {len(respuestas)} respuestas\n{'=' * 66}")
+    print(f"\n  {'Periodo':<9}{'Colectivo':<11}{'Turno':<11}{'Resp':>5}{'Pers':>6}{'Tasa':>8}")
+    for periodo in PERIODOS:
+        for s in plantilla:
+            n = sum(1 for r in respuestas if r["periodo"] == periodo
+                    and r["colectivo"] == s["colectivo"] and r["turno"] == s["turno"])
+            print(f"  {periodo:<9}{s['colectivo']:<11}{s['turno']:<11}{n:>5}{s['personas']:>6}"
+                  f"{n / s['personas']:>8.1%}")
+    print(f"\n  Temas (solo comentarios no vacíos)  {PERIODO_ANTERIOR} → {PERIODO_ACTUAL}")
+    for tema, (n_ant, n_act, tend) in resumen_temas(respuestas).items():
+        esperada = TENDENCIAS_ESPERADAS.get(tema, "estable")
+        aviso = "" if tend in (esperada, "oculto") or (tema not in TENDENCIAS_ESPERADAS
+                                                      and tend == "oculto") else "   <-- no esperada"
+        print(f"    {tema:<16}{n_ant:>4} → {n_act:<4} {tend}{aviso}")
+    antes, ahora = caida_p4_planta(respuestas)
+    print(f"\n  p4 planta: {antes:.2f} → {ahora:.2f} (baja {antes - ahora:.2f}; debe ser ≥ 0.80)")
+    com = [r["comentario"] for r in respuestas if r["comentario"]]
+    ficticios = sum(1 for c in com if re.search(r"@example\.com|\d{3} \d{3} \d{3}|Manolo|Carlos|Maria|"
+                                              r"Lucia|Pedro|Elena|Jordi", c, re.I))
+    print(f"  Comentarios: {len(com)} no vacíos, {len(set(com))} distintos, "
+          f"{ficticios} con datos personales inventados")
+    print(f"  Fechas: {min(r['fecha'] for r in respuestas)} … {max(r['fecha'] for r in respuestas)}")
+    print("=" * 66)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Genera enc_000.json y respuestas.json")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Semilla fija. Sin ella, busca desde 42 una que cuente la historia del demo.")
+    args = parser.parse_args()
+
+    plantilla = cargar_plantilla()
+    if args.seed is not None:
+        semilla = args.seed
+    else:
+        semilla = next((s for s in range(42, 42 + 300)
+                        if historia_ok(generar_respuestas(s, plantilla))), None)
+        if semilla is None:
+            print("  ! Ninguna semilla cuenta la historia completa; se usa 42")
+            semilla = 42
+        else:
+            print(f"  Semilla elegida automáticamente: {semilla}")
+    respuestas = generar_respuestas(semilla, plantilla)
+
+    with open(SALIDA_ENCUESTA, "w", encoding="utf-8") as f:
+        json.dump(generar_encuesta_base(), f, ensure_ascii=False, indent=2)
+    with open(SALIDA_RESPUESTAS, "w", encoding="utf-8") as f:
+        json.dump(respuestas, f, ensure_ascii=False, indent=2)
+    imprimir_resumen(respuestas, plantilla, semilla)
+    print(f"  Escritos: {os.path.relpath(SALIDA_ENCUESTA, PROJECT_ROOT)} y "
+          f"{os.path.relpath(SALIDA_RESPUESTAS, PROJECT_ROOT)}\n")
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Genera respuestas sintéticas.")
-    parser.add_argument("--seed", type=int, default=None,
-                        help="Semilla fija. Si no se indica, busca desde 42 la primera "
-                             "semilla cuyas tendencias encajan con el demo.")
-    parser.add_argument("--salida", type=str, default=None,
-                        help="Ruta del JSON de salida (default: datos_sinteticos/respuestas.json)")
-    args = parser.parse_args()
-    if args.seed is not None:
-        generar(seed=args.seed, salida=args.salida)
-    else:
-        for semilla in range(42, 42 + 200):
-            if tendencias_ok(generar(seed=semilla, guardar=False, verbose=False)):
-                print(f"  Semilla elegida automáticamente: {semilla}")
-                generar(seed=semilla, salida=args.salida)
-                break
-        else:
-            print("  Ninguna semilla da las tendencias esperadas; se usa 42.")
-            generar(seed=42, salida=args.salida)
+    main()
