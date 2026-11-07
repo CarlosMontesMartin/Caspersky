@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Damm · Escucha Activa</title>
   <link rel="stylesheet" href="/css/estilos.css">
 </head>
-<body>
+
+<body class="pagina-encuestas">
 
   <!-- Cabecera -->
   <header class="site-header">
@@ -27,151 +29,89 @@
   <!-- Contenido principal -->
   <main class="main-content">
     <div class="container">
-      
-      <!-- Encabezado de página -->
-      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
-        <div>
-          <h1 style="margin-bottom: 0.5rem;">Panel de Encuestas</h1>
-          <p class="text-muted">Gestión de microencuestas adaptadas por colectivo. Anonimato garantizado y resultados agregados.</p>
-        </div>
-        <div>
-          <a href="/crear.html" class="btn btn-primary btn-lg">+ Nueva necesidad</a>
-        </div>
-      </div>
+
+      <h1>Mis encuestas</h1>
+      <p class="actividad-subtitulo" id="contador-encuestas">Cargando tus encuestas…</p>
 
       <!-- Aviso de estado / error -->
       <div id="mensaje-estado" style="display: none;"></div>
 
-      <!-- Tarjeta contenedora de la lista -->
-      <div class="card">
-        <div class="card-title">
-          <div>
-            <h3>Encuestas activas e históricas</h3>
-            <p class="text-muted text-small" id="contador-encuestas">Cargando encuestas...</p>
-          </div>
-        </div>
-
-        <div class="table-responsive">
-          <table class="table-custom" id="tabla-encuestas">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Título</th>
-                <th>Colectivo</th>
-                <th>Periodo</th>
-                <th>Respuestas</th>
-                <th>Estado</th>
-                <th style="text-align: right;">Acciones</th>
-              </tr>
-            </thead>
-            <tbody id="lista-encuestas-body">
-              <tr>
-                <td colspan="7" style="text-align: center; padding: 2.5rem;" class="text-muted">
-                  Cargando encuestas disponibles...
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <div class="encuestas-grid" id="lista-encuestas">
+        <!-- Tarjetas generadas por JS -->
       </div>
 
     </div>
   </main>
 
   <!-- Script con llamada a api.js -->
+  <script type="module" src="/js/layout.js"></script>
   <script type="module">
     import { listarEncuestas, formatearColectivo, formatearEstado } from '/js/api.js';
 
-    const tbody = document.getElementById('lista-encuestas-body');
+    const lista = document.getElementById('lista-encuestas');
     const contador = document.getElementById('contador-encuestas');
     const mensajeEstado = document.getElementById('mensaje-estado');
 
-    function formatearEstadoBadge(estado) {
-      const texto = formatearEstado(estado);
-      if (estado === 'borrador') {
-        return `<span class="badge badge-borrador">${texto}</span>`;
-      } else if (estado === 'aprobada') {
-        return `<span class="badge badge-aprobada">${texto}</span>`;
-      } else if (estado === 'publicada') {
-        return `<span class="badge badge-publicada">${texto}</span>`;
-      }
-      return `<span class="badge">${texto}</span>`;
+    const TARJETA_NUEVA = `
+      <div class="encuesta-nueva">
+        <p>Describe una necesidad y la IA te propondrá una microencuesta</p>
+        <a href="/crear.html" class="btn btn-primary">Nueva necesidad</a>
+      </div>`;
+
+    function escapar(texto) {
+      return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function tarjeta(enc) {
+      const id = encodeURIComponent(enc.id);
+      const publicada = enc.estado === 'publicada';
+      const enlace = publicada ? `/dashboard.html?id=${id}` : `/crear.html?id=${id}`;
+      const acciones = publicada
+        ? `<a href="/dashboard.html?id=${id}" class="btn btn-primary">Ver análisis</a>
+           <a href="/responder/${id}?canal=qr" class="btn btn-secondary">Formulario</a>`
+        : `<a href="/crear.html?id=${id}" class="btn btn-primary">${enc.estado === 'aprobada' ? 'Publicar' : 'Revisar y aprobar'}</a>`;
+      return `
+        <article class="encuesta-tarjeta">
+          <div class="encuesta-tarjeta-meta">
+            <span>${escapar(formatearColectivo(enc.colectivo))}</span>
+            <span class="badge badge-${escapar(enc.estado)}">${escapar(formatearEstado(enc.estado))}</span>
+          </div>
+          <a href="${enlace}" class="encuesta-tarjeta-titulo">${escapar(enc.titulo || 'Sin título')}</a>
+          <div class="encuesta-tarjeta-datos">
+            <div><strong>${enc.n_respuestas ?? 0}</strong>respuestas</div>
+            <div><strong>${escapar(enc.periodo || '-')}</strong>periodo</div>
+          </div>
+          <div class="encuesta-tarjeta-acciones">${acciones}</div>
+        </article>`;
     }
 
     async function cargar() {
       try {
         const encuestas = await listarEncuestas();
-        
         if (!encuestas || encuestas.length === 0) {
-          contador.textContent = 'No hay encuestas registradas';
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="7" style="text-align: center; padding: 3rem;" class="text-muted">
-                <p style="margin-bottom: 1rem;">No hay encuestas disponibles en este momento.</p>
-                <a href="/crear.html" class="btn btn-secondary">Crear la primera encuesta</a>
-              </td>
-            </tr>
-          `;
+          contador.textContent = 'Todavía no hay encuestas. Empieza describiendo una necesidad.';
+          lista.innerHTML = TARJETA_NUEVA;
           return;
         }
-
-        contador.textContent = `${encuestas.length} encuesta${encuestas.length === 1 ? '' : 's'} en total`;
-        tbody.innerHTML = encuestas.map(enc => {
-          const esPublicada = enc.estado === 'publicada';
-          const enlacePrincipal = esPublicada 
-            ? `/dashboard.html?id=${encodeURIComponent(enc.id)}`
-            : `/crear.html?id=${encodeURIComponent(enc.id)}`;
-          const textoAccion = esPublicada ? 'Ver análisis' : 'Editar / Aprobar';
-          const claseBoton = esPublicada ? 'btn-primary' : 'btn-secondary';
-
-          return `
-            <tr>
-              <td style="font-family: monospace; font-weight: 600; color: var(--text-muted);">${enc.id}</td>
-              <td>
-                <a href="${enlacePrincipal}" style="text-decoration: none; color: var(--text-main); font-weight: 600;">
-                  ${enc.titulo || 'Sin título'}
-                </a>
-              </td>
-              <td>
-                <span class="badge badge-colectivo">${formatearColectivo(enc.colectivo)}</span>
-              </td>
-              <td class="text-muted" style="font-size: 0.875rem;">${enc.periodo || '-'}</td>
-              <td style="font-weight: 600;">${enc.n_respuestas ?? 0}</td>
-              <td>${formatearEstadoBadge(enc.estado)}</td>
-              <td style="text-align: right; white-space: nowrap;">
-                <a href="${enlacePrincipal}" class="btn ${claseBoton}" style="padding: 0.4rem 0.85rem; font-size: 0.85rem;">
-                  ${textoAccion}
-                </a>
-                ${esPublicada ? `
-                  <a href="/responder/${encodeURIComponent(enc.id)}?canal=qr" class="btn btn-secondary" style="padding: 0.4rem 0.65rem; font-size: 0.85rem;" title="Abrir formulario de respuesta">
-                    Móvil QR
-                  </a>
-                ` : ''}
-              </td>
-            </tr>
-          `;
-        }).join('');
-
+        contador.textContent = `${encuestas.length} encuesta${encuestas.length === 1 ? '' : 's'} · resultados siempre agregados y anónimos.`;
+        lista.innerHTML = TARJETA_NUEVA + encuestas.map(tarjeta).join('');
       } catch (err) {
         console.error('Error al cargar encuestas:', err);
+        contador.textContent = 'No se pudieron cargar las encuestas.';
         mensajeEstado.style.display = 'block';
         mensajeEstado.innerHTML = `
           <div class="alerta">
-            <div class="alerta-tipo">Error de conexión</div>
-            <div class="alerta-mensaje">${err.message || 'No se pudieron cargar las encuestas'}</div>
-          </div>
-        `;
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="7" style="text-align: center; padding: 2rem; color: var(--color-damm);">
-              Error al consultar la lista de encuestas.
-            </td>
-          </tr>
-        `;
+            <div>
+              <div class="alerta-tipo">Error de conexión</div>
+              <div class="alerta-mensaje">${escapar(err.message || 'No se pudieron cargar las encuestas')}</div>
+            </div>
+          </div>`;
+        lista.innerHTML = TARJETA_NUEVA;
       }
     }
 
     cargar();
   </script>
 </body>
+
 </html>

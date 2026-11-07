@@ -6,7 +6,7 @@
  * Ninguna página llama a fetch directamente: todo pasa por este módulo.
  */
 
-export const USAR_EJEMPLOS = true;
+export const USAR_EJEMPLOS = false;
 
 /**
  * Generador SVG de código QR estético para modo mock
