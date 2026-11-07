@@ -73,9 +73,11 @@ def main() -> int:
     if hay_llm():
         segundo_plano.esperar()
         rec = recomendar(analisis, encuesta)
+    print(f"\nLectura ({rec.get('origen')}): {rec.get('lectura')}")
     print("\nRecomendaciones (propuestas):")
     for a in rec["acciones"]:
-        print(f"  - {a['titulo']}  [{a['tema']}]\n      {a['motivo']}")
+        print(f"  - {a['titulo']}  [{a['tema']}]\n      {a['motivo']}\n"
+              f"      {a.get('responsable')} · {a.get('plazo')} · {a.get('indicador')}")
     print("Encuesta de seguimiento:", json.dumps(rec["seguimiento"], ensure_ascii=False))
 
     errores = []
@@ -86,8 +88,14 @@ def main() -> int:
     if not 1 <= len(rec["acciones"]) <= 3:
         errores.append("número de acciones fuera de 1–3")
     seg = rec["seguimiento"]
-    if set(seg) != {"objetivo", "colectivo", "contexto", "duracion_max_seg", "temas_prohibidos"}:
+    if not {"objetivo", "colectivos", "contexto", "duracion_max_seg", "temas_prohibidos"} <= set(seg):
         errores.append("el seguimiento no tiene el formato Necesidad")
+    if rec.get("origen") not in ("ia", "reglas") or not rec.get("lectura"):
+        errores.append("faltan origen o lectura")
+    if any(not {"responsable", "plazo", "indicador"} <= set(a) for a in rec["acciones"]):
+        errores.append("acciones sin responsable, plazo o indicador")
+    if any({"n_anterior", "pct", "pct_anterior"} - set(t) for t in temas):
+        errores.append("temas sin n_anterior, pct o pct_anterior")
     if seg.get("duracion_max_seg") != 60:
         errores.append("duracion_max_seg del seguimiento distinta de 60")
     print("\n" + ("TODAS LAS COMPROBACIONES OK" if not errores else "ERRORES: " + "; ".join(errores)))

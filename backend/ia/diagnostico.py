@@ -73,6 +73,9 @@ NECESIDADES = [
      "contexto": "Picos de trabajo en el almacén", "duracion_max_seg": 60, "temas_prohibidos": []},
     {"objetivo": "Conocer la adopción de la nueva herramienta de gestión", "colectivo": "oficina",
      "contexto": "Migración de software", "duracion_max_seg": 180, "temas_prohibidos": []},
+    {"objetivo": "Saber cómo afecta el cambio de turnos a la coordinación entre áreas",
+     "colectivos": ["planta", "logistica", "comercial"], "contexto": "Nuevo sistema de turnos",
+     "duracion_max_seg": 120, "temas_prohibidos": ["salario"]},
 ]
 
 
@@ -87,8 +90,9 @@ class _Origen(logging.Handler):
 
 
 def cronometrar_generacion() -> None:
-    from .generar import TIMEOUT_GENERAR_SEG, generar_encuesta
-    print(f"\n=== generar_encuesta (límite {TIMEOUT_GENERAR_SEG} s, si no se usa el respaldo) ===")
+    from .generar import TIMEOUT_GENERAR_SECTORES_SEG, TIMEOUT_GENERAR_SEG, generar_encuesta
+    print(f"\n=== generar_encuesta (límite {TIMEOUT_GENERAR_SEG} s con un colectivo y "
+          f"{TIMEOUT_GENERAR_SECTORES_SEG} s con varios; si no, respaldo) ===")
     registro = logging.getLogger("backend.ia.generar")
     registro.setLevel(logging.INFO)
     for necesidad in NECESIDADES:
@@ -97,8 +101,10 @@ def cronometrar_generacion() -> None:
         inicio = time.time()
         encuesta = generar_encuesta(necesidad, "")
         registro.removeHandler(origen)
-        print(f"{necesidad['colectivo']:<10} {time.time() - inicio:5.1f} s  {origen.origen:<9} "
-              f"{len(encuesta['preguntas'])} preguntas · {encuesta['titulo']}")
+        nombre = necesidad.get("colectivo") or "+".join(necesidad["colectivos"])
+        total = len(encuesta["preguntas"]) + sum(len(l) for l in encuesta["preguntas_por_colectivo"].values())
+        print(f"{nombre:<26} {time.time() - inicio:5.1f} s  {encuesta.get('origen', origen.origen):<9} "
+              f"{total} preguntas · {encuesta['titulo']}")
 
 
 if __name__ == "__main__":

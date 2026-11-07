@@ -45,6 +45,12 @@ def _ejecutar(clave: Hashable, funcion: Callable[[], Any]) -> None:
         _pendientes.pop(clave, None)
 
 
+def pendientes() -> int:
+    """Número de tareas lanzadas que todavía no han terminado."""
+    with _bloqueo:
+        return len(_pendientes)
+
+
 def esperar(timeout: float = 90) -> None:
     """Espera a que terminen las tareas pendientes. Pensado para pruebas y para precalentar."""
     with _bloqueo:
