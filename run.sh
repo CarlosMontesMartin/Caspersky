@@ -10,4 +10,5 @@ fi
 source .venv/bin/activate
 
 python -m pip install -q -r backend/api/requirements.txt
-python -m uvicorn backend.api.main:app --reload --port 8000
+# --host 0.0.0.0: para poder abrir la encuesta desde el móvil en la misma wifi
+python -m uvicorn backend.api.main:app --reload --host 0.0.0.0 --port 8000
