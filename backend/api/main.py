@@ -19,6 +19,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.datos import almacen
+from backend.datos.anonimizar import anonimizar
+
+try:  # backend/ia/ lo hace UPC 1; mientras no exista, no hay LLM.
+    from backend.ia.llm import hay_llm
+except ImportError:
+    def hay_llm() -> bool:
+        return False
 
 RAIZ = Path(__file__).resolve().parents[2]
 EJEMPLOS = RAIZ / "contratos" / "ejemplos"
@@ -27,7 +34,7 @@ CENTRO_TIPO = {"planta": "fabrica", "logistica": "almacen"}  # resto -> oficina
 
 @asynccontextmanager
 async def arranque(app):
-    print("[almacen]", almacen.inicializar())
+    almacen.inicializar()
     yield
 
 
@@ -45,10 +52,7 @@ def ejemplo(nombre: str) -> dict:
 
 
 def obtener(encuesta_id: str) -> dict:
-    try:
-        encuesta = almacen.leer_encuesta(encuesta_id)
-    except ValueError:
-        encuesta = None
+    encuesta = almacen.leer_encuesta(encuesta_id)
     if encuesta is None:
         raise HTTPException(404, f"No existe la encuesta {encuesta_id}")
     return encuesta
@@ -69,14 +73,19 @@ def qr_base64(url: str) -> str:
 
 @app.get("/salud")
 def salud():
-    return {"ok": True}
+    return {"ok": True, "llm": hay_llm()}
+
+
+@app.get("/encuestas")
+def listar():
+    return almacen.listar_encuestas()
 
 
 @app.post("/encuestas/generar")
 def generar(necesidad: dict):
     # TODO: llamar a backend.ia.generar_encuesta(necesidad, reglas) de UPC 1.
     encuesta = ejemplo("encuesta")
-    encuesta["id"] = almacen.nuevo_id()
+    encuesta["id"] = almacen.nuevo_id_encuesta()
     encuesta["estado"] = "borrador"
     encuesta["colectivo"] = necesidad.get("colectivo", encuesta["colectivo"])
     encuesta["url"] = encuesta["qr"] = None
@@ -125,10 +134,10 @@ def responder(encuesta_id: str, nueva: dict):
     comentario = None
     for pregunta in encuesta["preguntas"]:
         if pregunta["tipo"] == "texto" and pregunta["id"] in valores:
-            comentario = valores.pop(pregunta["id"])  # almacen lo anonimiza
+            comentario = anonimizar(valores.pop(pregunta["id"]))
     hoy = date.today()
     # Solo lo del contrato: nada de IP, user agent ni hora exacta.
-    almacen.anadir_respuesta({
+    almacen.anadir_respuesta(encuesta_id, {
         "id": f"r_{uuid.uuid4().hex[:8]}",
         "encuesta_id": encuesta_id,
         "fecha": hoy.isoformat(),
