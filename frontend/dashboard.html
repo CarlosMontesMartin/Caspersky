@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Damm · Dashboard de Análisis</title>
   <link rel="stylesheet" href="/css/estilos.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/vendor/three/three.module.js",
+      "three/addons/": "/vendor/three/addons/"
+    }
+  }
+  </script>
   <style>
     /* Estilos de la vista de instalaciones (Apartado 5.1) */
     .zona-iso {
@@ -78,6 +86,9 @@
           <button type="button" id="btn-vista-instalaciones" class="btn btn-secondary" style="padding: 0.45rem 1.15rem; font-size: 0.875rem; border: none; background: transparent;">
             🏭 Vista de instalaciones
           </button>
+          <button type="button" id="btn-vista-3d" class="btn btn-secondary" style="padding: 0.45rem 1.15rem; font-size: 0.875rem; border: none; background: transparent;">
+            🧊 Maqueta 3D
+          </button>
         </div>
         <div class="text-muted text-small" id="texto-modo-vista">
           Métricas numéricas y desglose temático detallado
@@ -89,6 +100,32 @@
         <div>
           <div class="alerta-tipo">Error al cargar datos</div>
           <div class="alerta-mensaje" id="mensaje-error"></div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- VISTA MAQUETA 3D (INSTRUCCIONES_3D.md)                              -->
+      <!-- =================================================================== -->
+      <div id="vista-3d" style="display: none; margin-bottom: 2.5rem;">
+        <div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+              <h3 style="margin-bottom: 0.2rem;">Complejo Industrial Damm · Maqueta 3D</h3>
+              <p class="text-muted text-small">Rota con el ratón, haz zoom con la rueda y haz clic en cada zona para inspeccionar la participación.</p>
+            </div>
+            <button type="button" id="toggle-dia-noche" class="toggle-dia-noche" aria-label="Alternar modo día / noche">
+              ☀️ Día
+            </button>
+          </div>
+        </div>
+
+        <div class="visor-3d-grid" style="display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1.1fr); gap: 1.5rem; align-items: start;">
+          <div class="visor-3d-contenedor" id="contenedor-3d">
+            <!-- Three.js canvas se inyecta aquí -->
+          </div>
+          <div class="card panel-3d-detalle" id="panel-3d-detalle">
+            <p class="text-muted text-small">Haz clic en una zona para ver su detalle.</p>
+          </div>
         </div>
       </div>
 
@@ -367,6 +404,32 @@
       </div>
 
       <!-- =================================================================== -->
+      <!-- VISTA MAQUETA 3D (INSTRUCCIONES_3D.md)                              -->
+      <!-- =================================================================== -->
+      <div id="vista-3d" style="display: none; margin-bottom: 2.5rem;">
+        <div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+              <h3 style="margin-bottom: 0.2rem;">Complejo Industrial Damm · Maqueta 3D</h3>
+              <p class="text-muted text-small">Rota con el ratón, haz zoom con la rueda y haz clic en cada zona para inspeccionar la participación.</p>
+            </div>
+            <button type="button" id="toggle-dia-noche" class="toggle-dia-noche" aria-label="Alternar modo día / noche">
+              ☀️ Día
+            </button>
+          </div>
+        </div>
+
+        <div class="visor-3d-grid" style="display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1.1fr); gap: 1.5rem; align-items: start;">
+          <div class="visor-3d-contenedor" id="contenedor-3d">
+            <!-- Three.js canvas se inyecta aquí -->
+          </div>
+          <div class="card panel-3d-detalle" id="panel-3d-detalle">
+            <p class="text-muted text-small">Haz clic en una zona para ver su detalle.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
       <!-- VISTA ANALÍTICA (ORIGINAL, SIN TOCAR)                                -->
       <!-- =================================================================== -->
       <div id="vista-analitica">
@@ -597,6 +660,9 @@
         // Configuración de la vista de instalaciones (Apartado 5.1)
         configurarVistaInstalaciones(analisis, encuestaCargada);
 
+        // Guardar analisis para la vista 3D (carga diferida)
+        vista3dAnalisis = analisis;
+
       } catch (err) {
         console.error('Error al cargar dashboard:', err);
         panelError.style.display = 'flex';
@@ -799,38 +865,92 @@
     }
 
     // =========================================================================
-    // VISTA DE INSTALACIONES (APARTADO 5.1)
+    // VISTA DE INSTALACIONES (APARTADO 5.1) + MAQUETA 3D (INSTRUCCIONES_3D)
     // =========================================================================
     const btnVistaAnalitica = document.getElementById('btn-vista-analitica');
     const btnVistaInstalaciones = document.getElementById('btn-vista-instalaciones');
+    const btnVista3D = document.getElementById('btn-vista-3d');
     const vistaAnalitica = document.getElementById('vista-analitica');
     const vistaInstalaciones = document.getElementById('vista-instalaciones');
+    const vista3D = document.getElementById('vista-3d');
     const textoModoVista = document.getElementById('texto-modo-vista');
 
-    if (btnVistaAnalitica && btnVistaInstalaciones) {
+    // Estado de la vista 3D: lazy-load, solo se crea una vez
+    let vista3dInstancia = null;
+    let vista3dAnalisis = null; // se asigna en cargarDashboard
+
+    const allBtns = [btnVistaAnalitica, btnVistaInstalaciones, btnVista3D].filter(Boolean);
+    const allVistas = [vistaAnalitica, vistaInstalaciones, vista3D].filter(Boolean);
+
+    function activarVista(btn, vistaEl, texto) {
+      allVistas.forEach(v => v.style.display = 'none');
+      vistaEl.style.display = 'block';
+      allBtns.forEach(b => {
+        b.className = 'btn btn-secondary';
+        b.style.background = 'transparent';
+        b.style.border = 'none';
+      });
+      btn.className = 'btn btn-primary';
+      btn.style.background = '';
+      btn.style.border = '';
+      textoModoVista.textContent = texto;
+    }
+
+    if (btnVistaAnalitica) {
       btnVistaAnalitica.addEventListener('click', () => {
-        vistaAnalitica.style.display = 'block';
-        vistaInstalaciones.style.display = 'none';
-        btnVistaAnalitica.className = 'btn btn-primary';
-        btnVistaAnalitica.style.background = '';
-        btnVistaAnalitica.style.border = '';
-        btnVistaInstalaciones.className = 'btn btn-secondary';
-        btnVistaInstalaciones.style.background = 'transparent';
-        btnVistaInstalaciones.style.border = 'none';
-        textoModoVista.textContent = 'Métricas numéricas y desglose temático detallado';
+        activarVista(btnVistaAnalitica, vistaAnalitica, 'Métricas numéricas y desglose temático detallado');
+        // Detener animación 3D si existía
+        if (vista3dInstancia) vista3dInstancia.dispose();
+        vista3dInstancia = null;
+      });
+    }
+
+    if (btnVistaInstalaciones) {
+      btnVistaInstalaciones.addEventListener('click', () => {
+        activarVista(btnVistaInstalaciones, vistaInstalaciones, 'Mapa isométrico interactivo de instalaciones');
+        if (vista3dInstancia) vista3dInstancia.dispose();
+        vista3dInstancia = null;
+      });
+    }
+
+    if (btnVista3D) {
+      btnVista3D.addEventListener('click', async () => {
+        activarVista(btnVista3D, vista3D, 'Maqueta 3D interactiva del complejo industrial');
+        // Carga diferida: solo la primera vez
+        if (!vista3dInstancia && vista3dAnalisis) {
+          try {
+            const { iniciarVista3D } = await import('/js/vista3d.js');
+            const contenedor3d = document.getElementById('contenedor-3d');
+            vista3dInstancia = iniciarVista3D(contenedor3d, vista3dAnalisis);
+            // Si el modelo falla, volver a analítica
+            contenedor3d.addEventListener('vista3d-error', () => {
+              activarVista(btnVistaAnalitica, vistaAnalitica, 'Métricas numéricas y desglose temático detallado');
+              if (vista3dInstancia) vista3dInstancia.dispose();
+              vista3dInstancia = null;
+            }, { once: true });
+          } catch (e) {
+            console.error('Error al cargar vista 3D:', e);
+            activarVista(btnVistaAnalitica, vistaAnalitica, 'Métricas numéricas y desglose temático detallado');
+          }
+        }
       });
 
-      btnVistaInstalaciones.addEventListener('click', () => {
-        vistaAnalitica.style.display = 'none';
-        vistaInstalaciones.style.display = 'block';
-        btnVistaInstalaciones.className = 'btn btn-primary';
-        btnVistaInstalaciones.style.background = '';
-        btnVistaInstalaciones.style.border = '';
-        btnVistaAnalitica.className = 'btn btn-secondary';
-        btnVistaAnalitica.style.background = 'transparent';
-        btnVistaAnalitica.style.border = 'none';
-        textoModoVista.textContent = 'Mapa isométrico interactivo de instalaciones';
-      });
+      // Toggle Día / Noche
+      const toggleDN = document.getElementById('toggle-dia-noche');
+      if (toggleDN) {
+        let esNoche = false;
+        toggleDN.addEventListener('click', () => {
+          esNoche = !esNoche;
+          toggleDN.textContent = esNoche ? '🌙 Noche' : '☀️ Día';
+          toggleDN.classList.toggle('noche', esNoche);
+          const contenedor3d = document.getElementById('contenedor-3d');
+          if (contenedor3d && contenedor3d.__vista3d_setModo) {
+            contenedor3d.__vista3d_setModo(esNoche);
+          } else if (vista3dInstancia && vista3dInstancia.setModo) {
+            vista3dInstancia.setModo(esNoche);
+          }
+        });
+      }
     }
 
     const zonaDetalleCentro = document.getElementById('zona-detalle-centro');
