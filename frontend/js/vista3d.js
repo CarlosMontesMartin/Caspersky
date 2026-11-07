@@ -12,17 +12,24 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // CONSTANTES
 // =========================================================================
 
-/** Posiciones de marcadores (ajustar a mano tras ver el modelo) */
+/**
+ * Zonas de la maqueta. AJUSTA AQUÍ la posición de cada marcador:
+ * fx y fz van de -0.5 a 0.5 sobre la planta del modelo (fx: izquierda → derecha,
+ * fz: fondo → frente). La altura se calcula sola: el marcador se apoya en el tejado
+ * que haya debajo de ese punto.
+ */
 const ZONAS = {
-  planta:    { label: '🏭 Planta de producción', pos: new THREE.Vector3(-2,  1.5,  0)   },
-  logistica: { label: '📦 Logística',            pos: new THREE.Vector3( 2,  1.2, -2)   },
-  comercial: { label: '🚚 Comercial',            pos: new THREE.Vector3( 3,  0.8,  2.5) },
-  oficina:   { label: '🏢 Oficina',              pos: new THREE.Vector3(-1,  2.8,  2)   },
-  manager:   { label: '👔 Dirección',            pos: new THREE.Vector3( 0,  3.5,  0.5) },
+  planta:    { label: '🏭 Planta de producción', fx:  0.25, fz: -0.20, pos: new THREE.Vector3() },
+  logistica: { label: '📦 Logística',            fx: -0.30, fz: -0.30, pos: new THREE.Vector3() },
+  comercial: { label: '🚚 Comercial',            fx: -0.30, fz:  0.30, pos: new THREE.Vector3() },
+  oficina:   { label: '🏢 Oficina',              fx:  0.05, fz:  0.30, pos: new THREE.Vector3() },
+  manager:   { label: '👔 Dirección',            fx:  0.30, fz:  0.25, pos: new THREE.Vector3() },
 };
 
-const COLOR_CLAY_1  = 0xF5F1EA;
-const COLOR_CLAY_2  = 0xE8DFD0;
+/** Mallas del FBX que no forman parte de las instalaciones (decoración) */
+const MALLAS_OCULTAS = /^(cloud|car)/i;
+
+const COLOR_CLAY    = 0xF5F1EA; // color único de la maqueta (monocromática)
 const COLOR_BG_DAY  = 0xFAF7F2;
 const COLOR_BG_NIGHT = 0x141B2D;
 const COLOR_DAMM    = 0xB5121B;
@@ -106,11 +113,11 @@ export function iniciarVista3D(contenedor, analisis) {
   scene.add(sunLight);
 
   // Luces nocturnas (desactivadas al inicio)
-  const nightAmbient = new THREE.AmbientLight(COLOR_NIGHT_BLUE, 0.3);
+  const nightAmbient = new THREE.AmbientLight(COLOR_NIGHT_BLUE, 0.7);
   nightAmbient.visible = false;
   scene.add(nightAmbient);
 
-  const nightFill = new THREE.DirectionalLight(COLOR_NIGHT_BLUE, 0.4);
+  const nightFill = new THREE.DirectionalLight(0x8FA3D9, 0.6);
   nightFill.position.set(-3, 8, -5);
   nightFill.visible = false;
   scene.add(nightFill);
@@ -125,12 +132,9 @@ export function iniciarVista3D(contenedor, analisis) {
   scene.add(redBlink);
 
   // --- Suelo ---
-  const groundGeo = new THREE.PlaneGeometry(30, 30);
-  const groundMat = new THREE.MeshStandardMaterial({
-    color: COLOR_CLAY_1,
-    roughness: 1,
-    metalness: 0,
-  });
+  const groundGeo = new THREE.PlaneGeometry(60, 60);
+  // Suelo invisible: solo muestra las sombras, el fondo es el color de la página
+  const groundMat = new THREE.ShadowMaterial({ opacity: 0.14 });
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -0.01;
@@ -159,48 +163,59 @@ export function iniciarVista3D(contenedor, analisis) {
   loader.load(
     '/public/fabrica.fbx',
     (fbx) => {
-      // Materiales clay / maqueta
-      const matA = new THREE.MeshStandardMaterial({ color: COLOR_CLAY_1, roughness: 0.9, metalness: 0 });
-      const matB = new THREE.MeshStandardMaterial({ color: COLOR_CLAY_2, roughness: 0.9, metalness: 0 });
-      let idx = 0;
+      // Maqueta monocromática: un único material para todas las mallas,
+      // ignorando texturas y colores de vértice del FBX
+      const matClay = new THREE.MeshStandardMaterial({
+        color: COLOR_CLAY, roughness: 0.9, metalness: 0, vertexColors: false,
+      });
       fbx.traverse(child => {
-        if (child.isMesh) {
-          child.material = idx % 2 === 0 ? matA : matB;
-          child.castShadow = true;
-          child.receiveShadow = true;
-          idx++;
-        }
+        if (!child.isMesh) return;
+        if (MALLAS_OCULTAS.test(child.name)) { child.visible = false; return; }
+        child.material = matClay;
+        child.castShadow = true;
+        child.receiveShadow = true;
       });
 
-      // Centrar y escalar para que quepa en el visor
-      const box = new THREE.Box3().setFromObject(fbx);
-      const center = box.getCenter(new THREE.Vector3());
+      // Caja solo de las mallas visibles (sin nubes ni coches)
+      fbx.updateMatrixWorld(true);
+      const box = new THREE.Box3();
+      fbx.traverse(child => { if (child.isMesh && child.visible) box.expandByObject(child); });
       const size = box.getSize(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z);
-      const scale = 6 / maxDim; // normalizar a ~6 unidades
+      const scale = 6 / Math.max(size.x, size.z); // la planta ocupa ~6 unidades
       fbx.scale.setScalar(scale);
-      fbx.position.sub(center.multiplyScalar(scale));
-
+      // Centrado en x/z y apoyado en el suelo (y = 0)
+      const center = box.getCenter(new THREE.Vector3());
+      fbx.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
       scene.add(fbx);
+      fbx.updateMatrixWorld(true);
 
-      // Recalcular posiciones de marcadores relativas a la caja
-      const finalBox = new THREE.Box3().setFromObject(fbx);
+      const finalBox = new THREE.Box3();
+      fbx.traverse(child => { if (child.isMesh && child.visible) finalBox.expandByObject(child); });
       const fCenter = finalBox.getCenter(new THREE.Vector3());
       const fSize = finalBox.getSize(new THREE.Vector3());
-      // Distribuir los 5 marcadores alrededor del modelo
-      ZONAS.planta.pos.set(    fCenter.x - fSize.x * 0.35, finalBox.max.y + 0.3, fCenter.z - fSize.z * 0.15);
-      ZONAS.logistica.pos.set( fCenter.x + fSize.x * 0.35, finalBox.max.y + 0.3, fCenter.z - fSize.z * 0.3);
-      ZONAS.comercial.pos.set( fCenter.x + fSize.x * 0.3,  finalBox.max.y + 0.3, fCenter.z + fSize.z * 0.35);
-      ZONAS.oficina.pos.set(   fCenter.x - fSize.x * 0.1,  finalBox.max.y + 0.3, fCenter.z + fSize.z * 0.3);
-      ZONAS.manager.pos.set(   fCenter.x,                   finalBox.max.y + 0.6, fCenter.z);
 
-      // Actualizar luz roja sobre planta
-      redBlink.position.copy(ZONAS.planta.pos).add(new THREE.Vector3(0, 0.8, 0));
+      // Cada marcador se apoya en el tejado que hay debajo de su punto (raycast vertical)
+      const ray = new THREE.Raycaster();
+      const visibles = [];
+      fbx.traverse(child => { if (child.isMesh && child.visible) visibles.push(child); });
+      Object.values(ZONAS).forEach(zona => {
+        const x = fCenter.x + zona.fx * fSize.x;
+        const z = fCenter.z + zona.fz * fSize.z;
+        ray.set(new THREE.Vector3(x, finalBox.max.y + 5, z), new THREE.Vector3(0, -1, 0));
+        const hit = ray.intersectObjects(visibles, false)[0];
+        const y = hit ? hit.point.y : 0;
+        zona.pos.set(x, y + 0.15, z);
+      });
 
-      // Ajustar cámara al modelo
-      controls.target.copy(fCenter);
-      const dist = maxDim * scale * 1.8;
-      camera.position.set(fCenter.x + dist, fCenter.y + dist * 0.7, fCenter.z + dist);
+      // Luz roja sobre Planta
+      redBlink.position.copy(ZONAS.planta.pos).add(new THREE.Vector3(0, 1.2, 0));
+
+      // Cámara en vista de maqueta (3/4 desde arriba)
+      controls.target.set(fCenter.x, fSize.y * 0.25, fCenter.z);
+      const dist = Math.max(fSize.x, fSize.z) * 1.15;
+      camera.position.set(fCenter.x + dist * 0.75, dist * 0.8, fCenter.z + dist);
+      controls.minDistance = dist * 0.35;
+      controls.maxDistance = dist * 2.2;
       controls.update();
 
       // Crear marcadores 3D (esferas) y overlays HTML
@@ -221,7 +236,7 @@ export function iniciarVista3D(contenedor, analisis) {
   // --- Marcadores (esferas 3D + overlays HTML) ---
   const marcadores3D = [];
   const overlays = [];
-  const panelLateral = contenedor.querySelector('.panel-3d-detalle');
+  const panelLateral = document.getElementById('panel-3d-detalle');
 
   function crearMarcadores() {
     // Determinar si la encuesta es de un solo colectivo
@@ -235,6 +250,7 @@ export function iniciarVista3D(contenedor, analisis) {
       const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.4, emissive: color, emissiveIntensity: 0.15 });
       const sphere = new THREE.Mesh(geo, mat);
       sphere.position.copy(zona.pos);
+      sphere.position.y += 0.05;
       scene.add(sphere);
       marcadores3D.push({ key, sphere, baseScale: 1 });
 

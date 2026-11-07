@@ -404,32 +404,6 @@
       </div>
 
       <!-- =================================================================== -->
-      <!-- VISTA MAQUETA 3D (INSTRUCCIONES_3D.md)                              -->
-      <!-- =================================================================== -->
-      <div id="vista-3d" style="display: none; margin-bottom: 2.5rem;">
-        <div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-            <div>
-              <h3 style="margin-bottom: 0.2rem;">Complejo Industrial Damm · Maqueta 3D</h3>
-              <p class="text-muted text-small">Rota con el ratón, haz zoom con la rueda y haz clic en cada zona para inspeccionar la participación.</p>
-            </div>
-            <button type="button" id="toggle-dia-noche" class="toggle-dia-noche" aria-label="Alternar modo día / noche">
-              ☀️ Día
-            </button>
-          </div>
-        </div>
-
-        <div class="visor-3d-grid" style="display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1.1fr); gap: 1.5rem; align-items: start;">
-          <div class="visor-3d-contenedor" id="contenedor-3d">
-            <!-- Three.js canvas se inyecta aquí -->
-          </div>
-          <div class="card panel-3d-detalle" id="panel-3d-detalle">
-            <p class="text-muted text-small">Haz clic en una zona para ver su detalle.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- =================================================================== -->
       <!-- VISTA ANALÍTICA (ORIGINAL, SIN TOCAR)                                -->
       <!-- =================================================================== -->
       <div id="vista-analitica">
@@ -922,6 +896,13 @@
             const { iniciarVista3D } = await import('/js/vista3d.js');
             const contenedor3d = document.getElementById('contenedor-3d');
             vista3dInstancia = iniciarVista3D(contenedor3d, vista3dAnalisis);
+            // La maqueta nueva arranca de día: sincroniza el interruptor
+            const toggleInicio = document.getElementById('toggle-dia-noche');
+            if (toggleInicio) {
+              toggleInicio.textContent = '☀️ Día';
+              toggleInicio.classList.remove('noche');
+              toggleInicio.dataset.noche = 'false';
+            }
             // Si el modelo falla, volver a analítica
             contenedor3d.addEventListener('vista3d-error', () => {
               activarVista(btnVistaAnalitica, vistaAnalitica, 'Métricas numéricas y desglose temático detallado');
@@ -938,9 +919,9 @@
       // Toggle Día / Noche
       const toggleDN = document.getElementById('toggle-dia-noche');
       if (toggleDN) {
-        let esNoche = false;
         toggleDN.addEventListener('click', () => {
-          esNoche = !esNoche;
+          const esNoche = toggleDN.dataset.noche !== 'true';
+          toggleDN.dataset.noche = String(esNoche);
           toggleDN.textContent = esNoche ? '🌙 Noche' : '☀️ Día';
           toggleDN.classList.toggle('noche', esNoche);
           const contenedor3d = document.getElementById('contenedor-3d');

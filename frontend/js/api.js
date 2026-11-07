@@ -192,45 +192,6 @@ function _guardarAlmacen(almacen) {
 // Inicialización inmediata en sessionStorage
 let _almacenSimulado = _obtenerAlmacen();
 
-    <!-- Puntos de datos simulados -->
-    <rect x="76" y="24" width="8" height="8" fill="#2A1A1A"/>
-    <rect x="92" y="24" width="16" height="8" fill="#2A1A1A"/>
-    <rect x="116" y="24" width="8" height="8" fill="#2A1A1A"/>
-
-    <rect x="76" y="40" width="16" height="8" fill="#2A1A1A"/>
-    <rect x="100" y="40" width="8" height="8" fill="#2A1A1A"/>
-    <rect x="116" y="40" width="10" height="8" fill="#2A1A1A"/>
-
-    <rect x="24" y="76" width="8" height="16" fill="#2A1A1A"/>
-    <rect x="40" y="84" width="16" height="8" fill="#2A1A1A"/>
-    <rect x="64" y="76" width="8" height="8" fill="#2A1A1A"/>
-    <rect x="80" y="76" width="24" height="8" fill="#2A1A1A"/>
-    <rect x="112" y="84" width="16" height="16" fill="#2A1A1A"/>
-    <rect x="136" y="76" width="8" height="8" fill="#2A1A1A"/>
-    <rect x="152" y="84" width="24" height="8" fill="#2A1A1A"/>
-
-    <rect x="24" y="100" width="16" height="8" fill="#2A1A1A"/>
-    <rect x="48" y="108" width="8" height="16" fill="#2A1A1A"/>
-    <rect x="64" y="100" width="16" height="8" fill="#2A1A1A"/>
-    <rect x="88" y="92" width="8" height="24" fill="#2A1A1A"/>
-    <rect x="104" y="108" width="16" height="8" fill="#2A1A1A"/>
-    <rect x="128" y="100" width="24" height="8" fill="#2A1A1A"/>
-    <rect x="160" y="100" width="16" height="16" fill="#2A1A1A"/>
-
-    <rect x="76" y="134" width="16" height="8" fill="#2A1A1A"/>
-    <rect x="100" y="142" width="8" height="16" fill="#2A1A1A"/>
-    <rect x="116" y="134" width="24" height="8" fill="#2A1A1A"/>
-    <rect x="148" y="142" width="16" height="8" fill="#2A1A1A"/>
-    <rect x="172" y="134" width="8" height="16" fill="#2A1A1A"/>
-
-    <rect x="76" y="160" width="24" height="8" fill="#2A1A1A"/>
-    <rect x="108" y="168" width="16" height="8" fill="#2A1A1A"/>
-    <rect x="132" y="160" width="12" height="16" fill="#2A1A1A"/>
-    <rect x="152" y="168" width="28" height="8" fill="#2A1A1A"/>
-  </svg>`;
-  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
-}
-
 /**
  * Petición HTTP centralizada al backend con manejo de errores FastAPI
  */
