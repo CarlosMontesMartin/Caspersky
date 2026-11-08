@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Informe ejecutivo · Damm Escucha activa</title>
+  <title>Informe ejecutivo · Damm</title>
   <link rel="stylesheet" href="/css/estilos.css">
   <style>
     /* Informe ejecutivo (contratos v2, 5.2): una hoja A4 para dirección */
@@ -57,22 +57,22 @@
 
         <div class="cabecera-pagina">
           <div>
-            <span class="sello">Confidencial · resultados agregados</span>
-            <h1 id="titulo">Informe ejecutivo</h1>
+            <span class="sello" data-i18n="informe.sello">Confidencial · resultados agregados</span>
+            <h1 id="titulo" data-i18n="informe.titulo">Informe ejecutivo</h1>
             <div class="meta nota" id="meta"></div>
           </div>
           <div class="acciones no-imprimir">
-            <a class="btn btn-secundario" id="btn-volver" href="/">Volver al análisis</a>
-            <button type="button" class="btn btn-principal" id="btn-imprimir" disabled>Imprimir / Guardar PDF</button>
+            <a class="btn btn-secundario" id="btn-volver" href="/" data-i18n="informe.volver">Volver al análisis</a>
+            <button type="button" class="btn btn-principal" id="btn-imprimir" disabled data-i18n="informe.imprimir">Imprimir / Guardar PDF</button>
           </div>
         </div>
 
         <div id="aviso" class="aviso error oculto" role="alert"></div>
-        <p class="cargando" id="cargando">Preparando el informe…</p>
+        <p class="cargando" id="cargando" data-i18n="informe.preparando">Preparando el informe…</p>
 
         <div id="informe" class="oculto">
           <section class="tarjeta seccion">
-            <h2>Lectura ejecutiva</h2>
+            <h2 data-i18n="informe.lectura">Lectura ejecutiva</h2>
             <p class="lectura" id="lectura"></p>
             <p class="nota" id="lectura-origen" style="margin-top: var(--e2);"></p>
           </section>
@@ -80,22 +80,22 @@
           <section class="seccion">
             <div class="kpis">
               <div class="tarjeta kpi">
-                <div class="kpi-etiqueta">Respuestas</div>
+                <div class="kpi-etiqueta" data-i18n="informe.kpi_respuestas">Respuestas</div>
                 <div class="kpi-valor" id="kpi-respuestas">—</div>
                 <div class="kpi-nota" id="kpi-respuestas-nota"></div>
               </div>
               <div class="tarjeta kpi">
-                <div class="kpi-etiqueta">Participación global</div>
+                <div class="kpi-etiqueta" data-i18n="informe.kpi_participacion">Participación global</div>
                 <div class="kpi-valor" id="kpi-participacion">—</div>
                 <div class="kpi-nota" id="kpi-participacion-nota"></div>
               </div>
               <div class="tarjeta kpi">
-                <div class="kpi-etiqueta">Segmentos no representativos</div>
+                <div class="kpi-etiqueta" data-i18n="informe.kpi_segmentos">Segmentos no representativos</div>
                 <div class="kpi-valor" id="kpi-segmentos">—</div>
                 <div class="kpi-nota" id="kpi-segmentos-nota"></div>
               </div>
               <div class="tarjeta kpi">
-                <div class="kpi-etiqueta">Valoración media</div>
+                <div class="kpi-etiqueta" data-i18n="informe.kpi_valoracion">Valoración media</div>
                 <div class="kpi-valor" id="kpi-valoracion">—</div>
                 <div class="kpi-nota" id="kpi-valoracion-nota"></div>
               </div>
@@ -103,32 +103,37 @@
           </section>
 
           <section class="tarjeta seccion">
-            <h2>Hallazgos principales</h2>
+            <h2 data-i18n="informe.hallazgos">Hallazgos principales</h2>
             <ol class="hallazgos" id="hallazgos"></ol>
           </section>
 
           <section class="tarjeta seccion" style="padding: 0;">
-            <h2 style="padding: var(--e5) var(--e5) 0;">Acciones propuestas</h2>
+            <h2 style="padding: var(--e5) var(--e5) 0;" data-i18n="informe.acciones">Acciones propuestas</h2>
             <div class="tabla-envoltura">
               <table class="tabla">
-                <thead><tr><th>Acción</th><th>Responsable</th><th>Plazo</th><th>Indicador</th></tr></thead>
+                <thead><tr>
+                  <th data-i18n="informe.col_accion">Acción</th>
+                  <th data-i18n="informe.col_responsable">Responsable</th>
+                  <th data-i18n="informe.col_plazo">Plazo</th>
+                  <th data-i18n="informe.col_indicador">Indicador</th>
+                </tr></thead>
                 <tbody id="acciones"></tbody>
               </table>
             </div>
-            <p class="nota" style="padding: var(--e3) var(--e5) var(--e5);">Propuestas para validar por People. No son decisiones automáticas.</p>
+            <p class="nota" style="padding: var(--e3) var(--e5) var(--e5);" data-i18n="informe.propuestas_nota">Propuestas para validar por People. No son decisiones automáticas.</p>
           </section>
 
           <section class="tarjeta seccion">
-            <h2>Encuesta de seguimiento propuesta</h2>
+            <h2 data-i18n="informe.seguimiento">Encuesta de seguimiento propuesta</h2>
             <p id="seguimiento"></p>
           </section>
 
           <section class="tarjeta seccion metodo nota">
-            <h2>Límites y metodología</h2>
+            <h2 data-i18n="informe.limites">Límites y metodología</h2>
             <ul id="limites"></ul>
-            <p><strong>Anonimato:</strong> no se guarda nada que identifique a quien responde y los comentarios se anonimizan antes de guardarse.</p>
-            <p><strong>Umbral:</strong> los grupos con menos de 5 respuestas no muestran medias, temas ni comentarios.</p>
-            <p><strong>IA con supervisión humana:</strong> la IA propone preguntas, temas y acciones; People las revisa y decide.</p>
+            <p data-i18n="informe.metodo_anonimato">Anonimato: no se guarda nada que identifique a quien responde y los comentarios se anonimizan antes de guardarse.</p>
+            <p data-i18n="informe.metodo_umbral">Umbral: los grupos con menos de 5 respuestas no muestran medias, temas ni comentarios.</p>
+            <p data-i18n="informe.metodo_ia">IA con supervisión humana: la IA propone preguntas, temas y acciones; People las revisa y decide.</p>
           </section>
         </div>
 
@@ -138,12 +143,40 @@
 
   <script type="module" src="/js/layout.js"></script>
   <script type="module">
-    import { obtenerAnalisis, obtenerRecomendaciones, colectivosDe, formatearColectivo, formatearTema, formatearTurno,
-             formatearPct, formatearMedia } from '/js/api.js';
-    import { escapar, entero, nombrePeriodo, textoLegible } from '/js/ui.js';
+    // Textos fijos: t() de idioma.js (claves informe.* en rrhh_ca.json y rrhh_en.json; el castellano va aquí).
+    // Nombres de sectores, turnos y temas: frontend/i18n/<idioma>.json, el mismo sitio que usa el backend (v4, regla 4).
+    // Lectura, alertas, límites y acciones llegan ya traducidos del backend (api.js añade ?idioma=).
+    import { obtenerAnalisis, obtenerRecomendaciones, colectivosDe } from '/js/api.js';
+    import { escapar } from '/js/ui.js';
+    import { t, idiomaActual, alCambiarIdioma } from '/js/idioma.js';
+    import { cargarIdioma as cargarNombres, t as tNombre, mayuscula } from '/js/i18n.js';
 
     const $ = id => document.getElementById(id);
     const encuestaId = new URLSearchParams(window.location.search).get('id');
+    const LOCALE = { es: 'es-ES', ca: 'ca-ES', en: 'en-GB' };
+    let datos = null; // { analisis, recomendaciones } para repintar al cambiar de idioma
+
+    // ---------- Formato según el idioma ----------
+    const locale = () => LOCALE[idiomaActual()] || 'es-ES';
+    const entero = v => new Intl.NumberFormat(locale()).format(Number(v || 0));
+    const decimal = v => (v == null || isNaN(v)) ? '—'
+      : new Intl.NumberFormat(locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(v);
+    const pct = v => (v == null || isNaN(v)) ? '—'
+      : new Intl.NumberFormat(locale(), { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(v);
+    function periodo(p) {
+      if (!/^\d{4}-\d{2}$/.test(p || '')) return p || '—';
+      const [a, m] = p.split('-').map(Number);
+      return new Intl.DateTimeFormat(locale(), { month: 'long', year: 'numeric' }).format(new Date(a, m - 1, 1));
+    }
+    const hoy = () => new Intl.DateTimeFormat(locale(), { dateStyle: 'long' }).format(new Date());
+    const lista = items => new Intl.ListFormat(locale(), { style: 'long', type: 'conjunction' }).format(items);
+
+    // ---------- Nombres (minúscula en el diccionario: mayúscula cuando van solos) ----------
+    const nombre = (tipo, codigo) => {
+      const v = tNombre(`${tipo}.${codigo}`);
+      return v === `${tipo}.${codigo}` ? String(codigo).replace(/_/g, ' ') : v;
+    };
+    const sector = c => mayuscula(nombre('colectivo', c));
 
     function avisar(texto) {
       $('cargando').classList.add('oculto');
@@ -152,7 +185,7 @@
     }
 
     async function iniciar() {
-      if (!encuestaId) return avisar('Falta el identificador de la encuesta (informe.html?id=…).');
+      if (!encuestaId) return avisar(t('informe.falta_id', 'Falta el identificador de la encuesta (informe.html?id=…).'));
       $('btn-volver').href = `/dashboard.html?id=${encodeURIComponent(encuestaId)}`;
       try {
         // Las recomendaciones son opcionales: si fallan, el informe sale igual
@@ -160,18 +193,25 @@
           obtenerAnalisis(encuestaId),
           obtenerRecomendaciones(encuestaId).catch(() => null),
         ]);
-        pintar(analisis, recomendaciones || {});
+        datos = { analisis, recomendaciones: recomendaciones || {} };
+        await repintar();
         $('cargando').classList.add('oculto');
         $('informe').classList.remove('oculto');
         $('btn-imprimir').disabled = false;
       } catch (err) {
-        avisar(`No se pudo cargar el análisis: ${err.message}`);
+        avisar(t('informe.error_carga', 'No se pudo cargar el análisis: {error}', { error: err.message }));
       }
     }
 
+    async function repintar() {
+      if (!datos) return;
+      await cargarNombres(idiomaActual());
+      pintar(datos.analisis, datos.recomendaciones);
+    }
+
     // ---------- KPIs: mismo cálculo que el dashboard ----------
-    function mediaPonderada(lista) {
-      const validas = (lista || []).filter(m => m.media !== null && m.media !== undefined && (m.n ?? m.respuestas ?? 0) > 0);
+    function mediaPonderada(filas) {
+      const validas = (filas || []).filter(m => m.media !== null && m.media !== undefined && (m.n ?? m.respuestas ?? 0) > 0);
       const peso = validas.reduce((s, m) => s + (m.n ?? m.respuestas), 0);
       if (!peso) return null;
       return validas.reduce((s, m) => s + m.media * (m.n ?? m.respuestas), 0) / peso;
@@ -195,100 +235,120 @@
 
       $('kpi-respuestas').textContent = entero(a.n_respuestas);
       $('kpi-respuestas-nota').textContent = a.n_simuladas > 0
-        ? `Incluye ${entero(a.n_simuladas)} simuladas`
-        : `Periodo actual${a.n_anterior ? ` · ${entero(a.n_anterior)} en el anterior` : ''}`;
-      $('kpi-participacion').textContent = formatearPct(global);
-      $('kpi-participacion-nota').textContent = personas ? `${entero(respuestas)} de ${entero(personas)} personas` : '';
-      $('kpi-segmentos').textContent = `${noRep} de ${part.length}`;
+        ? t('informe.incluye_simuladas', 'Incluye {n} simuladas', { n: entero(a.n_simuladas) })
+        : a.n_anterior
+          ? t('informe.periodo_actual_anterior', 'Periodo actual · {n} en el anterior', { n: entero(a.n_anterior) })
+          : t('informe.periodo_actual', 'Periodo actual');
+      $('kpi-participacion').textContent = pct(global);
+      $('kpi-participacion-nota').textContent = personas
+        ? t('informe.de_personas', '{n} de {total} personas', { n: entero(respuestas), total: entero(personas) }) : '';
+      $('kpi-segmentos').textContent = t('informe.n_de_total', '{n} de {total}', { n: entero(noRep), total: entero(part.length) });
       $('kpi-segmentos').classList.toggle('critico', noRep > 0);
-      $('kpi-segmentos-nota').textContent = noRep ? 'Interpretar sus resultados con cautela' : 'Todos son representativos';
+      $('kpi-segmentos-nota').textContent = noRep
+        ? t('informe.cautela', 'Interpretar sus resultados con cautela')
+        : t('informe.todos_representativos', 'Todos son representativos');
 
       const v = valoracionMedia(a);
-      $('kpi-valoracion').innerHTML = v.actual === null ? '—' : `${formatearMedia(v.actual)} <span class="kpi-sobre">/ 5</span>`;
+      $('kpi-valoracion').innerHTML = v.actual === null ? '—' : `${escapar(decimal(v.actual))} <span class="kpi-sobre">/ 5</span>`;
       if (v.actual !== null && v.anterior !== null) {
         const dif = v.actual - v.anterior;
         const flecha = dif <= -0.05 ? '↓' : dif >= 0.05 ? '↑' : '=';
-        $('kpi-valoracion-nota').textContent = `${flecha} ${formatearMedia(Math.abs(dif))} frente a ${nombrePeriodo(a.periodo_anterior)}`;
+        $('kpi-valoracion-nota').textContent = t('informe.frente_a', '{flecha} {dif} frente a {periodo}',
+          { flecha, dif: decimal(Math.abs(dif)), periodo: periodo(a.periodo_anterior) });
       } else {
-        $('kpi-valoracion-nota').textContent = a.periodo_anterior ? '' : 'Sin periodo anterior para comparar';
+        $('kpi-valoracion-nota').textContent = a.periodo_anterior ? '' : t('informe.sin_anterior', 'Sin periodo anterior para comparar');
       }
     }
 
     // ---------- Informe ----------
     function pintar(a, r) {
       const sectores = colectivosDe(a);
-      const mapaPreguntas = Object.fromEntries((a.preguntas || []).map(p => [p.id, p.texto]));
-      const legible = t => textoLegible(t, mapaPreguntas, formatearColectivo);
-
-      const titulo = a.titulo || 'Informe ejecutivo';
-      document.title = `Informe · ${titulo}`;
+      const titulo = a.titulo || t('informe.titulo', 'Informe ejecutivo');
+      document.title = `${t('informe.titulo', 'Informe ejecutivo')} · ${titulo}`;
       $('titulo').textContent = titulo;
-      const fecha = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
       $('meta').textContent = [
-        sectores.length ? `Sectores: ${sectores.map(formatearColectivo).join(', ')}` : null,
-        a.periodo_actual ? `Periodo: ${nombrePeriodo(a.periodo_actual)}${a.periodo_anterior ? ` (frente a ${nombrePeriodo(a.periodo_anterior)})` : ''}` : null,
-        `Fecha: ${fecha}`,
+        sectores.length ? t('informe.meta_sectores', 'Sectores: {lista}', { lista: lista(sectores.map(sector)) }) : null,
+        a.periodo_actual ? (a.periodo_anterior
+          ? t('informe.meta_periodo_frente', 'Periodo: {actual} (frente a {anterior})', { actual: periodo(a.periodo_actual), anterior: periodo(a.periodo_anterior) })
+          : t('informe.meta_periodo', 'Periodo: {actual}', { actual: periodo(a.periodo_actual) })) : null,
+        t('informe.meta_fecha', 'Fecha: {fecha}', { fecha: hoy() }),
       ].filter(Boolean).join(' · ');
 
-      // 1. Lectura ejecutiva
-      const lectura = a.lectura || r.lectura || '';
-      $('lectura').textContent = lectura
-        ? legible(lectura)
-        : 'La lectura ejecutiva aún no está disponible. Los indicadores y hallazgos se calculan directamente de los datos agregados.';
+      // 1. Lectura ejecutiva (la escribe el backend o la IA en el idioma pedido)
+      const pendiente = r.origen === 'pendiente';
+      const lectura = pendiente ? '' : (a.lectura || r.lectura || '');
+      $('lectura').textContent = lectura || (pendiente
+        ? t('informe.ia_preparando', 'La IA está preparando la lectura y las acciones. Vuelve a abrir el informe en unos segundos.')
+        : t('informe.sin_lectura', 'La lectura ejecutiva aún no está disponible. Los indicadores y hallazgos se calculan directamente de los datos agregados.'));
       const origen = r.origen || a.estado_ia?.origen_recomendaciones;
-      $('lectura-origen').textContent = origen === 'ia' ? 'Redactada por IA a partir de datos agregados.'
-        : origen === 'reglas' ? 'Redactada por reglas a partir de datos agregados.' : '';
+      $('lectura-origen').textContent = origen === 'ia' ? t('informe.origen_ia', 'Redactada por IA a partir de datos agregados.')
+        : origen === 'reglas' ? t('informe.origen_reglas', 'Sin IA: redactada por reglas a partir de datos agregados.') : '';
 
       // 2. KPIs
       pintarKpis(a);
 
       // 3. Hallazgos: 2 primeras alertas + tema principal que sube o es nuevo, con su cifra
-      const hallazgos = (a.alertas || []).slice(0, 2).map(al => legible(al.mensaje)).filter(Boolean);
-      const emergente = (a.temas || []).filter(t => t.tendencia === 'nuevo' || t.tendencia === 'sube')
+      const hallazgos = (a.alertas || []).slice(0, 2).map(al => al.mensaje).filter(Boolean);
+      const emergente = (a.temas || []).filter(x => x.tendencia === 'nuevo' || x.tendencia === 'sube')
         .sort((x, y) => (y.n || 0) - (x.n || 0))[0];
       if (emergente) {
-        const cifra = emergente.pct != null && emergente.pct_anterior != null
-          ? ` (del ${formatearPct(emergente.pct_anterior)} al ${formatearPct(emergente.pct)} de los comentarios)`
-          : emergente.pct != null ? ` (${formatearPct(emergente.pct)} de los comentarios)` : '';
-        hallazgos.push(`${formatearTema(emergente.tema)}: ${emergente.tendencia === 'nuevo' ? 'tema nuevo' : 'tema en aumento'}, ${entero(emergente.n)} comentarios${cifra}.${emergente.resumen ? ' ' + emergente.resumen : ''}`);
+        const datosTema = {
+          tema: mayuscula(nombre('tema', emergente.tema)), n: entero(emergente.n),
+          antes: pct(emergente.pct_anterior), ahora: pct(emergente.pct),
+        };
+        let frase = emergente.tendencia === 'nuevo'
+          ? t('informe.tema_nuevo', '{tema}: tema nuevo, {n} comentarios', datosTema)
+          : t('informe.tema_sube', '{tema}: tema en aumento, {n} comentarios', datosTema);
+        if (emergente.pct != null && emergente.pct_anterior != null) frase += ' ' + t('informe.tema_cifra', '(del {antes} al {ahora} de los comentarios)', datosTema);
+        else if (emergente.pct != null) frase += ' ' + t('informe.tema_cifra_actual', '({ahora} de los comentarios)', datosTema);
+        frase += '.';
+        if (emergente.resumen && emergente.resumen_origen !== 'pendiente') frase += ' ' + emergente.resumen;
+        hallazgos.push(frase);
       }
       $('hallazgos').innerHTML = hallazgos.length
         ? hallazgos.map(h => `<li>${escapar(h)}</li>`).join('')
-        : '<li>No hay alertas ni temas emergentes en este periodo.</li>';
+        : `<li>${escapar(t('informe.sin_hallazgos', 'No hay alertas ni temas emergentes en este periodo.'))}</li>`;
 
       // 4. Acciones propuestas
-      const acciones = r.acciones || [];
+      const porDefinir = t('informe.por_definir', 'Por definir');
+      const acciones = pendiente ? [] : (r.acciones || []);
       $('acciones').innerHTML = acciones.length
         ? acciones.map(ac => `
           <tr>
-            <td><strong>${escapar(ac.titulo)}</strong>${ac.motivo ? `<span class="motivo">${escapar(legible(ac.motivo))}</span>` : ''}</td>
-            <td>${escapar(ac.responsable || 'Por definir')}</td>
-            <td>${escapar(ac.plazo || 'Por definir')}</td>
-            <td>${escapar(ac.indicador || 'Por definir')}</td>
+            <td><strong>${escapar(ac.titulo)}</strong>${ac.motivo ? `<span class="motivo">${escapar(ac.motivo)}</span>` : ''}</td>
+            <td>${escapar(ac.responsable || porDefinir)}</td>
+            <td>${escapar(ac.plazo || porDefinir)}</td>
+            <td>${escapar(ac.indicador || porDefinir)}</td>
           </tr>`).join('')
-        : '<tr><td colspan="4" class="texto-2">Sin acciones propuestas todavía.</td></tr>';
+        : `<tr><td colspan="4" class="texto-2">${escapar(pendiente
+            ? t('informe.acciones_preparando', 'La IA está preparando las acciones.')
+            : t('informe.sin_acciones', 'Sin acciones propuestas todavía.'))}</td></tr>`;
 
-      // 5. Encuesta de seguimiento
-      const s = r.seguimiento;
+      // 5. Encuesta de seguimiento (el objetivo lo redacta el backend o la IA)
+      const s = pendiente ? null : r.seguimiento;
       if (s?.objetivo) {
         const sSectores = colectivosDe(s);
         $('seguimiento').textContent = `${s.objetivo.replace(/\.$/, '')}.`
-          + (sSectores.length ? ` Sectores: ${sSectores.map(formatearColectivo).join(', ')}.` : '')
-          + (s.duracion_max_seg ? ` Duración máxima: ${s.duracion_max_seg} s.` : '');
+          + (sSectores.length ? ' ' + t('informe.seguimiento_sectores', 'Sectores: {lista}.', { lista: lista(sSectores.map(sector)) }) : '')
+          + (s.duracion_max_seg ? ' ' + t('informe.seguimiento_duracion', 'Duración máxima: {seg} s.', { seg: entero(s.duracion_max_seg) }) : '');
       } else {
-        $('seguimiento').textContent = 'Pendiente de propuesta.';
+        $('seguimiento').textContent = t('informe.seguimiento_pendiente', 'Pendiente de propuesta.');
       }
 
-      // 6. Límites, más los segmentos ocultos por privacidad
-      const limites = (a.limites || []).map(legible);
+      // 6. Límites (del backend) + los grupos ocultos por privacidad
+      const limites = [...(a.limites || [])];
       const ocultos = (a.participacion || []).filter(f => (f.respuestas || 0) < 5);
       if (ocultos.length) {
-        limites.push(`Ocultos por tener menos de 5 respuestas: ${ocultos.map(f =>
-          formatearColectivo(f.colectivo) + (f.turno && f.turno !== 'sin_turno' ? ` · ${formatearTurno(f.turno)}` : '')).join(', ')}.`);
+        const grupos = ocultos.map(f => sector(f.colectivo) + (f.turno && f.turno !== 'sin_turno' ? ` · ${nombre('turno', f.turno)}` : ''));
+        limites.push(t('informe.ocultos', 'Ocultos por tener menos de 5 respuestas: {lista}.', { lista: lista(grupos) }));
       }
-      $('limites').innerHTML = limites.length ? limites.map(l => `<li>${escapar(l)}</li>`).join('') : '<li>Sin límites destacados.</li>';
+      $('limites').innerHTML = limites.length
+        ? limites.map(l => `<li>${escapar(l)}</li>`).join('')
+        : `<li>${escapar(t('informe.sin_limites', 'Sin límites destacados.'))}</li>`;
     }
 
+    // Al cambiar de idioma (y cuando termina de cargar el diccionario), se vuelve a pintar
+    alCambiarIdioma(() => { repintar(); });
     $('btn-imprimir').addEventListener('click', () => window.print());
     iniciar();
   </script>

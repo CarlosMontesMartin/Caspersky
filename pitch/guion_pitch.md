@@ -25,7 +25,7 @@
 
 [Ponente 1 levanta el cartel QR de planta.]
 
-> "Escaneadlo. Arriba podéis elegir castellano, catalán o inglés: la IA ha traducido la encuesta al aprobarla. Cambiad de idioma a mitad: lo que habéis marcado se queda.
+> "Escaneadlo. Arriba podéis elegir castellano, catalán o inglés, y es ampliable a más idiomas: la IA ha traducido la encuesta al aprobarla. Cambiad de idioma a mitad: lo que habéis marcado se queda.
 > Y todas las respuestas se analizan juntas, en cualquier idioma."
 
 ## Slide 4 · 1:20–1:50 · Centro de mando en directo

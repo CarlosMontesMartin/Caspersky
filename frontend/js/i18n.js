@@ -1,5 +1,5 @@
 /**
- * i18n.js — textos fijos en castellano, catalán, inglés, portugués y chino (contratos v3, 6.1) · UAB 2
+ * i18n.js — textos fijos en castellano, catalán e inglés (contratos v3 6.1 y v4) · UAB 2
  *
  *   await cargarIdioma('ca');          // carga /i18n/ca.json (y es.json como respaldo)
  *   t('responder.enviar');             // "Envia"
@@ -8,12 +8,19 @@
  *
  * Si falta una clave en el idioma elegido se usa el castellano y, si tampoco está, la propia clave.
  * Solo traduce textos fijos de la interfaz: las preguntas las traduce la IA en el servidor.
+ * Los nombres (colectivo.*, turno.*, tema.*, dimension.*) van en minúscula para poder ir dentro
+ * de una frase: el backend también los lee de aquí. Para un botón o un título, usad mayuscula().
  */
 
-export const IDIOMAS = ['es', 'ca', 'en', 'pt', 'zh'];
-/** Etiqueta del selector y atributo lang de cada idioma */
-export const ETIQUETAS_IDIOMA = { es: 'ES', ca: 'CA', en: 'EN', pt: 'PT', zh: '中文' };
-const LANG_HTML = { zh: 'zh-Hans' };
+/** "planta" → "Planta" */
+export function mayuscula(texto) {
+  const s = String(texto ?? '');
+  return s.charAt(0).toLocaleUpperCase() + s.slice(1);
+}
+
+export const IDIOMAS = ['es', 'ca', 'en'];   // v4: solo estos tres (los mismos que backend/reglas.py)
+/** Etiqueta del selector de cada idioma */
+export const ETIQUETAS_IDIOMA = { es: 'ES', ca: 'CA', en: 'EN' };
 const POR_DEFECTO = 'es';
 const CLAVE_SESION = 'idioma';
 
@@ -37,7 +44,7 @@ export async function cargarIdioma(codigo) {
   await Promise.all([descargar(POR_DEFECTO), descargar(idioma)]);
   actual = idioma;
   try { sessionStorage.setItem(CLAVE_SESION, idioma); } catch { /* sin almacenamiento: no pasa nada */ }
-  if (typeof document !== 'undefined') document.documentElement.lang = LANG_HTML[idioma] || idioma;
+  if (typeof document !== 'undefined') document.documentElement.lang = idioma;
   return idioma;
 }
 

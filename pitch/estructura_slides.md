@@ -37,7 +37,7 @@
 - **Momentos a enseñar:**
   1. Selector **ES · CA · EN** arriba a la derecha: la encuesta, traducida por la IA al aprobarla, cambia de idioma sin perder lo ya marcado.
   2. Botones grandes y caritas; en la tablet del quiosco vuelve al inicio tras cada respuesta y mantiene el idioma.
-- **Texto en pantalla:** "Castellano, catalán e inglés: para una plantilla internacional." · "Las respuestas se analizan juntas: el idioma no parte los datos."
+- **Texto en pantalla:** "Castellano, catalán e inglés, ampliable a más idiomas: para una plantilla internacional." · "Las respuestas se analizan juntas: el idioma no parte los datos."
 
 ## Slide 4 · El centro de mando, en directo
 

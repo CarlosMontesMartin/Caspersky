@@ -67,6 +67,7 @@
     .idioma-btn:hover { border-color: var(--texto-3); }
     .idioma-btn[aria-pressed="true"] { background: var(--texto); border-color: var(--texto); color: #FFFFFF; }
     body.quiosco .idioma-btn { min-width: 60px; height: 52px; font-size: var(--t-md); }
+    .aviso-idioma { margin: calc(-1 * var(--e3)) 0 var(--e4); padding: var(--e2) var(--e3); background: var(--gris-fondo); border-radius: var(--radio); }
   </style>
 </head>
 <body>
@@ -80,7 +81,7 @@
       obtenerEncuestaPublica, enviarRespuesta, formatearTurno, formatearColectivo, colectivosDe, preguntasDe
     } from '/js/api.js';
     import { escapar } from '/js/ui.js';
-    import { IDIOMAS, ETIQUETAS_IDIOMA, cargarIdioma, idiomaInicial, t } from '/js/i18n.js';
+    import { IDIOMAS, ETIQUETAS_IDIOMA, cargarIdioma, idiomaInicial, mayuscula, t } from '/js/i18n.js';
 
     const app = document.getElementById('app');
     const encuestaId = decodeURIComponent(window.location.pathname.split('/').filter(Boolean).pop() || '');
@@ -103,17 +104,26 @@
     // ---------- Idioma ----------
     // Traducción con respaldo: si falta la clave, el formateador de api.js
     const tr = (clave, respaldo) => { const v = t(clave); return v === clave ? respaldo : v; };
-    const nombreSector = c => tr(`colectivo.${c}`, formatearColectivo(c));
-    const nombreTurno = tu => tr(`turno.${tu}`, formatearTurno(tu));
+    // Los nombres del diccionario van en minúscula (sirven dentro de una frase): en botones, con mayúscula
+    const nombreSector = c => mayuscula(tr(`colectivo.${c}`, formatearColectivo(c)));
+    const nombreTurno = tu => mayuscula(tr(`turno.${tu}`, formatearTurno(tu)));
+
+    // Aviso si se pide catalán o inglés y la encuesta aún no tiene esa traducción (v4, P0-4)
+    function avisoSinTraduccion() {
+      const disponibles = encuesta?.idiomas_disponibles;
+      if (idioma === 'es' || !Array.isArray(disponibles) || disponibles.includes(idioma)) return '';
+      return `<p class="nota aviso-idioma" role="status">${escapar(t('responder.sin_traduccion'))}</p>`;
+    }
 
     function cabecera() {
       return `
         <div class="resp-cabecera">
           <div class="resp-marca">Damm</div>
           <div class="idiomas" role="group" aria-label="${escapar(t('idioma.selector'))}">
-            ${IDIOMAS.map(c => `<button type="button" class="idioma-btn" data-idioma="${c}" aria-pressed="${idioma === c}" lang="${c === 'zh' ? 'zh-Hans' : c}">${ETIQUETAS_IDIOMA[c] || c.toUpperCase()}</button>`).join('')}
+            ${IDIOMAS.map(c => `<button type="button" class="idioma-btn" data-idioma="${c}" aria-pressed="${idioma === c}" lang="${c}">${ETIQUETAS_IDIOMA[c] || c.toUpperCase()}</button>`).join('')}
           </div>
-        </div>`;
+        </div>
+        ${avisoSinTraduccion()}`;
     }
 
     // Opciones en castellano por id: en "opcion" se muestra la traducción y se envía el original
@@ -172,7 +182,7 @@
     function prepararTransparencia(texto) {
       const md = String(texto || '').replace(/\r/g, '');
       // Formato actual: sección "## Castellano" con dos frases y una lista de garantías
-      const castellano = md.match(/^##\s*(?:Castellano|Català|Catala|English|Português|Portugues|中文)[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m);
+      const castellano = md.match(/^##\s*(?:Castellano|Català|Catala|English)[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m);
       if (castellano) {
         const lineas = castellano[1].split('\n').map(l => l.trim()).filter(Boolean);
         const frases = lineas.filter(l => !l.startsWith('- ') && !l.startsWith('>')).map(limpiar).filter(Boolean);
@@ -378,10 +388,7 @@
         valores[p.id] = typeof v === 'string' ? v.trim() : v;
       });
       try {
-        const entrada = { colectivo: estado.colectivo, turno: estado.turno, canal, valores };
-        // El contrato v3 acepta es, ca y en. Portugués y chino solo se envían si el servidor ya los ofrece.
-        if (['es', 'ca', 'en'].includes(idioma) || (encuesta.idiomas_disponibles || []).includes(idioma)) entrada.idioma = idioma;
-        await enviarRespuesta(encuestaId, entrada);
+        await enviarRespuesta(encuestaId, { colectivo: estado.colectivo, turno: estado.turno, canal, valores, idioma });
         pantallaFinal();
       } catch (err) {
         const caja = document.getElementById('error-envio');
