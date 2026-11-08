@@ -14,7 +14,7 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
-from . import segundo_plano, textos_respaldo
+from . import cache_disco, segundo_plano, textos_respaldo
 from .llm import hay_llm, llamar_llm_json
 
 log = logging.getLogger(__name__)
@@ -34,6 +34,7 @@ _PROMPTS = Path(__file__).resolve().parent / "prompts"
 _CACHE_IA: dict[str, str] = {}      # Texto -> tema asignado por el modelo
 _EN_CURSO: set[str] = set()         # Textos en un lote que aún no ha terminado
 _FALLIDOS: dict[str, float] = {}    # Texto -> momento del fallo, para no reintentar en bucle
+_MIRADOS: set[str] = set()         # Textos ya buscados en la caché de disco
 _BLOQUEO = threading.Lock()
 # Un lote que falla se queda con las palabras clave: reintentarlo cada 2 min volvía a poner
 # "clasificación en curso" y dejaba la lectura y las recomendaciones en "pendiente" sin fin
@@ -202,6 +203,7 @@ def _clasificar_lote_ia(lote: list[str]) -> dict[str, str]:
     except Exception as error:
         log.warning("Lote de %d comentarios sin clasificar por el modelo: %s", len(lote), error)
         resultado = {}
+    cache_disco.guardar_varios("tema", resultado)  # clave = huella del texto: sin comentarios en disco
     with _BLOQUEO:
         _CACHE_IA.update(resultado)
         ahora = time.monotonic()
@@ -220,11 +222,12 @@ def clasificar_comentarios(textos: list[str], todos: bool = False) -> list[str]:
     clave no entienden (la IA donde aporta: así no hay decenas de llamadas antes de la lectura).
     todos=True manda todos al modelo (solo para medir su precisión en evaluar.py).
     """
+    _temas_de_disco(textos)
     if hay_llm():
         ahora = time.monotonic()
         with _BLOQUEO:
             nuevos = sorted({t for t in textos if t and t not in _CACHE_IA and t not in _EN_CURSO
-                             and ahora - _FALLIDOS.get(t, -1e9) > REINTENTO_FALLIDOS_SEG
+                             and (t not in _FALLIDOS or ahora - _FALLIDOS[t] > REINTENTO_FALLIDOS_SEG)
                              and (todos or _necesita_ia(t))})
             _EN_CURSO.update(nuevos)
         for i in range(0, len(nuevos), TAMANO_LOTE):
@@ -232,6 +235,18 @@ def clasificar_comentarios(textos: list[str], todos: bool = False) -> list[str]:
             segundo_plano.obtener(("clasificar", hash(tuple(lote))),
                                   lambda lote=lote: _clasificar_lote_ia(lote))
     return [_CACHE_IA.get(t) or clasificar_por_palabras(t) for t in textos]
+
+
+def _temas_de_disco(textos: list[str]) -> None:
+    """Recupera de la caché de disco el tema que el modelo ya dio a estos comentarios."""
+    with _BLOQUEO:
+        por_mirar = {t for t in textos if t and t not in _CACHE_IA and t not in _MIRADOS}
+        _MIRADOS.update(por_mirar)
+    for texto in por_mirar:
+        tema = cache_disco.leer("tema", texto)
+        if tema in TEMAS:
+            with _BLOQUEO:
+                _CACHE_IA[texto] = tema
 
 
 def _necesita_ia(texto: str) -> bool:
@@ -243,6 +258,7 @@ def estado_clasificacion(textos: list[str]) -> dict[str, int]:
     """Cuántos comentarios distintos hay y cuántos tienen ya su tema definitivo
     (por palabras clave, por el modelo o porque el modelo falló con ellos)."""
     unicos = {t for t in textos if t}
+    _temas_de_disco(list(unicos))
     with _BLOQUEO:
         hechos = sum(1 for t in unicos if t in _CACHE_IA or t in _FALLIDOS or not _necesita_ia(t))
     return {"total": len(unicos), "por_ia": hechos}
@@ -278,7 +294,8 @@ def resumir_tema_con_origen(tema: str, textos: list[str], idioma: str = "es") ->
     # Mientras la clasificación avanza los grupos cambian; se resume al terminar
     if clasificacion_en_curso():
         return respaldo, "pendiente"
-    clave = ("resumen", idioma, tema, len(textos), hash(tuple(sorted(textos))))
+    # Huella estable (no hash()): la clave tiene que valer igual después de reiniciar
+    clave = ("resumen", idioma, tema, len(textos), cache_disco.huella(sorted(textos)))
     estado, valor = segundo_plano.consultar(clave, lambda: _resumir_con_ia(tema, textos, idioma))
     if estado == "pendiente":
         return respaldo, "pendiente"

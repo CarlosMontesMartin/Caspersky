@@ -8,6 +8,7 @@ from backend.api import traducciones
 from backend.api.validacion import (colectivos_de, preguntas_de, turnos_de,
                                     turnos_por_colectivo, validar_respuesta_entrada)
 from backend.datos import almacen
+from backend.datos import compromisos as compromisos_datos
 from backend.datos.anonimizar import anonimizar
 
 router = APIRouter(prefix="/publico")
@@ -68,7 +69,8 @@ def construir_respuesta(encuesta: dict, entrada: dict, *, colectivo: str | None 
     respuesta = {
         "id": f"r_{uuid.uuid4().hex[:8]}",
         "encuesta_id": encuesta["id"],
-        "fecha": fecha.isoformat(),
+        # Minimización (v6): solo se usa el periodo, así que se guarda el mes, no el día exacto.
+        "fecha": fecha.replace(day=1).isoformat(),
         "periodo": fecha.strftime("%Y-%m"),
         "colectivo": colectivo,
         "centro_tipo": CENTRO_TIPO.get(colectivo, "oficina"),
@@ -97,7 +99,9 @@ def ver_publica(encuesta_id: str, idioma: str = "es"):
             "transparencia": almacen.leer_transparencia(idioma),
             "preguntas": e["preguntas"], "preguntas_por_colectivo": e.get("preguntas_por_colectivo") or {},
             "turnos": turnos_de(colectivos[0]) if colectivos else ["sin_turno"],
-            "turnos_por_colectivo": turnos_por_colectivo(colectivos)}
+            "turnos_por_colectivo": turnos_por_colectivo(colectivos),
+            # "Dijisteis → Hemos hecho": lo que RRHH firmó para estos sectores (de cualquier encuesta)
+            "compromisos": compromisos_datos.para_publico(colectivos, idioma)}
 
 
 @router.post("/encuestas/{encuesta_id}/respuestas")

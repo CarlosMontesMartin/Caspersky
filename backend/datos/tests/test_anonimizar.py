@@ -41,3 +41,34 @@ def test_ambiguos_no_rompen_frases_normales():
 def test_vacios():
     assert anonimizar(None) == ""
     assert anonimizar("") == ""
+
+
+# ---------- v6: inglés y catalán ----------
+
+def test_nombre_en_ingles_tras_pista():
+    assert "[nombre]" in anonimizar("My supervisor Mike never listens")
+    assert "Mike" not in anonimizar("My supervisor Mike never listens")
+    assert anonimizar("our team lead Anna is great") == "our team lead [nombre] is great"
+    assert anonimizar("the boss called Frank shouts") == "the boss called [nombre] shouts"
+
+
+def test_nombre_en_catalan_tras_cap():
+    resultado = anonimizar("el meu cap, en Quim, no escolta")
+    assert "[nombre]" in resultado and "Quim" not in resultado
+
+
+def test_presentaciones_en_cualquier_idioma():
+    assert anonimizar("my name is Sarah and I work nights") == "my name is [nombre] and I work nights"
+    assert anonimizar("em dic Fulgenci i treballo de nit") == "em dic [nombre] i treballo de nit"
+    assert anonimizar("me llamo fulgencio y estoy harto") == "me llamo [nombre] y estoy harto"
+
+
+def test_nombres_ingleses_frecuentes():
+    assert anonimizar("Ask John or Emma about the rota") == "Ask [nombre] or [nombre] about the rota"
+
+
+def test_ingles_normal_no_se_rompe():
+    for frase in ("We need more staff, the workload is too high", "My manager never listens",
+                  "Please mark the date", "The company needs a better schedule",
+                  "me llamo la atención a menudo", "en Planta 2 hay mucho ruido"):
+        assert anonimizar(frase) == frase

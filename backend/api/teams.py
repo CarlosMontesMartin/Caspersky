@@ -27,6 +27,8 @@ from fastapi import APIRouter, HTTPException
 from backend import textos
 from backend.api import rutas_encuestas, traducciones
 from backend.api.validacion import colectivos_de
+from backend.datos import almacen
+from backend.datos import compromisos as compromisos_datos
 from backend.reglas import idioma_valido
 
 router = APIRouter()
@@ -163,6 +165,42 @@ def tarjeta_resumen(analisis: dict, recomendaciones: dict, idioma: str = "es") -
                          "url": f"{rutas_encuestas.base_url()}/dashboard.html?id={analisis['encuesta_id']}"}]}
 
 
+def tarjeta_compromiso(compromiso: dict, seguimiento: dict | None = None, idioma: str = "es") -> dict:
+    """"Dijisteis" + texto, "Hemos hecho" + texto, responsable y fecha, y (si el seguimiento está publicado)
+    el botón "¿Ha funcionado? Responde en 30 s". Solo resultados agregados: nunca comentarios."""
+    idioma = idioma_valido(idioma)
+    v = compromisos_datos.vista(compromiso, idioma)
+    hechos = [{"title": textos.frase("teams.responsable", idioma), "value": v.get("responsable") or "—"},
+              {"title": textos.frase("teams.fecha", idioma), "value": v.get("fecha") or "—"}]
+    despues, antes = v.get("despues"), (v.get("indicador") or {}).get("antes")
+    if despues and antes is not None:
+        hechos.append({"title": textos.frase("teams.antes_ahora", idioma),
+                       "value": f"{textos.numero(antes, idioma)} → {textos.numero(despues['media'], idioma)} (n = {despues['n']})"})
+    acciones = []
+    if seguimiento and seguimiento.get("estado") == "publicada":
+        url = seguimiento.get("url") or f"{rutas_encuestas.base_url()}/responder/{seguimiento['id']}"
+        acciones.append({"type": "Action.OpenUrl", "title": textos.frase("teams.ha_funcionado", idioma),
+                         "url": f"{url}{'&' if '?' in url else '?'}canal=teams&lang={idioma}"})
+    return {
+        "type": "AdaptiveCard", "version": "1.4",
+        "body": _bloques(
+            _texto(textos.frase("teams.dijisteis", idioma), weight="Bolder", size="Medium"),
+            _texto(v.get("dijisteis", "")),
+            _texto(textos.frase("teams.hemos_hecho", idioma), weight="Bolder", size="Medium", spacing="Medium"),
+            _texto(v.get("hicimos", "")),
+            {"type": "FactSet", "facts": hechos},
+            _texto(textos.frase("teams.no_causa", idioma), isSubtle=True, size="Small") if despues and antes is not None else None,
+            _texto(textos.frase("teams.datos_simulados", idioma), isSubtle=True, size="Small")
+            if despues and despues.get("simulado") else None,
+        ),
+        "actions": acciones,
+    }
+
+
+def _seguimiento_de(compromiso: dict) -> dict | None:
+    return almacen.leer_encuesta(compromiso["seguimiento_id"]) if compromiso.get("seguimiento_id") else None
+
+
 # ---------- rutas ----------
 
 @router.get("/integraciones")
@@ -202,4 +240,27 @@ def resumen_en_teams(encuesta_id: str, idioma: str = "es"):
         raise HTTPException(503, textos.frase("teams.no_disponible", idioma))
     analisis, recomendaciones = rutas_encuestas.analisis_y_recomendaciones(encuesta, idioma)
     enviar(tarjeta_resumen(analisis, recomendaciones, idioma))
+    return {"enviado": True}
+
+
+def _compromiso(compromiso_id: str) -> dict:
+    compromiso = almacen.leer_compromiso(compromiso_id)
+    if compromiso is None:
+        raise HTTPException(404, f"No existe el compromiso {compromiso_id}")
+    return compromiso
+
+
+@router.get("/compromisos/{compromiso_id}/teams/vista_previa")
+def vista_previa_compromiso(compromiso_id: str, idioma: str = "es"):
+    compromiso = _compromiso(compromiso_id)
+    return tarjeta_compromiso(compromiso, _seguimiento_de(compromiso), idioma)
+
+
+@router.post("/compromisos/{compromiso_id}/teams")
+def compromiso_en_teams(compromiso_id: str, idioma: str = "es"):
+    idioma = idioma_valido(idioma)
+    compromiso = _compromiso(compromiso_id)
+    if not configurado():
+        raise HTTPException(503, textos.frase("teams.no_disponible", idioma))
+    enviar(tarjeta_compromiso(compromiso, _seguimiento_de(compromiso), idioma))
     return {"enviado": True}

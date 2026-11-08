@@ -7,6 +7,7 @@ su propio modo sin IA: estos respaldos son solo la última red.
 """
 import inspect
 import re
+from datetime import date
 
 from backend import textos
 from backend.api.validacion import ORDEN_COLECTIVOS, colectivos_de, etiqueta_colectivo
@@ -318,20 +319,71 @@ def traducir_encuesta(encuesta: dict, idiomas: list, idioma_origen: str = "es") 
     return real(encuesta, idiomas) or {}  # versión de UPC 1 anterior a v5: solo traduce desde castellano
 
 
-# ---------- v6: compromisos "Dijisteis → Hemos hecho" ----------
+# ---------- v6: "Dijisteis → Hemos hecho" ----------
 
-def redactar_compromiso(tema, analisis: dict, accion: dict, colectivos: list | None = None,
-                        idioma: str = "es", comentarios: list | None = None) -> dict:
-    """{"dijisteis", "hicimos", "origen": "ia|reglas"}: borrador que RRHH revisa y firma (v6 §4.4)."""
+DIJISTEIS_RESPALDO = {
+    "es": {"con_cifra": "{pct} de los comentarios de {colectivos} hablan de {tema} ({n} comentarios, {periodo}).",
+           "sin_cifra": "Habéis comentado sobre {tema} en {colectivos}."},
+    "ca": {"con_cifra": "{pct} dels comentaris de {colectivos} parlen de {tema} ({n} comentaris, {periodo}).",
+           "sin_cifra": "Heu comentat sobre {tema} a {colectivos}."},
+    "en": {"con_cifra": "{pct} of the comments from {colectivos} are about {tema} ({n} comments, {periodo}).",
+           "sin_cifra": "You told us about {tema} in {colectivos}."},
+}
+DESDE = {"es": "desde el {fecha}", "ca": "des del {fecha}", "en": "from {fecha}"}
+
+
+def _numeros_del_tema(tema: str, analisis: dict, colectivos: list) -> tuple[int, float | None]:
+    """(n, pct) del tema para esos colectivos. Solo cifras ya agregadas y con n ≥ 5 (las de zonas y temas)."""
+    zonas = {z["colectivo"]: z for z in analisis.get("zonas", [])}
+    n = sum(next((t["n"] for t in zonas[c].get("temas", []) if t.get("tema") == tema), 0)
+            for c in colectivos if c in zonas)
+    comentarios = sum(zonas[c].get("comentarios", 0) for c in colectivos if c in zonas)
+    if n and comentarios:
+        return n, n / comentarios
+    global_ = next((t for t in analisis.get("temas", []) if t.get("tema") == tema), None)
+    return (global_["n"], global_.get("pct")) if global_ else (0, None)
+
+
+def _redactar_respaldo(tema: str, analisis: dict, accion: dict, colectivos: list, idioma: str) -> dict:
+    from backend.datos import compromisos as comp
+    idioma = textos.idioma_valido(idioma)
+    plantilla = DIJISTEIS_RESPALDO[idioma]
+    if set(colectivos) == set(ORDEN_COLECTIVOS):
+        sectores = textos.nombre("colectivo", "todos", idioma).lower()
+    else:
+        sectores = ", ".join(textos.nombre("colectivo", c, idioma).lower() for c in colectivos) or "—"
+    nombre_tema = textos.nombre("tema", tema, idioma).lower()
+    n, pct = _numeros_del_tema(tema, analisis, colectivos)
+    if n >= 5 and pct:
+        porcentaje = f"{round(pct * 100)}%" if idioma == "en" else f"{round(pct * 100)} %"
+        dijisteis = plantilla["con_cifra"].format(pct=porcentaje, colectivos=sectores, tema=nombre_tema, n=n,
+                                                  periodo=analisis.get("periodo_actual") or "—")
+    else:
+        dijisteis = plantilla["sin_cifra"].format(tema=nombre_tema, colectivos=sectores)
+    fecha = accion.get("fecha")
+    try:
+        texto_fecha = comp.formatear_fecha(date.fromisoformat(str(fecha)), idioma) if fecha else "[fecha]"
+    except ValueError:
+        texto_fecha = "[fecha]"
+    titulo = str(accion.get("titulo") or "").strip().rstrip(".")
+    hicimos = f"{titulo} ({DESDE[idioma].format(fecha=texto_fecha)})." if titulo else ""
+    return {"dijisteis": dijisteis, "hicimos": hicimos, "origen": "reglas"}
+
+
+def redactar_compromiso(tema: str, analisis: dict, accion: dict, colectivos: list, idioma: str = "es") -> dict:
+    """{"dijisteis", "hicimos", "origen"}: el borrador del compromiso. La IA propone; RRHH lo firma.
+
+    UPC 1 (backend/ia/compromisos.py) lo redacta con IA, sin comentarios y con cifras agregadas.
+    Si no está, falla o devuelve comillas o textos vacíos, se usa el respaldo con plantillas es/ca/en."""
+    from backend.datos import compromisos as comp
     try:
         from backend.ia.compromisos import redactar_compromiso as real
-        resultado = real(tema, analisis, accion, colectivos, idioma, comentarios) or {}
-        if resultado.get("dijisteis") and resultado.get("hicimos"):
-            return resultado
+        resultado = real(tema, analisis, accion, colectivos, idioma) or {}
+        dijisteis, hicimos = str(resultado.get("dijisteis") or "").strip(), str(resultado.get("hicimos") or "").strip()
+        if dijisteis and hicimos and not comp.tiene_comillas(dijisteis):
+            return {"dijisteis": dijisteis, "hicimos": hicimos,
+                    "origen": resultado.get("origen") if resultado.get("origen") in ("ia", "reglas") else "ia"}
+        print("[ia] redactar_compromiso usa respaldo: el texto de UPC 1 no es válido")
     except Exception as error:
         _aviso("redactar_compromiso", error)
-    codigo = tema.get("tema") if isinstance(tema, dict) else (tema or (accion or {}).get("tema") or "otros")
-    fila = next((t for t in (analisis or {}).get("temas") or [] if t.get("tema") == codigo), {})
-    return {"dijisteis": f"{fila.get('n', 0)} comentarios sobre {codigo} ({(analisis or {}).get('periodo_actual', '')}).",
-            "hicimos": f"{(accion or {}).get('titulo', '').rstrip('.')} (desde el [fecha]).",
-            "origen": "reglas"}
+    return _redactar_respaldo(tema, analisis, accion, colectivos, idioma)

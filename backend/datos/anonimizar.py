@@ -27,6 +27,9 @@ beatriz nuria silvia patricia monica sonia julia irene andrea natalia eva
 montserrat montse mercedes teresa rocio susana yolanda lorena carla claudia
 sandra veronica ines alicia nerea judith laia anna merce aina mireia nuria
 encarna lola maite pepa conchi
+john mike michael james robert william richard charles christopher chris steve steven peter paul george
+kevin brian jason jessica jennifer sarah emma linda susan karen lisa nancy emily olivia sophie jane
+tom tim dan ben sam alex joe bob jim tony andy harry rob matt
 """.split())
 
 # Nombres que también son palabras ("la luz", "dolores de espalda", "Clara
@@ -34,12 +37,21 @@ encarna lola maite pepa conchi
 NOMBRES_AMBIGUOS = set("""
 rosa luz mar sol paz pilar dolores remedios amparo consuelo blanca clara
 gloria victoria esperanza angel angeles jesus cruz pau alba marina
+mark frank jack bill grace hope nick pat dean
 """.split())
 
 # Palabras tras las que una palabra en mayúscula suele ser un nombre.
 PISTAS = set("""
 llamo jefe jefa encargado encargada supervisor supervisora compañero compañera
 responsable coordinador coordinadora gerente
+boss manager supervisor lead colleague named called cap encarregat encarregada company companya dic
+""".split())
+
+# Presentaciones ("my name is X", "em dic X", "me llamo X"): lo que sigue es un nombre aunque vaya en
+# minúscula, salvo que sea una palabra corriente ("me llamo la atención").
+PRESENTACIONES = {("name", "is"), ("em", "dic"), ("me", "llamo"), ("se", "llama"), ("es", "diu")}
+NO_NOMBRES = set("""
+a an the to of in on at la el los las un una uno unos unas que y o i de del al per amb sense mi su
 """.split())
 
 
@@ -62,7 +74,10 @@ def _quitar_nombres(texto: str) -> str:
         norm = _normalizar(palabra)
         mayuscula = palabra[0].isupper()
         anterior = _normalizar(tokens[i - 1].group()) if i > 0 else ""
-        if norm in NOMBRES:
+        antepenultima = _normalizar(tokens[i - 2].group()) if i > 1 else ""
+        if (antepenultima, anterior) in PRESENTACIONES and norm not in NO_NOMBRES:
+            marcar[i] = True
+        elif norm in NOMBRES:
             marcar[i] = True
         elif norm in NOMBRES_AMBIGUOS and mayuscula and not _empieza_frase(texto, t.start()):
             marcar[i] = True

@@ -1,0 +1,22 @@
+{
+  "tema": "descansos",
+  "colectivos": [
+    "planta"
+  ],
+  "dijisteis": "Tres de cada diez comentarios de planta dicen que no da tiempo a hacer la pausa completa (42 comentarios, octubre).",
+  "hicimos": "Revisar la duración y el reparto de las pausas del turno de noche (desde el 24/11/2026).",
+  "responsable": "RRHH y jefes de turno",
+  "fecha": "2026-11-24",
+  "indicador": {
+    "texto": "¿Te da tiempo a hacer la pausa completa?",
+    "tipo": "escala_1_5",
+    "dimension": "bienestar",
+    "pregunta_origen": "p2",
+    "colectivo": "planta",
+    "antes": 2.4,
+    "n_antes": 90,
+    "periodo_antes": "2026-10"
+  },
+  "idioma": "es",
+  "origen_borrador": "ia"
+}

@@ -313,7 +313,7 @@
           "personas": 160,
           "tasa": 0.375,
           "representativo": true,
-          "media": 2.6
+          "media": null
         },
         {
           "colectivo": "planta",
@@ -322,7 +322,7 @@
           "personas": 160,
           "tasa": 0.35,
           "representativo": true,
-          "media": 2.5
+          "media": null
         },
         {
           "colectivo": "planta",
@@ -332,6 +332,17 @@
           "tasa": 0.029,
           "representativo": false,
           "media": null
+        }
+      ],
+      "turnos_ocultos": true,
+      "comentarios": 98,
+      "compromisos": [
+        {
+          "id": "cmp_001",
+          "tema": "descansos",
+          "estado": "comprometido",
+          "antes": 2.4,
+          "despues": null
         }
       ]
     },
@@ -363,7 +374,10 @@
           "representativo": false,
           "media": 3.17
         }
-      ]
+      ],
+      "comentarios": 7,
+      "turnos_ocultos": false,
+      "compromisos": []
     }
   ],
   "lectura": "Planta valora el nuevo sistema de turnos con un 2,4 sobre 5, 0,9 puntos menos que en octubre. Los descansos pasan del 12 % al 30 % de los comentarios y la falta de comunicación del cambio aparece por primera vez (22 %). Ojo: el turno de noche (3 %) y logística (10 %) apenas han respondido, así que sus datos no son representativos.",
@@ -377,5 +391,24 @@
     "resumenes_listos": true,
     "recomendaciones_listas": true
   },
-  "idioma": "es"
+  "idioma": "es",
+  "valoracion": {
+    "bruta": 2.55,
+    "corregida": 2.61,
+    "diferencia": 0.06
+  },
+  "por_canal": [
+    {
+      "canal": "qr",
+      "respuestas": 88
+    },
+    {
+      "canal": "quiosco",
+      "respuestas": 31
+    },
+    {
+      "canal": "teams",
+      "respuestas": 10
+    }
+  ]
 }

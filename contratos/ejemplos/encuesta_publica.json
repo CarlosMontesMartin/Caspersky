@@ -98,5 +98,13 @@
     "es",
     "ca",
     "en"
+  ],
+  "compromisos": [
+    {
+      "dijisteis": "Tres de cada deu comentaris de planta diuen que no hi ha temps de fer la pausa sencera (42 comentaris, octubre).",
+      "hicimos": "Des del 10 de novembre, el torn de nit té dues pauses de 15 minuts amb relleu assegurat.",
+      "fecha": "2026-11-10",
+      "estado": "comprometido"
+    }
   ]
 }
