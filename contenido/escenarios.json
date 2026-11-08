@@ -6,6 +6,7 @@
     "necesidad": {
       "objetivo": "Entender cómo está afectando el nuevo sistema de turnos en planta: si se ha entendido, qué dificultades genera y qué hay que reforzar",
       "colectivo": "planta",
+      "colectivos": ["planta"],
       "contexto": "Desde octubre la fábrica funciona con un nuevo sistema de turnos rotativos: cambia el cuadrante, los horarios de relevo y la hora de la pausa",
       "duracion_max_seg": 120,
       "temas_prohibidos": ["salario", "evaluacion_individual", "salud_personal"]
@@ -16,9 +17,10 @@
     "nombre": "Logística por QR",
     "descripcion": "Escenario B de la guía: personas con poco tiempo, sin ordenador y con acceso limitado al correo. Consulta móvil por QR, muy breve, con control de representatividad.",
     "necesidad": {
-      "objetivo": "Saber si el nuevo sistema de turnos funciona en logística: si el relevo da tiempo a pasar la información y qué dificulta más el trabajo en el almacén",
+      "objetivo": "Saber cómo se vive el día a día en el almacén: si la información y el cuadrante de rutas llegan a tiempo y qué dificulta más el trabajo",
       "colectivo": "logistica",
-      "contexto": "Personal de almacén y distribución, siempre en movimiento y sin ordenador. Se responde por QR en muelles, fichaje y sala de descanso, en los tres turnos. Históricamente es el colectivo que menos participa, sobre todo de noche",
+      "colectivos": ["logistica"],
+      "contexto": "Personal de almacén y distribución, siempre en movimiento y sin ordenador ni correo corporativo. Se responde por QR en muelles, fichaje y sala de descanso, o en el quiosco. Es el colectivo que menos participa",
       "duracion_max_seg": 60,
       "temas_prohibidos": ["salario", "evaluacion_individual", "salud_personal"]
     }
@@ -30,8 +32,21 @@
     "necesidad": {
       "objetivo": "Recoger comentarios abiertos sobre el día a día en fábrica para detectar qué temas preocupan más y cuáles han aparecido o crecido respecto al periodo anterior",
       "colectivo": "planta",
+      "colectivos": ["planta"],
       "contexto": "Pulso de clima con una pregunta abierta. Se comparará con los comentarios del periodo anterior (octubre) sobre bienestar, liderazgo, comunicación, herramientas, organización y desarrollo",
       "duracion_max_seg": 90,
+      "temas_prohibidos": ["salario", "evaluacion_individual", "salud_personal"]
+    }
+  },
+  {
+    "id": "D",
+    "nombre": "Encuesta multisector",
+    "descripcion": "Una sola encuesta para planta, logística y comercial: un núcleo común de preguntas para comparar los tres sectores y preguntas propias de cada uno, sobre el cambio de turnos y su efecto en la coordinación entre áreas.",
+    "necesidad": {
+      "objetivo": "Entender cómo está afectando el nuevo sistema de turnos a cada área y a la coordinación entre planta, logística y comercial",
+      "colectivos": ["planta", "logistica", "comercial"],
+      "contexto": "Desde octubre planta trabaja con un nuevo sistema de turnos rotativos. Logística ha tenido que adaptar las cargas y las rutas a los nuevos horarios, y comercial depende de esos plazos para comprometer entregas con los clientes",
+      "duracion_max_seg": 120,
       "temas_prohibidos": ["salario", "evaluacion_individual", "salud_personal"]
     }
   }
