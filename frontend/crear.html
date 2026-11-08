@@ -25,7 +25,7 @@
         </div>
 
         <!-- Indicador de pasos pulsable -->
-        <ol class="pasos" aria-label="Pasos">
+        <ol class="pasos" data-i18n-aria-label="crear.pasos" aria-label="Pasos">
           <li><button type="button" class="paso" data-paso="1"><span class="numero">1</span><span data-i18n="crear.paso1">Necesidad</span></button></li>
           <li class="separador" aria-hidden="true"></li>
           <li><button type="button" class="paso" data-paso="2"><span class="numero">2</span><span data-i18n="crear.paso2">Revisión</span></button></li>
@@ -61,13 +61,15 @@
 
             <fieldset class="campo ancho">
               <legend class="etiqueta" data-i18n="crear.sectores">Sectores</legend>
-              <div class="chips" id="chips-sectores" role="group" aria-label="Sectores"></div>
+              <div class="chips" id="chips-sectores" role="group" data-i18n-aria-label="crear.sectores" aria-label="Sectores"></div>
               <span class="ayuda" id="nota-sectores" data-i18n="crear.nota_sectores">Con varios sectores, la IA crea preguntas comunes para comparar y preguntas propias de cada sector.</span>
             </fieldset>
 
             <div class="campo">
               <label for="input-duracion" data-i18n="crear.duracion">Duración máxima (segundos)</label>
-              <input type="number" id="input-duracion" class="entrada num" value="120" min="30" max="300" step="10">
+              <input type="number" id="input-duracion" class="entrada num" value="120" min="45" max="300" step="5"
+                     aria-describedby="nota-duracion">
+              <span class="ayuda" id="nota-duracion" aria-live="polite"></span>
             </div>
             <div class="campo">
               <label for="input-temas" data-i18n="crear.temas_prohibidos">Temas que no se deben preguntar</label>
@@ -109,8 +111,9 @@
             <span class="badge oculto" id="badge-origen"></span>
           </div>
           <p class="nota" style="margin-bottom: var(--e3);" id="nota-propuesta"></p>
+          <p class="nota idioma-original oculto" id="texto-idioma-original"></p>
 
-          <nav class="pestanas oculto" role="tablist" aria-label="Preguntas por sector" id="pestanas-sectores"></nav>
+          <nav class="pestanas oculto" role="tablist" data-i18n-aria-label="crear.por_sector" aria-label="Preguntas por sector" id="pestanas-sectores"></nav>
           <p class="nota oculto" id="explicacion-pestana" style="margin-bottom: var(--e2);"></p>
           <ol class="preguntas" id="lista-preguntas"></ol>
           <p class="nota" id="texto-duracion" style="margin-top: var(--e3);"></p>
@@ -118,6 +121,7 @@
           <div class="pie-acciones">
             <button type="button" class="btn btn-secundario izquierda" data-atras="1" data-i18n="comun.atras">Atrás</button>
             <span class="nota" id="texto-guardado" aria-live="polite"></span>
+            <span class="error-aprobar oculto" id="error-aprobar" role="alert"></span>
             <button type="button" class="btn btn-secundario" id="btn-guardar" data-i18n="crear.guardar">Guardar borrador</button>
             <button type="button" class="btn btn-principal" id="btn-aprobar" data-i18n="crear.aprobar">Aprobar</button>
           </div>
@@ -125,10 +129,10 @@
 
         <!-- ================= Paso 3 · Publicación ================= -->
         <section class="tarjeta oculto" id="paso-3">
+          <p class="nota estado-traducciones oculto" id="texto-traduccion" aria-live="polite"></p>
           <div id="bloque-sin-publicar">
             <h3 style="margin-bottom: var(--e2);" data-i18n="crear.aprobada">Encuesta aprobada</h3>
             <p class="texto-2" data-i18n="crear.al_publicar">Al publicarla se generan el enlace y el código QR para compartirla.</p>
-            <p class="nota" id="texto-traduccion" style="margin-top: var(--e2);"></p>
             <div class="pie-acciones">
               <button type="button" class="btn btn-secundario izquierda" data-atras="2" data-i18n="comun.atras">Atrás</button>
               <button type="button" class="btn btn-principal" id="btn-publicar" data-i18n="crear.publicar">Publicar</button>
@@ -195,7 +199,8 @@
     } from '/js/api.js';
     import { escapar, TIPOS_PREGUNTA } from '/js/ui.js';
     import { accionTeams } from '/js/teams.js';
-    import { t, alCambiarIdioma } from '/js/idioma.js';
+    import { t, alCambiarIdioma, antesDeCambiarIdioma, idiomaActual } from '/js/idioma.js';
+    import { lista as listaLegible } from '/js/idioma_base.js';
 
     const $ = id => document.getElementById(id);
 
@@ -289,7 +294,9 @@
           <button type="button" class="chip" data-sector="${c}" aria-pressed="${sectoresElegidos.has(c)}" ${bloqueado ? 'disabled' : ''}>${escapar(formatearColectivo(c))}</button>
         `).join('') +
         `<button type="button" class="chip" data-sector="todos" aria-pressed="${todos}" ${bloqueado ? 'disabled' : ''}>${escapar(t('crear.todos', 'Todos'))}</button>`;
+      actualizarDuracionMinima();
     }
+    $('input-duracion').addEventListener('input', actualizarDuracionMinima);
     $('chips-sectores').addEventListener('click', e => {
       const chip = e.target.closest('.chip');
       if (!chip || chip.disabled) return;
@@ -308,6 +315,32 @@
       revisarCambiosNecesidad();
     });
 
+    // ---------- Reglas (las mismas que backend/reglas.py, contratos v4) ----------
+    const REGLAS = {
+      duracionMinUno: 45, duracionMinVarios: 60, duracionMax: 300,
+      nucleoMin: 1, nucleoMax: 3, propiasMin: 1, propiasMax: 3, totalMin: 3, totalMax: 6,
+    };
+    const duracionMinima = nSectores => (nSectores > 1 ? REGLAS.duracionMinVarios : REGLAS.duracionMinUno);
+
+    /** Mínimo de la duración según los sectores elegidos, con aviso si se baja */
+    function actualizarDuracionMinima() {
+      const n = sectoresElegidos.size;
+      const min = duracionMinima(n);
+      const campo = $('input-duracion');
+      campo.min = String(min);
+      const valor = Number(campo.value);
+      const corta = !valor || valor < min;
+      const nota = $('nota-duracion');
+      nota.textContent = corta
+        ? (n > 1
+          ? t('crear.duracion_corta_varios', 'Con varios sectores, el mínimo es {min} s: si no, no caben 3 preguntas por sector.', { min })
+          : t('crear.duracion_corta_uno', 'El mínimo es {min} s: si no, no caben 3 preguntas.', { min }))
+        : t('crear.duracion_minima', 'Mínimo {min} s · máximo {max} s.', { min, max: REGLAS.duracionMax });
+      nota.classList.toggle('texto-error', corta);
+      campo.setAttribute('aria-invalid', String(corta));
+      return !corta;
+    }
+
     function leerNecesidad() {
       const colectivos = ORDEN_COLECTIVOS.filter(c => sectoresElegidos.has(c));
       return {
@@ -318,17 +351,22 @@
         contexto: $('input-contexto').value.trim(),
         duracion_max_seg: Number($('input-duracion').value) || 120,
         temas_prohibidos: $('input-temas').value.split(',').map(x => x.trim()).filter(Boolean),
+        // Idioma original de la encuesta (v5 §1): la IA la escribe en el idioma de la pantalla
+        idioma: idiomaActual(),
       };
     }
-    const firma = n => JSON.stringify({ ...n, colectivo: undefined });
+    const firma = n => JSON.stringify({ ...n, colectivo: undefined, idioma: undefined });
+
+    /** Un texto que puede llegar ya traducido o como { es, ca, en } (servidor antiguo) */
+    const enIdioma = v => (v && typeof v === 'object' ? (v[idiomaActual()] ?? v.es ?? Object.values(v)[0] ?? '') : (v || ''));
 
     function rellenarNecesidad(n) {
       if (!n) return;
-      $('input-objetivo').value = n.objetivo || '';
+      $('input-objetivo').value = enIdioma(n.objetivo);
       const cols = colectivosDe(n);
       if (cols.length) sectoresElegidos = new Set(cols);
       if (n.duracion_max_seg) $('input-duracion').value = n.duracion_max_seg;
-      $('input-contexto').value = n.contexto || '';
+      $('input-contexto').value = enIdioma(n.contexto);
       $('input-temas').value = Array.isArray(n.temas_prohibidos) ? n.temas_prohibidos.join(', ') : '';
       pintarChips();
     }
@@ -374,6 +412,49 @@
 
     $('btn-a-revision').addEventListener('click', () => irAPaso(2));
 
+    // ---------- Escenario elegido (para volver a rellenarlo al cambiar de idioma) ----------
+    let escenariosCargados = [];
+    let escenarioActivo = null;      // id del escenario con el que se rellenó el formulario
+    let firmaEscenario = null;       // cómo quedó el formulario justo después de rellenarlo
+    const CLAVE_PASO1 = 'crear_paso1_idioma';
+
+    function aplicarEscenario(esc) {
+      rellenarNecesidad(esc.necesidad);
+      escenarioActivo = esc.id;
+      firmaEscenario = firma(leerNecesidad());
+      $('lista-escenarios').querySelectorAll('.escenario-opcion').forEach(x =>
+        x.classList.toggle('activo', x.dataset.escenario === String(esc.id)));
+    }
+    const escenarioSinEditar = () => escenarioActivo !== null && firma(leerNecesidad()) === firmaEscenario;
+
+    // Antes de recargar por un cambio de idioma: guardar el borrador abierto o el formulario del paso 1
+    antesDeCambiarIdioma(async () => {
+      if (encuesta && hayCambios && !publicada()) await guardar({ silencioso: true });
+      if (encuesta || paso !== 1) return;
+      const formulario = leerNecesidad();
+      if (!formulario.objetivo && escenarioActivo === null) return;
+      try {
+        sessionStorage.setItem(CLAVE_PASO1, JSON.stringify({
+          escenario: escenarioActivo, sinEditar: escenarioSinEditar(), necesidad: formulario,
+        }));
+      } catch { /* nada */ }
+    });
+
+    /** Tras recargar en otro idioma: escenario sin editar → en el idioma nuevo; editado → lo escrito */
+    function restaurarPaso1() {
+      let guardado = null;
+      try { guardado = JSON.parse(sessionStorage.getItem(CLAVE_PASO1) || 'null'); sessionStorage.removeItem(CLAVE_PASO1); } catch { /* nada */ }
+      if (!guardado) return;
+      const esc = guardado.sinEditar && escenariosCargados.find(e => String(e.id) === String(guardado.escenario));
+      if (esc) { aplicarEscenario(esc); return; }
+      rellenarNecesidad(guardado.necesidad);
+      if (guardado.escenario !== null) {
+        escenarioActivo = guardado.escenario; firmaEscenario = null; // editado: se queda lo escrito
+        $('lista-escenarios').querySelectorAll('.escenario-opcion').forEach(x =>
+          x.classList.toggle('activo', x.dataset.escenario === String(guardado.escenario)));
+      }
+    }
+
     async function cargarEscenarios() {
       try {
         const escenarios = await listarEscenarios();
@@ -395,11 +476,12 @@
               window.location.href = `/dashboard.html?id=${encodeURIComponent(esc.encuesta_id)}`;
               return;
             }
-            rellenarNecesidad(esc.necesidad);
-            lista.querySelectorAll('.escenario-opcion').forEach(x => x.classList.toggle('activo', x === b));
+            aplicarEscenario(esc);
           });
+          b.dataset.escenario = esc.id;
           lista.appendChild(b);
         });
+        escenariosCargados = escenarios;
         lista.style.gridTemplateColumns = `repeat(${Math.min(escenarios.length, 4)}, minmax(0, 1fr))`;
         if (!encuesta) $('bloque-escenarios').classList.remove('oculto');
       } catch (err) {
@@ -412,6 +494,11 @@
       if (!necesidad.objetivo) {
         avisar(t('crear.falta_objetivo', 'Escribe el objetivo de la encuesta.'), 'error');
         $('input-objetivo').focus();
+        return;
+      }
+      if (!actualizarDuracionMinima()) {
+        avisar($('nota-duracion').textContent, 'error');
+        $('input-duracion').focus();
         return;
       }
       const regenerar = !!encuesta;
@@ -480,6 +567,7 @@
 
     function marcarCambio() {
       hayCambios = true;
+      $('error-aprobar').classList.add('oculto');
       $('texto-guardado').textContent = t('crear.sin_guardar', 'Cambios sin guardar');
     }
 
@@ -497,23 +585,108 @@
           ${opciones ? `<div class="pregunta-opciones">${opciones}</div>` : ''}
         </div>
         <span class="badge">${escapar(TIPOS_PREGUNTA[p.tipo] || p.tipo)}</span>
-        ${editable ? `<button type="button" class="btn-texto peligro">${escapar(t('crear.borrar', 'Borrar'))}</button>`
+        ${editable ? botonBorrar(p, lista)
                    : comun ? `<span class="nota pregunta-comun">${escapar(t('crear.comun', 'Común'))}</span>` : '<span></span>'}`;
       if (editable) {
         li.querySelector('input').addEventListener('input', e => { p.texto = e.target.value; marcarCambio(); });
-        li.querySelector('button').addEventListener('click', () => borrarPregunta(p, lista));
+        li.querySelector('button.btn-borrar').addEventListener('click', () => borrarPregunta(p, lista));
       }
       return li;
     }
 
+    // El servidor exige al menos una pregunta de escala 1–5 en el núcleo común (multisector)
+    const tieneEscalaComun = () => encuesta.preguntas.some(p => p.tipo === 'escala_1_5');
+
+    function avisoFaltaEscala() {
+      const li = document.createElement('li');
+      li.className = 'aviso error falta-escala';
+      const lleno = encuesta.preguntas.length >= 3;
+      li.innerHTML = `
+        <span>${escapar(lleno
+          ? t('crear.falta_escala_lleno', 'Falta una pregunta de escala 1–5 en las comunes. Borra una pregunta común y añade una de escala.')
+          : t('crear.falta_escala', 'Falta una pregunta de escala 1–5 en las comunes: sin ella no se pueden comparar los sectores.'))}</span>
+        <button type="button" class="btn btn-secundario" ${lleno ? 'disabled' : ''}>${escapar(t('crear.anadir_escala', 'Añadir pregunta de escala 1–5'))}</button>`;
+      li.querySelector('button').addEventListener('click', anadirEscalaComun);
+      return li;
+    }
+
+    function anadirEscalaComun() {
+      const usados = new Set([encuesta.preguntas, ...Object.values(encuesta.preguntas_por_colectivo)].flat().map(p => p.id));
+      let n = 1;
+      while (usados.has(`c${n}`)) n++;
+      // El servidor exige una dimensión válida: se toma la de otra pregunta común o "condiciones"
+      const dimension = encuesta.preguntas.find(p => p.dimension)?.dimension || 'condiciones';
+      const nueva = { id: `c${n}`, tipo: 'escala_1_5', texto: '', dimension, opciones: null, condicion: null };
+      // La pregunta de texto, si la hay, tiene que seguir siendo la última
+      const iTexto = encuesta.preguntas.findIndex(p => p.tipo === 'texto');
+      if (iTexto >= 0) encuesta.preguntas.splice(iTexto, 0, nueva);
+      else encuesta.preguntas.push(nueva);
+      marcarCambio();
+      pintarRevision();
+      const campo = document.getElementById(`texto-${nueva.id}`);
+      if (campo) {
+        campo.placeholder = t('crear.escala_placeholder', 'Por ejemplo: ¿Cómo valoras el nuevo sistema de turnos?');
+        campo.focus();
+      }
+    }
+
+    /** Comprobaciones antes de aprobar, para dar un mensaje claro en vez del error del servidor */
+    function problemaAntesDeAprobar() {
+      const todas = [encuesta.preguntas, ...Object.values(encuesta.preguntas_por_colectivo)].flat();
+      if (todas.some(p => !String(p.texto || '').trim())) return t('crear.pregunta_vacia', 'Hay una pregunta sin texto. Escríbela o bórrala.');
+      if (esMultisector() && !tieneEscalaComun()) return t('crear.falta_escala', 'Falta una pregunta de escala 1–5 en las comunes: sin ella no se pueden comparar los sectores.');
+      const max = duracionMax();
+      const sectores = esMultisector() ? colectivosDe(encuesta) : [null];
+      const largo = max && sectores.find(c => segundosDe(c) > max);
+      if (largo !== undefined && largo !== false) {
+        return t('crear.demasiado_larga', '{sector} dura {seg} s y el máximo es {max} s: borra alguna pregunta.',
+          { sector: largo ? formatearColectivo(largo) : t('crear.la_encuesta', 'La encuesta'), seg: segundosDe(largo), max });
+      }
+      return null;
+    }
+
+    /**
+     * Motivo por el que no se puede borrar una pregunta (o null si se puede).
+     * Así nunca se llega a una encuesta que el servidor no deje aprobar.
+     */
+    function motivoNoBorrar(p, lista) {
+      if (!esMultisector()) {
+        return encuesta.preguntas.length <= REGLAS.totalMin
+          ? t('crear.no_borrar_total_uno', 'La encuesta necesita al menos {min} preguntas.', { min: REGLAS.totalMin })
+          : null;
+      }
+      const sectores = colectivosDe(encuesta);
+      const propias = c => (encuesta.preguntas_por_colectivo[c] || []).length;
+      if (lista === 'comunes') {
+        if (p.tipo === 'escala_1_5' && encuesta.preguntas.filter(x => x.tipo === 'escala_1_5').length <= 1) {
+          return t('crear.minimo_escala', 'Las preguntas comunes necesitan al menos una pregunta de escala 1–5: es la que permite comparar los sectores.');
+        }
+        if (encuesta.preguntas.length <= REGLAS.nucleoMin) return t('crear.minimo_comun', 'El núcleo común necesita al menos una pregunta.');
+        const corto = sectores.find(c => encuesta.preguntas.length - 1 + propias(c) < REGLAS.totalMin);
+        if (corto) return t('crear.no_borrar_total', '{sector} se quedaría con menos de {min} preguntas en total.', { sector: formatearColectivo(corto), min: REGLAS.totalMin });
+        return null;
+      }
+      if (propias(lista) <= REGLAS.propiasMin) {
+        return t('crear.minimo_propia', '{sector} necesita al menos una pregunta propia.', { sector: formatearColectivo(lista) });
+      }
+      if (encuesta.preguntas.length + propias(lista) - 1 < REGLAS.totalMin) {
+        return t('crear.no_borrar_total', '{sector} se quedaría con menos de {min} preguntas en total.', { sector: formatearColectivo(lista), min: REGLAS.totalMin });
+      }
+      return null;
+    }
+
+    function botonBorrar(p, lista) {
+      const motivo = motivoNoBorrar(p, lista);
+      const boton = `<button type="button" class="btn-texto peligro btn-borrar" ${motivo ? 'disabled aria-disabled="true"' : ''}
+        ${motivo ? `aria-label="${escapar(t('crear.borrar', 'Borrar'))}: ${escapar(motivo)}"` : ''}>${escapar(t('crear.borrar', 'Borrar'))}</button>`;
+      // El título va en un envoltorio: los botones desactivados no muestran el título en todos los navegadores
+      return motivo ? `<span class="borrar-bloqueado" title="${escapar(motivo)}">${boton}</span>` : boton;
+    }
+
     function borrarPregunta(p, lista) {
       const arr = lista === 'comunes' ? encuesta.preguntas : encuesta.preguntas_por_colectivo[lista];
-      if (arr.length <= 1) {
-        avisar(lista === 'comunes'
-          ? t('crear.minimo_comun', 'El núcleo común necesita al menos una pregunta.')
-          : t('crear.minimo_propia', '{sector} necesita al menos una pregunta propia.', { sector: formatearColectivo(lista) }), 'error');
-        return;
-      }
+      const motivo = motivoNoBorrar(p, lista);
+      if (motivo) { avisar(motivo, 'error'); return; }
       const restante = arr.filter(x => x.id !== p.id);
       if (lista === 'comunes') encuesta.preguntas = restante;
       else encuesta.preguntas_por_colectivo[lista] = restante;
@@ -521,6 +694,18 @@
         l.forEach(x => { if (x.condicion?.pregunta === p.id) x.condicion = null; }));
       marcarCambio();
       pintarRevision();
+    }
+
+    /** "Encuesta escrita en catalán · se traducirá a castellano e inglés al aprobarla" */
+    function pintarIdiomaOriginal() {
+      const el = $('texto-idioma-original');
+      const original = encuesta.idioma_original || encuesta.necesidad?.idioma || 'es';
+      const nombreDe = nombreIdiomaEnFrase;
+      const otros = ['es', 'ca', 'en'].filter(c => c !== original).map(nombreDe);
+      el.textContent = encuesta.estado === 'borrador'
+        ? t('crear.idioma_original', 'Encuesta escrita en {idioma} · se traducirá a {otros} al aprobarla', { idioma: nombreDe(original), otros: listaLegible(otros) })
+        : t('crear.idioma_original_aprobada', 'Encuesta escrita en {idioma}', { idioma: nombreDe(original) });
+      el.classList.remove('oculto');
     }
 
     function pintarRevision() {
@@ -541,6 +726,7 @@
         ? t('crear.nota_sin_ia', 'Propuesta automática generada sin IA. Revísala antes de aprobar.')
         : t('crear.nota_ia', 'Propuesta generada por IA. Revísala antes de aprobar.');
 
+      pintarIdiomaOriginal();
       pintarPestanas();
       const lista = $('lista-preguntas');
       lista.innerHTML = '';
@@ -556,6 +742,7 @@
       if (pestanaActual === 'comunes') {
         explicacion.textContent = t('crear.explica_comunes', 'Las preguntas comunes las responden todos los sectores y sirven para compararlos.');
         encuesta.preguntas.forEach((p, i) => lista.appendChild(filaPregunta(p, i + 1, { editable, lista: 'comunes' })));
+        if (editable && !tieneEscalaComun()) lista.appendChild(avisoFaltaEscala());
         pintarDuracion(null);
       } else {
         const c = pestanaActual;
@@ -567,28 +754,30 @@
       }
     }
 
+    /** Contador: "Planta: 4 preguntas (3–6) · 75 s de 120 s", en rojo si se sale de las reglas */
     function pintarDuracion(colectivo) {
       const el = $('texto-duracion');
       const max = duracionMax();
-      const linea = (n, seg) => t('crear.duracion_linea', '{n} preguntas · unos {seg} s', { n, seg }) +
-        (max && seg > max ? ` · ${t('crear.supera', 'supera el máximo de {max} s', { max })}` : '');
-      if (!esMultisector()) {
-        const seg = segundosDe(null);
-        el.textContent = linea(encuesta.preguntas.length, seg);
-        el.style.color = max && seg > max ? 'var(--critico)' : '';
-      } else if (colectivo) {
-        const seg = segundosDe(colectivo);
-        el.textContent = `${formatearColectivo(colectivo)}: ${linea(encuesta.preguntas.length + (encuesta.preguntas_por_colectivo[colectivo] || []).length, seg)}`;
-        el.style.color = max && seg > max ? 'var(--critico)' : '';
-      } else {
-        el.textContent = `${t('crear.tiempo_sector', 'Tiempo estimado por sector')}: ${colectivosDe(encuesta).map(c => `${formatearColectivo(c)} ${segundosDe(c)} s`).join(' · ')}`;
-        el.style.color = '';
-      }
+      const contar = c => encuesta.preguntas.length + (c ? (encuesta.preguntas_por_colectivo[c] || []).length : 0);
+      const linea = c => {
+        const n = contar(c), seg = segundosDe(c);
+        const mal = n < REGLAS.totalMin || n > REGLAS.totalMax || (max && seg > max);
+        const texto = t('crear.contador', '{n} preguntas ({min}–{maxp}) · {seg} s de {max} s',
+          { n, min: REGLAS.totalMin, maxp: REGLAS.totalMax, seg, max: max || '—' });
+        return { texto: c ? `${formatearColectivo(c)}: ${texto}` : texto, mal };
+      };
+      let filas;
+      if (!esMultisector()) filas = [linea(null)];
+      else if (colectivo) filas = [linea(colectivo)];
+      else filas = colectivosDe(encuesta).map(linea);
+      el.innerHTML = filas.map(f => `<span class="contador${f.mal ? ' contador-mal' : ''}">${escapar(f.texto)}</span>`).join('');
+      el.style.color = '';
     }
 
     $('input-titulo').addEventListener('input', e => { encuesta.titulo = e.target.value; marcarCambio(); });
     $('input-intro').addEventListener('input', e => { encuesta.intro = e.target.value; marcarCambio(); });
 
+    let ultimoErrorGuardar = '';
     /** Guarda la encuesta entera; si estaba aprobada, el servidor la devuelve a borrador */
     async function guardar({ silencioso = false } = {}) {
       try {
@@ -602,6 +791,7 @@
         if (!silencioso) avisar(t('crear.borrador_guardado', 'Borrador guardado.'));
         return true;
       } catch (err) {
+        ultimoErrorGuardar = err.message;
         avisar(`${t('crear.error_guardar', 'No se pudo guardar')}: ${err.message}`, 'error');
         return false;
       }
@@ -613,13 +803,27 @@
       $('btn-guardar').disabled = false;
     });
 
+    function errorAprobar(texto) {
+      const el = $('error-aprobar');
+      el.textContent = texto || '';
+      el.classList.toggle('oculto', !texto);
+    }
+
     $('btn-aprobar').addEventListener('click', async () => {
+      errorAprobar('');
+      const problema = problemaAntesDeAprobar();
+      if (problema) {
+        avisar(problema, 'error');
+        errorAprobar(problema);
+        if (esMultisector() && !tieneEscalaComun() && pestanaActual !== 'comunes') { pestanaActual = 'comunes'; pintarRevision(); }
+        return;
+      }
       const b = $('btn-aprobar');
       b.disabled = true;
       b.textContent = t('crear.aprobando', 'Aprobando…');
       try {
         if (hayCambios || encuesta.estado !== 'borrador') {
-          if (!(await guardar({ silencioso: true }))) return;
+          if (!(await guardar({ silencioso: true }))) { errorAprobar(ultimoErrorGuardar); return; }
         }
         encuesta = normalizar({ ...(await aprobarEncuesta(encuesta.id)) });
         ocultarAviso();
@@ -627,6 +831,7 @@
         await irAPaso(3);
       } catch (err) {
         avisar(`${t('crear.error_aprobar', 'No se pudo aprobar')}: ${err.message}`, 'error');
+        errorAprobar(err.message);
       } finally {
         b.disabled = false;
         b.textContent = t('crear.aprobar', 'Aprobar');
@@ -666,14 +871,48 @@
       window.print();
     }
 
+    // ---------- Estado de las traducciones (ca y en), con recarga cada 5 s ----------
+    const IDIOMAS_TRADUCCION = ['ca', 'en'];
+    let temporizadorTraduccion = null;
+    /** Nombre del idioma para dentro de una frase: "castellano", "català", "English" */
+    const nombreIdiomaEnFrase = c => t(`idioma_nombre.${c}`, { es: 'castellano', ca: 'catalán', en: 'inglés' }[c] || c);
+    const nombreIdioma = nombreIdiomaEnFrase;
+    const mayus = x => x.charAt(0).toUpperCase() + x.slice(1);
+
+    function pintarTraducciones() {
+      const el = $('texto-traduccion');
+      const estado = encuesta?.estado_traduccion;
+      clearTimeout(temporizadorTraduccion);
+      if (!estado) { el.classList.add('oculto'); return; } // servidor sin traducciones
+      const partes = IDIOMAS_TRADUCCION.map(c => {
+        const lista = !!encuesta.traducciones?.[c] || estado === 'lista';
+        const texto = lista ? '✓'
+          : estado === 'error' ? t('crear.trad_no_disponible', 'no disponible (se verá en castellano)')
+          : t('crear.trad_preparando', 'en preparación');
+        return `${mayus(nombreIdioma(c))}${lista ? ' ' : ': '}${texto}`;
+      });
+      el.innerHTML = `<span>${escapar(t('crear.traducciones', 'Traducciones'))}:</span> ${escapar(partes.join(' · '))}`;
+      el.classList.remove('oculto');
+      el.classList.toggle('texto-error', estado === 'error');
+      // Mientras siga pendiente, se vuelve a preguntar cada 5 s
+      if (estado === 'pendiente' && paso === 3) {
+        temporizadorTraduccion = setTimeout(async () => {
+          if (paso !== 3 || !encuesta) return;
+          try {
+            const nueva = await obtenerEncuesta(encuesta.id);
+            encuesta.traducciones = nueva.traducciones;
+            encuesta.estado_traduccion = nueva.estado_traduccion;
+          } catch { /* se reintenta en la siguiente vuelta */ }
+          pintarTraducciones();
+        }, 5000);
+      }
+    }
+
     function pintarPublicacion() {
       const esPublicada = publicada() && encuesta.url;
       $('bloque-sin-publicar').classList.toggle('oculto', esPublicada);
       $('bloque-publicada').classList.toggle('oculto', !esPublicada);
-      const trad = { pendiente: t('crear.traduccion_pendiente', 'La IA está traduciendo la encuesta a otros idiomas…'),
-                     lista: t('crear.traduccion_lista', 'Traducciones listas.'),
-                     error: t('crear.traduccion_error', 'No se pudo traducir: quien responda en otro idioma la verá en castellano.') }[encuesta.estado_traduccion] || '';
-      $('texto-traduccion').textContent = trad;
+      pintarTraducciones();
       if (!esPublicada) return;
 
       const sectores = colectivosDe(encuesta);
@@ -779,7 +1018,8 @@
       } catch (e) {
         console.warn('No se pudo leer la necesidad propuesta:', e);
       }
-      cargarEscenarios();
+      await cargarEscenarios();
+      restaurarPaso1();
     }
 
     // Al cambiar de idioma se vuelven a pintar los textos que pone el código

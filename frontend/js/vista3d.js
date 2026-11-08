@@ -8,9 +8,12 @@
  * La carga es la misma que la versión anterior: imports 'three' / 'three/addons/…',
  * modelo en /public/fabrica.fbx, maqueta normalizada a ~6 unidades y zonas por fx/fz.
  *
- * opciones (todas opcionales):
+ * opciones (todas opcionales) · CONTRATO FIJO (v5 §4), mismos nombres en dashboard.html:
  *   capa: "participacion" | "valoracion" | "alertas"   noche: bool
- *   onVerEnAnalisis(colectivo)   urlCrear: "crear.html"   modeloUrl: "/public/fabrica.fbx"
+ *   onVerEnAnalisis(colectivo)        → botón "Ver en el análisis" del panel de una zona
+ *   onNuevasRespuestas(colectivo, n)  → han llegado n respuestas nuevas de ese sector.
+ *                                       Si se pasa, el aviso lo pinta quien llama (no hay dos avisos).
+ *   urlCrear: "crear.html"   modeloUrl: "/public/fabrica.fbx"
  * Además emite en document "vista3d:ver-en-analisis" (detail = { colectivo }) y, si el modelo
  * no carga, "vista3d-error" en el contenedor (como antes).
  */
@@ -442,7 +445,12 @@ export function iniciarVista3D(contenedor, analisis, opciones = {}) {
     anillo.position.set(zona.pos.x, 0.02, zona.pos.z);
     scene.add(anillo);
     pulsos.push({ zona, anillo, inicio: performance.now() });
-    aviso.textContent = `+${nuevas} ${nuevas === 1 ? 'respuesta' : 'respuestas'} en ${zona.label}`;
+    // Si la página tiene su propio aviso, se le avisa y no se pinta un segundo aviso aquí
+    if (typeof opciones.onNuevasRespuestas === 'function') {
+      opciones.onNuevasRespuestas(key, nuevas);
+      return;
+    }
+    aviso.textContent = t('maqueta.nuevas_respuestas', '+{n} respuestas en {sector}', { n: nuevas, sector: zona.label });
     aviso.style.opacity = '1';
     clearTimeout(temporizadorAviso);
     temporizadorAviso = setTimeout(() => { aviso.style.opacity = '0'; }, 3000);

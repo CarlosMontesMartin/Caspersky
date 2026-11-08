@@ -45,7 +45,7 @@
 
         <div id="aviso" class="aviso error oculto" role="alert"></div>
 
-        <nav class="pestanas" role="tablist" aria-label="Vistas">
+        <nav class="pestanas" role="tablist" data-i18n-aria-label="dash.vistas" aria-label="Vistas">
           <button type="button" class="pestana activa" role="tab" aria-selected="true" data-pestana="resumen" data-i18n="dash.resumen">Resumen</button>
           <button type="button" class="pestana" role="tab" aria-selected="false" data-pestana="graficos" data-i18n="dash.graficos">Gráficos</button>
           <button type="button" class="pestana" role="tab" aria-selected="false" data-pestana="maqueta" data-i18n="dash.maqueta">Maqueta 3D</button>
@@ -148,7 +148,7 @@
                   <h3 data-i18n="dash.g_participacion">Participación frente al objetivo</h3>
                   <span class="nota" data-i18n="dash.objetivo20">Objetivo: 20&#8239;%</span>
                 </div>
-                <div class="grafico" id="caja-participacion"><canvas id="grafico-participacion" aria-label="Participación por sector y turno"></canvas></div>
+                <div class="grafico" id="caja-participacion"><canvas id="grafico-participacion" data-i18n-aria-label="dash.aria_participacion" aria-label="Participación por sector y turno"></canvas></div>
               </section>
 
               <section class="tarjeta">
@@ -156,7 +156,7 @@
                   <h3 data-i18n="dash.g_temas">Temas: antes y ahora</h3>
                   <span class="nota" id="nota-temas">% de los comentarios</span>
                 </div>
-                <div class="grafico" id="caja-temas"><canvas id="grafico-temas" aria-label="Temas del periodo actual frente al anterior"></canvas></div>
+                <div class="grafico" id="caja-temas"><canvas id="grafico-temas" data-i18n-aria-label="dash.aria_temas" aria-label="Temas del periodo actual frente al anterior"></canvas></div>
                 <div class="tema-detalle" id="tema-detalle"><span class="nota" data-i18n="dash.pulsa_tema">Pulsa un tema para ver su resumen.</span></div>
               </section>
             </div>
@@ -172,7 +172,7 @@
                   <span><span class="cuadro" style="background:#15803D"></span>5</span>
                 </div>
               </div>
-              <div class="grafico" id="caja-distribuciones"><canvas id="grafico-distribuciones" aria-label="Distribución de respuestas por pregunta"></canvas></div>
+              <div class="grafico" id="caja-distribuciones"><canvas id="grafico-distribuciones" data-i18n-aria-label="dash.aria_distribuciones" aria-label="Distribución de respuestas por pregunta"></canvas></div>
             </section>
 
             <section class="tarjeta seccion" id="seccion-calor">
@@ -194,7 +194,7 @@
           <div class="instalaciones-barra">
             <div style="display: flex; gap: var(--e3); align-items: center; flex-wrap: wrap;">
               <span class="etiqueta" data-i18n="dash.capa">Capa</span>
-              <div class="segmentado" role="group" aria-label="Capa" id="selector-capa">
+              <div class="segmentado" role="group" data-i18n-aria-label="dash.capa" aria-label="Capa" id="selector-capa">
                 <button type="button" class="activo" data-capa="participacion" data-i18n="dash.capa_participacion">Participación</button>
                 <button type="button" data-capa="valoracion" data-i18n="dash.capa_valoracion">Valoración</button>
                 <button type="button" data-capa="alertas" data-i18n="dash.capa_alertas">Alertas</button>
@@ -243,6 +243,7 @@
     import { escapar, entero, nombrePeriodo, textoLegible, colorCalor } from '/js/ui.js';
     import { accionTeams } from '/js/teams.js';
     import { t, alCambiarIdioma, traducirZona } from '/js/idioma.js';
+    import { hora } from '/js/idioma_base.js';
     const tr = t; // alias: en algunas funciones "t" es un tema
 
     const $ = id => document.getElementById(id);
@@ -288,7 +289,7 @@
     async function cargarEncuesta() {
       encuesta = await obtenerEncuesta(encuestaId);
       $('titulo').textContent = encuesta.titulo || 'Análisis';
-      document.title = `${encuesta.titulo || 'Análisis'} · Damm Escucha activa`;
+      document.title = `${encuesta.titulo || tr('dash.titulo', 'Análisis')} · Damm ${tr('marca.producto', 'Escucha activa')}`;
       $('badge-estado').className = `badge badge-${encuesta.estado}`;
       $('badge-estado').textContent = formatearEstado(encuesta.estado);
       $('btn-informe').href = `/informe.html?id=${encodeURIComponent(encuestaId)}`;
@@ -309,7 +310,7 @@
     function pintarBadgesSectores() {
       const cols = sectores();
       $('badges-sectores').innerHTML = (encuesta?.colectivo === 'todos' || cols.length === 5)
-        ? '<span class="badge">Todos los sectores</span>'
+        ? `<span class="badge">${escapar(formatearColectivo('todos'))}</span>`
         : cols.map(c => `<span class="badge">${escapar(formatearColectivo(c))}</span>`).join('');
     }
 
@@ -327,11 +328,11 @@
         pintarResumen(animar);
         cargarSugerencias();
         if (vista3d?.actualizar) vista3d.actualizar(analisis);
-        horaActualizado = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        horaActualizado = hora();
         pintarHoraActualizado();
         primeraCarga = false;
       } catch (err) {
-        mostrarError(`No se pudo cargar el análisis: ${err.message}`);
+        mostrarError(`${tr('dash.error_analisis', 'No se pudo cargar el análisis')}: ${err.message}`);
       } finally {
         cargandoAhora = false;
         $('cargando').classList.add('oculto');
@@ -540,7 +541,7 @@
       const filas = [...(analisis.participacion || [])].sort((x, y) =>
         ORDEN_COLECTIVOS.indexOf(x.colectivo) - ORDEN_COLECTIVOS.indexOf(y.colectivo) ||
         ORDEN_TURNOS.indexOf(x.turno) - ORDEN_TURNOS.indexOf(y.turno));
-      if (!filas.length) { sinDatos('caja-participacion', 'Sin datos de participación.'); return; }
+      if (!filas.length) { sinDatos('caja-participacion', tr('dash.sin_participacion', 'Sin datos de participación.')); return; }
       sinDatos('caja-participacion', '');
       $('caja-participacion').style.height = `${Math.max(180, filas.length * 34 + 40)}px`;
       const etiquetas = filas.map(f => f.turno === 'sin_turno'
@@ -560,7 +561,7 @@
         options: {
           indexAxis: 'y',
           scales: {
-            x: { min: 0, max: Math.min(100, maximo), ticks: { callback: v => `${v} %` }, grid: { color: C.borde } },
+            x: { min: 0, max: Math.min(100, maximo), ticks: { callback: v => formatearPct(v / 100, 0) }, grid: { color: C.borde } },
             y: { grid: { display: false } },
           },
           plugins: {
@@ -569,7 +570,7 @@
               callbacks: {
                 label: ctx => {
                   const f = filas[ctx.dataIndex];
-                  return ` ${formatearPct(f.tasa)} · ${entero(f.respuestas)} de ${entero(f.personas)}${f.representativo ? '' : ' · no representativo'}`;
+                  return ` ${formatearPct(f.tasa)} · ${tr('dash.de_personas', '{n} de {total} personas', { n: entero(f.respuestas), total: entero(f.personas) })}${f.representativo ? '' : ` · ${tr('dash.no_representativo', 'no representativo')}`}`;
                 },
               },
             },
@@ -583,7 +584,7 @@
     function graficoTemas(animar) {
       const temas = analisis.temas || [];
       if (!temas.length) {
-        sinDatos('caja-temas', 'Todavía no hay comentarios suficientes para agrupar por temas.');
+        sinDatos('caja-temas', tr('dash.sin_temas', 'Todavía no hay comentarios suficientes para agrupar por temas.'));
         $('tema-detalle').classList.add('oculto');
         return;
       }
@@ -594,7 +595,7 @@
       const pct = t => (t.pct ?? (t.n || 0) / total);
       const hayAnterior = temas.some(t => t.pct_anterior !== null && t.pct_anterior !== undefined);
       $('caja-temas').style.height = `${Math.max(180, temas.length * (hayAnterior ? 40 : 30) + 40)}px`;
-      const marca = t => (t.tendencia === 'nuevo' ? '  · Nuevo' : t.tendencia === 'sube' ? '  ↑' : '');
+      const marca = t => (t.tendencia === 'nuevo' ? `  · ${tr('dash.nuevo', 'Nuevo')}` : t.tendencia === 'sube' ? '  ↑' : '');
       const datasets = [];
       if (hayAnterior) {
         datasets.push({
@@ -610,19 +611,19 @@
         borderRadius: 3, barThickness: 12,
       });
       $('nota-temas').textContent = hayAnterior
-        ? `% de los comentarios · gris: ${nombrePeriodo(analisis.periodo_anterior)}`
-        : '% de los comentarios';
+        ? `${tr('dash.pct_comentarios', '% de los comentarios')} · ${tr('dash.gris', 'gris')}: ${nombrePeriodo(analisis.periodo_anterior)}`
+        : tr('dash.pct_comentarios', '% de los comentarios');
       dibujar('temas', 'grafico-temas', {
         type: 'bar',
         data: { labels: temas.map(t => `${formatearTema(t.tema)}${marca(t)}`), datasets },
         options: {
           indexAxis: 'y',
           scales: {
-            x: { min: 0, ticks: { callback: v => `${v} %` }, grid: { color: C.borde } },
+            x: { min: 0, ticks: { callback: v => formatearPct(v / 100, 0) }, grid: { color: C.borde } },
             y: { grid: { display: false } },
           },
           plugins: {
-            tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.x.toLocaleString('es-ES')} %` } },
+            tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${formatearPct(ctx.parsed.x / 100, 0)}` } },
           },
           onClick: (evt, elementos, chart) => {
             const punto = chart.getElementsAtEventForMode(evt, 'y', { intersect: false }, true)[0];
@@ -653,7 +654,7 @@
     function graficoDistribuciones(animar) {
       const dist = analisis.distribuciones || [];
       if (!dist.length) {
-        sinDatos('caja-distribuciones', 'Todavía no hay preguntas de escala con al menos 5 respuestas.');
+        sinDatos('caja-distribuciones', tr('dash.sin_distribuciones', 'Todavía no hay preguntas de escala con al menos 5 respuestas.'));
         return;
       }
       sinDatos('caja-distribuciones', '');
@@ -681,7 +682,7 @@
         options: {
           indexAxis: 'y',
           scales: {
-            x: { stacked: true, min: -limite, max: limite, ticks: { callback: v => `${Math.abs(v)} %` }, grid: { color: ctx => (ctx.tick.value === 0 ? C.texto2 : C.borde) } },
+            x: { stacked: true, min: -limite, max: limite, ticks: { callback: v => formatearPct(Math.abs(v) / 100, 0) }, grid: { color: ctx => (ctx.tick.value === 0 ? C.texto2 : C.borde) } },
             y: { stacked: true, grid: { display: false } },
           },
           plugins: {
@@ -692,11 +693,11 @@
                 label: ctx => {
                   const d = dist[ctx.dataIndex];
                   const s = series[ctx.datasetIndex];
-                  return ` ${s.label}: ${s.real(d).toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`;
+                  return ` ${s.label}: ${formatearPct(s.real(d) / 100, 1)}`;
                 },
                 footer: items => {
                   const d = dist[items[0].dataIndex];
-                  return `Media ${formatearMedia(d.media)} · ${entero(d.n)} respuestas`;
+                  return tr('dash.media_respuestas', 'Media {media} · {n} respuestas', { media: formatearMedia(d.media), n: entero(d.n) });
                 },
               },
             },
@@ -712,12 +713,12 @@
       return m;
     }
     function celda(actual, anterior) {
-      if (!actual || actual.media === null || actual.n < 5) return '<td class="celda sin-dato" title="Sin datos suficientes">—</td>';
+      if (!actual || actual.media === null || actual.n < 5) return `<td class="celda sin-dato" title="${escapar(tr('dash.sin_datos', 'Sin datos suficientes'))}">—</td>`;
       let flecha = '';
       if (anterior && anterior.media !== null) {
         const dif = actual.media - anterior.media;
-        if (dif <= -0.3) flecha = ' <span class="flecha-calor" title="Baja respecto al periodo anterior">↓</span>';
-        else if (dif >= 0.3) flecha = ' <span class="flecha-calor" title="Sube respecto al periodo anterior">↑</span>';
+        if (dif <= -0.3) flecha = ` <span class="flecha-calor" title="${escapar(tr('dash.baja_anterior', 'Baja respecto al periodo anterior'))}">↓</span>`;
+        else if (dif >= 0.3) flecha = ` <span class="flecha-calor" title="${escapar(tr('dash.sube_anterior', 'Sube respecto al periodo anterior'))}">↑</span>`;
       }
       return `<td class="celda" style="background: ${colorCalor(actual.media)}" title="${entero(actual.n)} respuestas">${formatearMedia(actual.media)}${flecha}</td>`;
     }
@@ -733,10 +734,10 @@
       const tabla = $('tabla-calor');
 
       if (!comunes.length || !cols.length) {
-        tabla.innerHTML = '<tbody><tr><td class="vacio">Todavía no hay valoraciones con al menos 5 respuestas.</td></tr></tbody>';
+        tabla.innerHTML = `<tbody><tr><td class="vacio">${escapar(tr('dash.sin_valoraciones', 'Todavía no hay valoraciones con al menos 5 respuestas.'))}</td></tr></tbody>`;
       } else {
         tabla.innerHTML = `
-          <thead><tr><th>${cols.length > 1 ? 'Preguntas comunes' : 'Pregunta'}</th>${cols.map(c => `<th data-col="${c}">${escapar(formatearColectivo(c))}</th>`).join('')}</tr></thead>
+          <thead><tr><th>${escapar(cols.length > 1 ? tr('dash.preguntas_comunes', 'Preguntas comunes') : tr('dash.pregunta', 'Pregunta'))}</th>${cols.map(c => `<th data-col="${c}">${escapar(formatearColectivo(c))}</th>`).join('')}</tr></thead>
           <tbody>${comunes.map(p => `
             <tr><td>${escapar(p.texto)}</td>${cols.map(c => celda(act[`${p.id}|${c}`], ant[`${p.id}|${c}`]).replace('<td', `<td data-col="${c}"`)).join('')}</tr>`).join('')}
           </tbody>`;
@@ -753,15 +754,36 @@
             </tbody></table>
           </div>`).join('')}
         </div>` : '';
+      aplicarResaltado();
     }
 
     /** Resalta la columna de un sector en el mapa de calor (lo usa "Ver en el análisis" de la maqueta 3D) */
+    // Sector resaltado en el mapa de calor durante 4 s. Se guarda como estado para que
+    // la recarga automática (cada 10 s), que vuelve a pintar la tabla, no lo borre.
+    let sectorResaltado = null;
+    let temporizadorResaltado = null;
+    function aplicarResaltado() {
+      document.querySelectorAll('#seccion-calor .resaltado').forEach(el => el.classList.remove('resaltado'));
+      if (!sectorResaltado) return;
+      document.querySelectorAll(`#seccion-calor [data-col="${CSS.escape(sectorResaltado)}"]`)
+        .forEach(el => el.classList.add('resaltado'));
+    }
     function resaltarSector(colectivo) {
       cambiarPestana('graficos');
-      document.querySelectorAll('[data-col]').forEach(el => el.classList.toggle('resaltado', el.dataset.col === colectivo));
-      $('seccion-calor').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setTimeout(() => document.querySelectorAll('.resaltado').forEach(el => el.classList.remove('resaltado')), 4000);
+      sectorResaltado = colectivo;
+      clearTimeout(temporizadorResaltado);
+      temporizadorResaltado = setTimeout(() => { sectorResaltado = null; aplicarResaltado(); }, 4000);
+      // Se espera a que la pestaña sea visible y el mapa de calor esté pintado
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (!document.querySelector('#seccion-calor [data-col]') && analisis) pintarCalor();
+        aplicarResaltado();
+        $('seccion-calor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }));
     }
+    // Respaldo: el evento que emite la maqueta (por si se usa sin opciones)
+    document.addEventListener('vista3d:ver-en-analisis', e => {
+      if (pestanaActual === 'maqueta' && e.detail?.colectivo) resaltarSector(e.detail.colectivo);
+    });
 
     // ---------------- 5. Pregunta a tus datos ----------------
     async function preguntar(texto) {
@@ -778,7 +800,7 @@
         const confianza = { alta: tr('dash.conf_alta', 'Confianza alta'), media: tr('dash.conf_media', 'Confianza media'), baja: tr('dash.conf_baja', 'Confianza baja') }[r.confianza] || '';
         caja.innerHTML = `
           <div class="respuesta-pregunta">${escapar(pregunta)}</div>
-          <p>${escapar(legible(r.respuesta || 'Sin respuesta.'))}</p>
+          <p>${escapar(legible(r.respuesta || tr('dash.sin_respuesta', 'Sin respuesta.')))}</p>
           ${r.cifras?.length ? `<ul class="cifras">${r.cifras.map(c => `<li>${escapar(legible(c))}</li>`).join('')}</ul>` : ''}
           <div class="meta">
             ${confianza ? `<span class="badge ${r.confianza === 'baja' ? 'badge-critico' : r.confianza === 'media' ? 'badge-aprobada' : 'badge-ok'}">${confianza}</span>` : ''}
@@ -867,7 +889,7 @@
     // ---------------- 7. Límites ----------------
     function pintarLimites() {
       const textos = [...(analisis.limites || [])];
-      if (!textos.some(t => /menos de 5/i.test(t))) textos.push('Los segmentos con menos de 5 respuestas no se muestran.');
+      if (!textos.some(t => /\b5\b/.test(t))) textos.push(tr('dash.limite_5', 'Los segmentos con menos de 5 respuestas no se muestran.'));
       $('limites').innerHTML = `<p><strong>${escapar(tr('dash.limites', 'Límites del análisis.'))}</strong></p>` + textos.map(t => `<p>${escapar(legible(t))}</p>`).join('');
     }
 
@@ -892,19 +914,19 @@
           mapaPreguntas,
           capa,
           noche,
-          alVerEnAnalisis: colectivo => resaltarSector(colectivo),
-          alNuevasRespuestas: (colectivo, n) => avisoDirecto(`+${n} respuesta${n === 1 ? '' : 's'} en ${formatearColectivo(colectivo)}`),
+          onVerEnAnalisis: colectivo => resaltarSector(colectivo),
+          onNuevasRespuestas: (colectivo, n) => avisoDirecto(n === 1 ? tr('dash.una_nueva', '+1 respuesta en {sector}', { sector: formatearColectivo(colectivo) }) : tr('maqueta.nuevas_respuestas', '+{n} respuestas en {sector}', { n, sector: formatearColectivo(colectivo) })),
         });
         vista3d?.setCapa?.(capa);
         vista3d?.setModo?.(noche);
         contenedor.addEventListener('vista3d-error', () => {
           cerrarMaqueta();
           cambiarPestana('resumen');
-          mostrarError('No se pudo cargar la maqueta 3D.');
+          mostrarError(tr('maqueta.error', 'No se pudo cargar la maqueta 3D') + '.');
         }, { once: true });
       } catch (err) {
         console.error(err);
-        mostrarError('No se pudo cargar la maqueta 3D.');
+        mostrarError(tr('maqueta.error', 'No se pudo cargar la maqueta 3D') + '.');
       }
     }
     function cerrarMaqueta() { vista3d?.dispose?.(); vista3d = null; }
@@ -986,8 +1008,8 @@
     $('btn-copiar').addEventListener('click', async () => {
       try { await navigator.clipboard.writeText($('formulario-url').value); }
       catch { $('formulario-url').select(); document.execCommand('copy'); }
-      $('btn-copiar').textContent = 'Copiado';
-      setTimeout(() => { $('btn-copiar').textContent = 'Copiar'; }, 1500);
+      $('btn-copiar').textContent = tr('comun.copiado', 'Copiado');
+      setTimeout(() => { $('btn-copiar').textContent = tr('comun.copiar', 'Copiar'); }, 1500);
     });
 
     async function configurarSimulacion() {
@@ -1000,16 +1022,16 @@
       b.classList.remove('oculto');
       b.addEventListener('click', async () => {
         b.disabled = true;
-        b.textContent = 'Simulando…';
+        b.textContent = tr('dash.simulando', 'Simulando…');
         try {
           const res = await simularRespuestas(encuestaId, { n: 150 });
           try { sessionStorage.removeItem('encuestas_activas'); } catch { /* nada */ }
           await cargarDatos();
-          b.textContent = `${entero(res.simuladas)} respuestas añadidas`;
-          setTimeout(() => { b.textContent = 'Simular respuestas'; b.disabled = false; }, 2500);
+          b.textContent = tr('dash.anadidas', '{n} respuestas añadidas', { n: entero(res.simuladas) });
+          setTimeout(() => { b.textContent = tr('dash.simular', 'Simular respuestas'); b.disabled = false; }, 2500);
         } catch (err) {
-          mostrarError(`No se pudieron simular respuestas: ${err.message}`);
-          b.textContent = 'Simular respuestas';
+          mostrarError(`${tr('dash.error_simular', 'No se pudieron simular respuestas')}: ${err.message}`);
+          b.textContent = tr('dash.simular', 'Simular respuestas');
           b.disabled = false;
         }
       });
@@ -1021,7 +1043,7 @@
         await cargarEncuesta();
       } catch {
         $('cargando').classList.add('oculto');
-        mostrarError(`No existe la encuesta ${encuestaId}.`);
+        mostrarError(tr('dash.no_existe', 'No existe la encuesta {id}.', { id: encuestaId }));
         return;
       }
       configurarSimulacion();

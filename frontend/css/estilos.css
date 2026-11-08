@@ -892,3 +892,5 @@ fieldset.campo { border: none; padding: 0; min-width: 0; }
 .banner-servidor { margin-bottom: var(--e4); }
 .estado-traducciones { margin-bottom: var(--e3); }
 .estado-traducciones span { color: var(--texto-2); font-weight: var(--peso-medio); }
+.idioma-original { margin: calc(-1 * var(--e2)) 0 var(--e3); color: var(--texto-3); }
+.aviso.aviso-amarillo { background: var(--aviso-fondo); border-color: #FDE68A; color: var(--aviso); }
