@@ -51,6 +51,9 @@ TIEMPO_MAX_COLECTIVO = {"planta": 90, "logistica": 60, "comercial": 120, "oficin
 
 log = logging.getLogger(__name__)
 
+# Sin IA, en estos colectivos la pregunta abierta solo sale a quien puntúa 1-2 la primera escala:
+# menos texto para quien va justo de tiempo (v6, P1-1)
+COLECTIVOS_CONDICIONAL = {"planta", "logistica"}
 MAX_PREGUNTAS = {"planta": 4, "logistica": 4, "comercial": 5, "oficina": 6, "manager": 5}
 
 # Respaldo multisector en el idioma de la encuesta (plantillas_respaldo.py)
@@ -133,8 +136,10 @@ def _plantilla_respaldo_colectivo(colectivo: str, objetivo: str, contexto: str =
          "dimension": dim, "condicion": None}
         for i, (txt, dim) in enumerate(escalas, start=1)
     ]
-    preguntas.append({"id": "p4", "texto": abierta[0], "tipo": "texto", "opciones": [],
-                      "dimension": abierta[1], "condicion": None})
+    condicional = colectivo in COLECTIVOS_CONDICIONAL
+    preguntas.append({"id": "p4", "texto": plantillas.QUE_HA_PASADO[idioma] if condicional else abierta[0],
+                      "tipo": "texto", "opciones": [], "dimension": abierta[1],
+                      "condicion": {"pregunta": "p1", "valor_max": 2} if condicional else None})
     return {
         "titulo": elegido["titulo"],
         "intro": plantillas.INTRO[idioma].format(sobre=elegido["sobre"]),
@@ -185,7 +190,69 @@ def _limpiar_pregunta(p: Any, terminos_prohibidos: set[str]) -> dict[str, Any] |
             tipo, opciones = "escala_1_5", []
     dimension = p.get("dimension") if p.get("dimension") in DIMENSIONES_VALIDAS else "bienestar"
     return {"texto": texto, "tipo": tipo, "opciones": opciones, "dimension": dimension,
-            "condicion": None}
+            "condicion": _condicion_bruta(p.get("condicion")), "_id": str(p.get("id") or "")}
+
+
+def _condicion_bruta(condicion: Any) -> dict[str, Any] | None:
+    """{"pregunta": id, "valor_max": 1..4} o None. Que la pregunta exista, sea escala_1_5 y vaya
+    antes se comprueba al final (_resolver_condiciones), cuando ya están los ids definitivos."""
+    if not isinstance(condicion, dict) or not str(condicion.get("pregunta") or "").strip():
+        return None
+    try:
+        valor = int(float(condicion.get("valor_max")))
+    except (TypeError, ValueError):
+        return None
+    return {"pregunta": str(condicion["pregunta"]).strip(), "valor_max": valor} if 1 <= valor <= 4 else None
+
+
+def _pregunta_fija(necesidad: dict[str, Any]) -> dict[str, Any] | None:
+    """La pregunta del indicador de un compromiso (v6): va la primera, tal cual y sin recortes."""
+    fija = necesidad.get("pregunta_fija")
+    if not isinstance(fija, dict) or not str(fija.get("texto") or "").strip():
+        return None
+    tipo = fija.get("tipo") if fija.get("tipo") in ("escala_1_5", "si_no", "opcion") else "escala_1_5"
+    opciones = [str(o).strip() for o in fija.get("opciones") or [] if str(o).strip()]
+    if tipo == "opcion" and len(opciones) < 2:
+        tipo = "escala_1_5"
+    return {"texto": str(fija["texto"]).strip(), "tipo": tipo,
+            "opciones": opciones if tipo == "opcion" else [],
+            "dimension": fija.get("dimension") if fija.get("dimension") in DIMENSIONES_VALIDAS else "bienestar",
+            "condicion": None, "_id": "", "fija": True}
+
+
+def _parecidas(a: str, b: str) -> bool:
+    """Misma pregunta con otras palabras al final ("¿Te da tiempo a hacer la pausa completa?" y
+    "¿Te da tiempo a hacer la pausa completa en tu turno?")."""
+    pa, pb = re.findall(r"\w+", _normalizar_texto(a)), re.findall(r"\w+", _normalizar_texto(b))
+    n = min(len(pa), len(pb), 6)
+    return n >= 4 and pa[:n] == pb[:n]
+
+
+def _con_fija(preguntas: list[dict[str, Any]], fija: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Pone la pregunta fija la primera y quita las que la repiten."""
+    if not fija:
+        return preguntas
+    return [dict(fija)] + [p for p in preguntas if not _parecidas(p["texto"], fija["texto"])]
+
+
+def _resolver_condiciones(vistas: list[dict[str, Any]], desde: int = 0) -> None:
+    """Cambia la condición bruta por el id definitivo de su pregunta, o la quita.
+
+    Solo vale si la pregunta de referencia es escala_1_5 y va antes. Como mucho una pregunta
+    condicional en lo que ve cada persona. `vistas` ya lleva los ids definitivos; solo se tocan
+    las preguntas a partir de `desde` (las anteriores ya están resueltas).
+    """
+    hay_una = any(p.get("condicion") for p in vistas[:desde])
+    for i in range(desde, len(vistas)):
+        p = vistas[i]
+        bruta, p["condicion"] = p.get("condicion"), None
+        if not bruta or hay_una or p.get("fija"):
+            continue
+        referencia = next((q for q in vistas[:i] if q.get("_id") == bruta["pregunta"]
+                           and q["tipo"] == "escala_1_5"), None)
+        if referencia is not None:
+            p["condicion"] = {"pregunta": referencia["id"], "valor_max": bruta["valor_max"]}
+            hay_una = True
 
 
 def _tiempo(preguntas: list[dict[str, Any]]) -> int:
@@ -193,9 +260,16 @@ def _tiempo(preguntas: list[dict[str, Any]]) -> int:
 
 
 def _numerar(preguntas: list[dict[str, Any]], prefijo: str) -> list[dict[str, Any]]:
-    return [{"id": f"{prefijo}{i}", **{k: p[k] for k in ("texto", "tipo", "opciones",
-                                                         "dimension", "condicion")}}
-            for i, p in enumerate(preguntas, start=1)]
+    """Pone los ids definitivos (p1, c1, planta_p1...) en las mismas preguntas y las devuelve."""
+    for i, p in enumerate(preguntas, start=1):
+        p["id"] = f"{prefijo}{i}"
+    return preguntas
+
+
+def _salida(preguntas: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Formato del contrato (fuera los campos internos); "fija": true solo en la pregunta fija."""
+    return [{**{k: p[k] for k in ("id", "texto", "tipo", "opciones", "dimension", "condicion")},
+             **({"fija": True} if p.get("fija") else {})} for p in preguntas]
 
 
 def _limite_tiempo(colectivo: str, duracion_max: int, n_sectores: int = 1) -> int:
@@ -209,10 +283,13 @@ def _orden_recorte(preguntas: list[dict[str, Any]]) -> list[int]:
 
     La última escala_1_5 no aparece nunca: no se puede quitar.
     """
-    escalas = [i for i, p in enumerate(preguntas) if p["tipo"] == "escala_1_5"]
-    otras = [i for i, p in enumerate(preguntas) if p["tipo"] in ("si_no", "opcion")]
-    textos = [i for i, p in enumerate(preguntas) if p["tipo"] == "texto"]
-    return otras[::-1] + escalas[1:][::-1] + textos
+    libres = [(i, p) for i, p in enumerate(preguntas) if not p.get("fija")]
+    escalas = [i for i, p in libres if p["tipo"] == "escala_1_5"]
+    otras = [i for i, p in libres if p["tipo"] in ("si_no", "opcion")]
+    textos = [i for i, p in libres if p["tipo"] == "texto"]
+    # Si la pregunta fija ya es una escala, las demás escalas se pueden quitar todas
+    protegidas = 0 if any(p.get("fija") and p["tipo"] == "escala_1_5" for p in preguntas) else 1
+    return otras[::-1] + escalas[protegidas:][::-1] + textos
 
 
 def _con_escala(preguntas: list[dict[str, Any]], escala: dict[str, Any]) -> list[dict[str, Any]]:
@@ -220,7 +297,8 @@ def _con_escala(preguntas: list[dict[str, Any]], escala: dict[str, Any]) -> list
     abiertas = [p for p in preguntas if p["tipo"] == "texto"][-1:]
     cerradas = [p for p in preguntas if p["tipo"] != "texto"]
     if not any(p["tipo"] == "escala_1_5" for p in cerradas):
-        cerradas.insert(0, dict(escala))
+        # Al principio, pero siempre después de la pregunta fija
+        cerradas.insert(1 if cerradas and cerradas[0].get("fija") else 0, dict(escala))
     return cerradas + abiertas
 
 
@@ -276,11 +354,14 @@ def _validar_un_colectivo(encuesta: dict[str, Any], necesidad: dict[str, Any],
     respaldo = _plantilla_respaldo_colectivo(colectivo, objetivo, necesidad.get("contexto", ""),
                                              _idioma(necesidad))
     titulo, intro = _textos_generales(encuesta, respaldo, terminos)
-    de_respaldo = [_limpiar_pregunta(p, set()) for p in respaldo["preguntas"]]
+    # Las del respaldo que se usan para completar no pueden ser referencia de una condición
+    de_respaldo = [{**_limpiar_pregunta(p, set()), "_id": "", "condicion": None}
+                   for p in respaldo["preguntas"]]
     escala = next(p for p in de_respaldo if p["tipo"] == "escala_1_5")
 
-    preguntas = _con_escala([q for q in (_limpiar_pregunta(p, terminos)
-                                         for p in encuesta.get("preguntas") or []) if q], escala)
+    preguntas = _con_escala(_con_fija([q for q in (_limpiar_pregunta(p, terminos)
+                                                   for p in encuesta.get("preguntas") or []) if q],
+                                      _pregunta_fija(necesidad)), escala)
     maximo = min(reglas.TOTAL_MAX, MAX_PREGUNTAS.get(colectivo, reglas.TOTAL_MAX))
     # Recorte por número y por tiempo sin quitar nunca la última escala
     while len(preguntas) > maximo or _tiempo(preguntas) > limite:
@@ -303,6 +384,8 @@ def _validar_un_colectivo(encuesta: dict[str, Any], necesidad: dict[str, Any],
         raise _error_no_caben(necesidad, colectivo)
 
     preguntas = _numerar(preguntas, "p")
+    _resolver_condiciones(preguntas)
+    preguntas = _salida(preguntas)
     tiempo = _tiempo(preguntas)
     return {
         "titulo": titulo, "intro": intro,
@@ -319,12 +402,17 @@ def _respaldo_sectores(necesidad: dict[str, Any], colectivos: list[str]) -> dict
     base = _plantilla_respaldo_colectivo(colectivos[0], necesidad.get("objetivo", ""),
                                          necesidad.get("contexto", ""), idioma)
     primera = next(p for p in base["preguntas"] if p["tipo"] == "escala_1_5")
+    condicional = bool(set(colectivos) & COLECTIVOS_CONDICIONAL)
     return {
         "titulo": base["titulo"],
         "intro": base["intro"],
         "preguntas": [dict(primera),
-                      {"texto": plantillas.QUE_CAMBIARIAS[idioma], "tipo": "texto", "opciones": [],
-                       "dimension": "condiciones", "condicion": None}],
+                      {"id": "p_abierta",
+                       "texto": plantillas.QUE_HA_PASADO[idioma] if condicional
+                       else plantillas.QUE_CAMBIARIAS[idioma],
+                       "tipo": "texto", "opciones": [], "dimension": "condiciones",
+                       "condicion": ({"pregunta": primera["id"], "valor_max": 2}
+                                     if condicional else None)}],
         "preguntas_por_colectivo": {
             c: [{"texto": t, "tipo": tipo, "opciones": [], "dimension": d, "condicion": None}
                 for t, tipo, d in plantillas.PREGUNTAS_SECTOR[idioma][c]]
@@ -342,6 +430,7 @@ def _propias_candidatas(propuestas: Any, respaldo: list[dict[str, Any]], nucleo:
         q = _limpiar_pregunta(p, terminos)
         # Las propias nunca son de texto ni repiten el núcleo ni otra propia
         if (q and q["tipo"] != "texto" and _normalizar_texto(q["texto"]) not in textos_nucleo
+                and not any(p.get("fija") and _parecidas(q["texto"], p["texto"]) for p in nucleo)
                 and all(_normalizar_texto(q["texto"]) != _normalizar_texto(x["texto"]) for x in elegidas)):
             elegidas.append(q)
     return elegidas
@@ -365,18 +454,25 @@ def _validar_sectores(encuesta: dict[str, Any], necesidad: dict[str, Any],
     respaldo = _respaldo_sectores(necesidad, colectivos)
     titulo, intro = _textos_generales(encuesta, respaldo, terminos)
     limites = {c: _limite_tiempo(c, duracion, len(colectivos)) for c in colectivos}
-    escala = _limpiar_pregunta(respaldo["preguntas"][0], set())
+    escala = {**_limpiar_pregunta(respaldo["preguntas"][0], set()), "_id": "", "condicion": None}
 
     # Núcleo: 1-3 preguntas, siempre con una escala_1_5, como mucho un texto y al final
-    nucleo = _con_escala([q for q in (_limpiar_pregunta(p, terminos)
-                                      for p in encuesta.get("preguntas") or []) if q], escala)
+    nucleo = _con_escala(_con_fija([q for q in (_limpiar_pregunta(p, terminos)
+                                                for p in encuesta.get("preguntas") or []) if q],
+                                   _pregunta_fija(necesidad)), escala)
     while len(nucleo) > reglas.NUCLEO_MAX:
         nucleo.pop(_orden_recorte(nucleo)[0])
 
     propuestas = encuesta.get("preguntas_por_colectivo")
     propuestas = propuestas if isinstance(propuestas, dict) else {}
+    # Último recurso si faltan propias (p. ej. la pregunta fija coincide con una del sector):
+    # las escalas generales de la plantilla de respaldo
+    generales = [p for p in _plantilla_respaldo_colectivo(
+        colectivos[0], necesidad.get("objetivo", ""), necesidad.get("contexto", ""),
+        _idioma(necesidad))["preguntas"] if p["tipo"] == "escala_1_5"]
     while True:
-        candidatas = {c: _propias_candidatas(propuestas.get(c), respaldo["preguntas_por_colectivo"][c],
+        candidatas = {c: _propias_candidatas(propuestas.get(c),
+                                             respaldo["preguntas_por_colectivo"][c] + generales,
                                              nucleo, terminos) for c in colectivos}
         cuantas = {c: _cuantas_propias(nucleo, candidatas[c], limites[c], c) for c in colectivos}
         if all(cuantas.values()):
@@ -388,7 +484,14 @@ def _validar_sectores(encuesta: dict[str, Any], necesidad: dict[str, Any],
             raise _error_no_caben(necesidad, sector)
         nucleo.pop(orden[0])
 
-    por_colectivo = {c: _numerar(candidatas[c][:cuantas[c]], f"{c}_p") for c in colectivos}
+    nucleo = _numerar(nucleo, "c")
+    _resolver_condiciones(nucleo)
+    por_colectivo = {}
+    for c in colectivos:
+        propias = _numerar([dict(p) for p in candidatas[c][:cuantas[c]]], f"{c}_p")
+        _resolver_condiciones(nucleo + propias, desde=len(nucleo))  # pueden depender del núcleo
+        por_colectivo[c] = _salida(propias)
+    nucleo = _salida(nucleo)
     tiempos = {c: _tiempo(nucleo + por_colectivo[c]) for c in colectivos}
     return {
         "titulo": titulo, "intro": intro,
@@ -396,7 +499,7 @@ def _validar_sectores(encuesta: dict[str, Any], necesidad: dict[str, Any],
         "estado": "borrador", "periodo": datetime.now().strftime("%Y-%m"),
         "tiempo_estimado_seg": max(tiempos.values()), "tiempo_por_colectivo": tiempos,
         "url": None, "qr": None,
-        "preguntas": _numerar(nucleo, "c"), "preguntas_por_colectivo": por_colectivo,
+        "preguntas": nucleo, "preguntas_por_colectivo": por_colectivo,
     }
 
 
@@ -413,6 +516,8 @@ def _texto_necesidad(necesidad: dict[str, Any], colectivos: list[str]) -> str:
         f"- Contexto: {necesidad.get('contexto', '')}\n"
         f"- Duración máxima: {necesidad.get('duracion_max_seg', 120)} segundos\n"
         f"- Temas prohibidos: {', '.join(necesidad.get('temas_prohibidos', [])) or 'ninguno'}\n"
+        + (f"- Pregunta fija (se añade sola como primera pregunta: no la repitas ni la cuentes): "
+           f"{necesidad['pregunta_fija'].get('texto')}\n" if _pregunta_fija(necesidad) else "")
     )
 
 

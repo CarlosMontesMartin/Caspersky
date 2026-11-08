@@ -167,7 +167,7 @@ en ese caso usan el **modo de respaldo** descrito en cada una.
 
 | Función | Entrada | Salida | Qué hace |
 |---|---|---|---|
-| `hay_llm()` | — | `bool` | `True` si `LLM_API_KEY` y `LLM_BASE_URL` tienen valor en `.env`. |
+| `hay_llm()` | — | `bool` | `True` si `LLM_API_KEY` tiene valor en `.env`. `LLM_BASE_URL` y `LLM_MODEL` son opcionales (por defecto, la API del evento y `ornith`). |
 | `llamar_llm(sistema, usuario)` | `str`, `str` | `str` | Llama a la API del evento, compatible con OpenAI: `POST {LLM_BASE_URL}/chat/completions` con la librería estándar de Python (sin el paquete `openai`, para no añadir dependencias), cabecera `Authorization: Bearer {LLM_API_KEY}`, `model = LLM_MODEL` (por defecto `ornith`) y mensajes `system` + `user`. Timeout 30 s. Lanza excepción si falla. |
 | `llamar_llm_json(sistema, usuario)` | `str`, `str` | `dict` o `list` | Llama a `llamar_llm`, extrae el primer bloque JSON del texto y lo parsea. Un reintento si el JSON no es válido. |
 
@@ -178,8 +178,8 @@ Textos de los prompts de sistema. Cada uno exige responder solo en JSON con el f
 
 | Función | Entrada | Salida | Qué hace |
 |---|---|---|---|
-| `generar_encuesta(necesidad, reglas)` | `dict` Necesidad, `str` reglas | `dict` Encuesta sin `id` | **[MVP]** Pide a la IA título, intro, 3–6 preguntas (`p1`, `p2`…), tipo, opciones, dimensión y tiempo estimado, siguiendo las reglas del colectivo. En el MVP `condicion` es siempre `null`. Después llama a `validar_encuesta`. |
-| `validar_encuesta(encuesta, necesidad)` | `dict`, `dict` | `dict` corregida | **[MVP]** Fuerza: colectivo = el de la necesidad; 3–6 preguntas; tipos y dimensiones de la lista cerrada; `opciones` solo en `opcion`; `condicion = null`; **como máximo una pregunta `texto`**; ninguna pregunta que contenga un tema prohibido; `tiempo_estimado_seg ≤ duracion_max_seg` (≈ 15 s por escala/sí-no/opción, 30 s por texto; quita preguntas si se pasa). |
+| `generar_encuesta(necesidad, reglas)` | `dict` Necesidad, `str` reglas | `dict` Encuesta sin `id` | **[MVP]** Pide a la IA título, intro, 3–6 preguntas (`p1`, `p2`…), tipo, opciones, dimensión y tiempo estimado, siguiendo las reglas del colectivo. Como mucho una pregunta con `condicion: {pregunta, valor_max}` (v6); si `necesidad.pregunta_fija` existe, va la primera con `"fija": true` (v6). Después llama a `validar_encuesta`. |
+| `validar_encuesta(encuesta, necesidad)` | `dict`, `dict` | `dict` corregida | **[MVP]** Fuerza: colectivo = el de la necesidad; 3–6 preguntas; tipos y dimensiones de la lista cerrada; `opciones` solo en `opcion`; `condicion` = `null` o `{pregunta: <escala_1_5 anterior>, valor_max: 1-4}` (como mucho una por persona); la pregunta fija, primera y nunca recortada; **como máximo una pregunta `texto`**; ninguna pregunta que contenga un tema prohibido; `tiempo_estimado_seg ≤ duracion_max_seg` (≈ 15 s por escala/sí-no/opción, 30 s por texto; quita preguntas si se pasa). |
 | Respaldo | | | Plantilla fija por colectivo: 3 escalas + 1 texto sobre el objetivo de la necesidad. |
 
 ### `analizar.py`

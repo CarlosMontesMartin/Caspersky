@@ -382,3 +382,66 @@ def quien(colectivo: str, turno: str | None, idioma: str = "es") -> str:
     if idioma == "en":
         return f"{franja} {grupo}"
     return f"{grupo} de {franja}"
+
+
+# ---- Compromisos "Dijisteis → Hemos hecho" (v6) ----
+MESES = {
+    "es": ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+           "septiembre", "octubre", "noviembre", "diciembre"],
+    "ca": ["gener", "febrer", "març", "abril", "maig", "juny", "juliol", "agost",
+           "setembre", "octubre", "novembre", "desembre"],
+    "en": ["January", "February", "March", "April", "May", "June", "July", "August",
+           "September", "October", "November", "December"],
+}
+COMPROMISO = {
+    "es": {"dijisteis_grupo": "Un {pct} de los comentarios de {grupo} hablan de {tema} ({n} comentarios, {periodo}).",
+           "dijisteis_todos": "Un {pct} de los comentarios hablan de {tema} ({n} comentarios, {periodo}).",
+           "hicimos": "{accion} (desde el [fecha]).", "y": " y "},
+    "ca": {"dijisteis_grupo": "Un {pct} dels comentaris {de_grupo} parlen de {tema} ({n} comentaris, {periodo}).",
+           "dijisteis_todos": "Un {pct} dels comentaris parlen de {tema} ({n} comentaris, {periodo}).",
+           "hicimos": "{accion} (des del [fecha]).", "y": " i "},
+    "en": {"dijisteis_grupo": "{pct} of comments from {grupo} are about {tema} ({n} comments, {periodo}).",
+           "dijisteis_todos": "{pct} of comments are about {tema} ({n} comments, {periodo}).",
+           "hicimos": "{accion} (from [fecha]).", "y": " and "},
+}
+
+
+def periodo_legible(periodo: str | None, idioma: str = "es") -> str:
+    """'2026-10' → 'octubre de 2026' · 'octubre de 2026' · 'October 2026'."""
+    idioma = idioma_valido(idioma)
+    try:
+        anio, mes = str(periodo).split("-")[:2]
+        nombre_mes = MESES[idioma][int(mes) - 1]
+    except (ValueError, IndexError):
+        return str(periodo or "")
+    return f"{nombre_mes} {anio}" if idioma == "en" else f"{nombre_mes} de {anio}"
+
+
+def lista_legible(nombres: list[str], idioma: str = "es") -> str:
+    """['planta', 'logística'] → 'planta y logística'."""
+    nombres = [n for n in nombres if n]
+    if len(nombres) <= 1:
+        return "".join(nombres)
+    return ", ".join(nombres[:-1]) + COMPROMISO[idioma_valido(idioma)]["y"] + nombres[-1]
+
+
+def compromiso_respaldo(tema: dict, colectivos: list[str] | None, periodo: str | None,
+                        idioma: str = "es") -> dict[str, str]:
+    """Borrador sin IA de "Dijisteis" (con la cifra) y "Hemos hecho" (con [fecha] para RRHH).
+
+    `colectivos` solo se nombra si las cifras del tema son de esos colectivos (si no, None).
+    """
+    idioma = idioma_valido(idioma)
+    textos_c = COMPROMISO[idioma]
+    clave = tema.get("tema", "otros")
+    datos = {"pct": pct(tema.get("pct"), idioma), "n": tema.get("n", 0),
+             "tema": nombre("tema", clave, idioma), "periodo": periodo_legible(periodo, idioma)}
+    if colectivos:
+        grupo = lista_legible([nombre("colectivo", c, idioma) for c in colectivos], idioma)
+        de_grupo = (f"d'{grupo}" if grupo[:1].lower() in "aeiouàèéíòóúh" else f"de {grupo}")
+        dijisteis = textos_c["dijisteis_grupo"].format(grupo=grupo, de_grupo=de_grupo, **datos)
+    else:
+        dijisteis = textos_c["dijisteis_todos"].format(**datos)
+    accion = ACCION_POR_TEMA[idioma].get(clave, ACCION_POR_TEMA[idioma]["otros"])[0]
+    return {"dijisteis": dijisteis[:1].upper() + dijisteis[1:],
+            "hicimos": textos_c["hicimos"].format(accion=accion)}

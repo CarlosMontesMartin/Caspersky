@@ -42,15 +42,15 @@ REINTENTO_FALLIDOS_SEG = float("inf")
 # Raíces sin tildes, en castellano y catalán. Las que empiezan por \\b son expresiones regulares.
 PALABRAS_CLAVE: dict[str, list[str]] = {
     "descansos": ["descans", "pausa", "desconect", "desconnect", "recuper", "agotad",
-                  "seure", "bano tranquil", "comer", "parar", "tomar algo", "10 min", "esgotat"],
+                  "seure", "bano tranquil", "\\bcomer\\b", "\\bparar\\b", "tomar algo", "10 min", "esgotat"],
     "turnos": ["turno", "\\btorn", "rotaci", "rotatiu", "cuadrante", "quadrant", "horarios cambian",
                "horari canvia", "calendario", "de noche", "\\bnit\\b"],
     "carga_trabajo": ["carga", "carrega", "abasto", "falta personal", "falta de gente", "menos gente",
                       "menys gent", "mas personal", "mas gente", "ritmo", "tareas", "volumen",
-                      "picos", "limite", "desbordat", "mans", "refuerzo", "demasiado trabajo",
+                      "picos", "\\blimites?\\b", "desbordat", "\\bmans\\b", "refuerzo", "demasiado trabajo",
                       "mas faena", "capacidad", "no crece", "produccion sube", "ritme", "\\bsom pocs",
                       "no arribem", "massa feina", "poca gent"],
-    "comunicacion": ["comunic", "informa", "avisa", "avisen", "avisar", "enteramos", "entere",
+    "comunicacion": ["comunic", "\\binforma(?!tion)", "avisa", "avisen", "avisar", "enteramos", "entere",
                      "rumor", "explicacion", "explicarme", "canal oficial", "wasa", "whatsapp",
                      "ens van dir", "no ens van", "nos dijo", "nadie nos", "oficial", "dijeron",
                      "de un dia para otro", "de un dia pa otro", "sin preguntar", "comunicat",

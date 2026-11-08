@@ -316,3 +316,22 @@ def traducir_encuesta(encuesta: dict, idiomas: list, idioma_origen: str = "es") 
     if acepta:
         return real(encuesta, idiomas, idioma_origen=idioma_origen) or {}
     return real(encuesta, idiomas) or {}  # versión de UPC 1 anterior a v5: solo traduce desde castellano
+
+
+# ---------- v6: compromisos "Dijisteis → Hemos hecho" ----------
+
+def redactar_compromiso(tema, analisis: dict, accion: dict, colectivos: list | None = None,
+                        idioma: str = "es", comentarios: list | None = None) -> dict:
+    """{"dijisteis", "hicimos", "origen": "ia|reglas"}: borrador que RRHH revisa y firma (v6 §4.4)."""
+    try:
+        from backend.ia.compromisos import redactar_compromiso as real
+        resultado = real(tema, analisis, accion, colectivos, idioma, comentarios) or {}
+        if resultado.get("dijisteis") and resultado.get("hicimos"):
+            return resultado
+    except Exception as error:
+        _aviso("redactar_compromiso", error)
+    codigo = tema.get("tema") if isinstance(tema, dict) else (tema or (accion or {}).get("tema") or "otros")
+    fila = next((t for t in (analisis or {}).get("temas") or [] if t.get("tema") == codigo), {})
+    return {"dijisteis": f"{fila.get('n', 0)} comentarios sobre {codigo} ({(analisis or {}).get('periodo_actual', '')}).",
+            "hicimos": f"{(accion or {}).get('titulo', '').rstrip('.')} (desde el [fecha]).",
+            "origen": "reglas"}

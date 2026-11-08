@@ -17,6 +17,8 @@ Reglas que no se negocian:
 - "opcion" lleva de 3 a 5 opciones breves e incluye una salida neutra ("Nada en especial").
 - Cada pregunta lleva una "dimension": bienestar, liderazgo, desarrollo, cultura, entorno o condiciones.
 - La intro, en 1–2 frases, dice para qué sirve la encuesta y que es anónima y solo se ven resultados agregados.
+- Lógica condicional: como mucho UNA pregunta condicional, con "condicion": {"pregunta": "<id de una escala_1_5 anterior>", "valor_max": 2} (solo se muestra si en esa escala responden 1 o 2). Si responden planta o logística, haz condicional la pregunta de texto del núcleo y redáctala como "¿Qué ha pasado? Cuéntanos qué mejorarías".
+- Si la solicitud trae una "Pregunta fija", se añadirá sola como primera pregunta del núcleo: no la repitas ni la reformules, y deja el núcleo en 2 preguntas como mucho.
 
 El núcleo SIEMPRE empieza con una pregunta escala_1_5 (la primera, "c1"), que es la que permite comparar los sectores.
 
@@ -26,7 +28,7 @@ Responde ÚNICAMENTE con JSON, sin texto adicional. Ejemplo completo para planta
   "intro": "Queremos saber cómo te afecta el nuevo sistema de turnos para mejorarlo. Es anónima: solo se ven resultados agregados.",
   "preguntas": [
     {"id": "c1", "texto": "¿Cómo valoras el nuevo sistema de turnos?", "tipo": "escala_1_5", "opciones": [], "dimension": "condiciones"},
-    {"id": "c2", "texto": "¿Qué cambiarías?", "tipo": "texto", "opciones": [], "dimension": "condiciones"}
+    {"id": "c2", "texto": "¿Qué ha pasado? Cuéntanos qué mejorarías", "tipo": "texto", "opciones": [], "dimension": "condiciones", "condicion": {"pregunta": "c1", "valor_max": 2}}
   ],
   "preguntas_por_colectivo": {
     "planta": [

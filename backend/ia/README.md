@@ -7,6 +7,7 @@
 - `recomendar.py`: lectura ejecutiva, acciones con responsable, plazo e indicador, y encuesta de seguimiento.
 - `informe.py`: Pregunta a tus datos (castellano, catalán e inglés) y preguntas sugeridas, solo con datos agregados.
 - `traducir.py`: traducción de encuestas al catalán y al inglés, con los mismos ids y opciones.
+- `compromisos.py`: borrador "Dijisteis → Hemos hecho" de un compromiso (v6): `redactar_compromiso(tema, analisis, accion, colectivos, idioma)`. El modelo solo ve cifras agregadas; RRHH firma.
 - `plantillas_respaldo.py`: encuestas de respaldo (sin modelo) en castellano, catalán e inglés y temas prohibidos en cualquier idioma.
 - `textos_respaldo.py`: textos de respaldo (sin modelo) en castellano, catalán e inglés; nombres de sectores, turnos y temas.
 - `simulados.py`: comentarios simulados coherentes con cada encuesta para el modo demo.
@@ -19,6 +20,7 @@ Las reglas de las encuestas (límites de preguntas, segundos por tipo, duración
 
 ## Variables de entorno
 - `LLM_API_KEY`: clave del equipo.
+- `LLM_API_KEY` basta para activar la IA; `LLM_BASE_URL` y `LLM_MODEL` son opcionales.
 - `LLM_BASE_URL`: por defecto `https://dcc-llm-gw.uab.cat/uabthehack/v1`.
 - `LLM_MODEL`: `ornith` (único modelo disponible en el evento).
 

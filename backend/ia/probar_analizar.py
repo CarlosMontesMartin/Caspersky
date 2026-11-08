@@ -130,6 +130,23 @@ def precision_sin_ia() -> float:
     return precision
 
 
+def probar_compromiso(analisis: dict, accion: dict) -> bool:
+    """Sin IA, redactar_compromiso devuelve Dijisteis y Hemos hecho en es, ca y en, sin comillas (v6)."""
+    import re
+    from unittest import mock
+    from backend.ia import compromisos
+    ok = True
+    with mock.patch.object(compromisos, "hay_llm", lambda: False):
+        for idioma in ("es", "ca", "en"):
+            c = compromisos.redactar_compromiso(accion.get("tema"), analisis, accion, ["planta"], idioma)
+            bien = (c.get("origen") == "reglas" and all(c.get(k) for k in ("dijisteis", "hicimos"))
+                    and not re.search(r"[\"“”«»„]", c["dijisteis"] + c["hicimos"])
+                    and re.search(r"\d", c["dijisteis"]) is not None)
+            print(f"Compromiso sin IA ({idioma}): {'OK' if bien else 'ERROR'} · {c.get('dijisteis')} → {c.get('hicimos')}")
+            ok = ok and bien
+    return ok
+
+
 def _cargar(ruta: Path):
     with open(ruta, encoding="utf-8") as f:
         return json.load(f)
@@ -212,6 +229,8 @@ def main() -> int:
         errores.append("temas sin n_anterior, pct o pct_anterior")
     if seg.get("duracion_max_seg") != 60:
         errores.append("duracion_max_seg del seguimiento distinta de 60")
+    if rec["acciones"] and not probar_compromiso(analisis, rec["acciones"][0]):
+        errores.append("redactar_compromiso sin IA no devuelve los dos textos en los 3 idiomas")
     if precision_sin_ia() < MINIMO_SIN_IA:
         errores.append(f"clasificación sin IA en inglés y catalán por debajo del {MINIMO_SIN_IA:.0%}")
     print("\n" + ("TODAS LAS COMPROBACIONES OK" if not errores else "ERRORES: " + "; ".join(errores)))

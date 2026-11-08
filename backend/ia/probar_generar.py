@@ -44,8 +44,12 @@ def verificar_cumplimiento(
             errores.append(f"Pregunta {p.get('id')} contiene tema prohibido: '{texto}'")
 
     for p in preguntas:
-        if p.get("condicion") is not None:
-            errores.append(f"Pregunta {p.get('id')} tiene condicion != null")
+        c = p.get("condicion")
+        anteriores = encuesta.get("preguntas", [])[:encuesta.get("preguntas", []).index(p)] \
+            if p in encuesta.get("preguntas", []) else []
+        if c is not None and not any(q["id"] == c.get("pregunta") and q["tipo"] == "escala_1_5"
+                                     for q in anteriores):
+            errores.append(f"Pregunta {p.get('id')} tiene una condición que no apunta a una escala anterior")
 
     if encuesta.get("colectivo") not in COLECTIVOS_VALIDOS:
         errores.append(f"Colectivo inválido: {encuesta.get('colectivo')}")
@@ -135,7 +139,8 @@ def probar_tres_necesidades() -> bool:
         print(f"    - 3 a 6 preguntas: {'OK' if 3 <= len(encuesta['preguntas']) <= 6 else 'FALLO'}")
         print(f"    - Tiempo <= máximo ({necesidad['duracion_max_seg']}s): {'OK' if encuesta['tiempo_estimado_seg'] <= necesidad['duracion_max_seg'] else 'FALLO'}")
         print(f"    - Sin temas prohibidos: {'OK' if not any('prohibido' in e for e in errores) else 'FALLO'}")
-        print(f"    - Condicion null: {'OK' if all(p['condicion'] is None for p in encuesta['preguntas']) else 'FALLO'}")
+        print(f"    - Condición válida (null o a una escala anterior): "
+              f"{'OK' if not comprobar_condiciones_y_fija(encuesta, {}) else 'FALLO'}")
         print(f"    - Valores cerrados: {'OK' if not any('inválid' in e for e in errores) else 'FALLO'}")
 
         if ok:
@@ -221,6 +226,10 @@ def prueba_robustez(n: int = 400, semilla: int = 1) -> list:
             p["opciones"] = random.choice([[], ["Sí", "No"], None, "a,b"])
         if random.random() < .7:
             p["dimension"] = random.choice(["condiciones", "bienestar", "foo", None])
+        if random.random() < .4:  # condiciones inventadas: buenas, a ids que no existen o rotas
+            p["condicion"] = random.choice([{"pregunta": random.choice(["x0", "x1", "c1", "p1", "zz"]),
+                                             "valor_max": random.choice([2, "2", 0, 9, None])},
+                                            "p1", None, {}])
         return p
 
     random.seed(semilla)
@@ -230,16 +239,48 @@ def prueba_robustez(n: int = 400, semilla: int = 1) -> list:
         duracion = random.choice([duracion_minima(len(sectores)), 90, 120, 300])
         necesidad = {"objetivo": "Saber cómo afecta el nuevo sistema de turnos", "colectivos": sectores,
                      "contexto": "x", "duracion_max_seg": duracion, "temas_prohibidos": ["salario"]}
+        if random.random() < .3:
+            necesidad["pregunta_fija"] = {"texto": "¿Te da tiempo a hacer la pausa completa?",
+                                          "tipo": random.choice(["escala_1_5", "si_no", "texto", None]),
+                                          "dimension": "bienestar"}
         salida_modelo = {
             "titulo": random.choice(["T", None, ""]), "intro": "i",
             "preguntas": [pregunta_rara(i) for i in range(random.randint(0, 6))],
             "preguntas_por_colectivo": {c: [pregunta_rara(j) for j in range(random.randint(0, 4))]
                                         for c in random.sample(sectores_posibles, random.randint(0, 5))}}
         try:
-            validar_preguntas(validar_encuesta(copy.deepcopy(salida_modelo), necesidad))
+            encuesta = validar_encuesta(copy.deepcopy(salida_modelo), necesidad)
+            validar_preguntas(encuesta)
         except HTTPException as error:
             fallos.append(error.detail)
+            continue
+        problema = comprobar_condiciones_y_fija(encuesta, necesidad)
+        if problema:
+            fallos.append(problema)
     return fallos
+
+
+def comprobar_condiciones_y_fija(encuesta: dict, necesidad: dict) -> str | None:
+    """Condición: a una escala_1_5 anterior, valor_max 1-4, como mucho una por persona.
+    Pregunta fija: la primera, con fija: true, si la necesidad la trae."""
+    nucleo = encuesta["preguntas"]
+    vistas_por_sector = [nucleo + l for l in encuesta["preguntas_por_colectivo"].values()] or [nucleo]
+    for vistas in vistas_por_sector:
+        condicionales = [p for p in vistas if p.get("condicion")]
+        if len(condicionales) > 1:
+            return "más de una pregunta condicional"
+        for p in condicionales:
+            c = p["condicion"]
+            anteriores = vistas[:vistas.index(p)]
+            if not any(q["id"] == c["pregunta"] and q["tipo"] == "escala_1_5" for q in anteriores):
+                return f"condición de {p['id']} sin escala anterior {c}"
+            if not 1 <= c["valor_max"] <= 4:
+                return f"valor_max fuera de rango en {p['id']}"
+    if necesidad.get("pregunta_fija") and not (nucleo and nucleo[0].get("fija")):
+        return "la pregunta fija no es la primera"
+    if sum(1 for v in vistas_por_sector[0] if v.get("fija")) > 1:
+        return "más de una pregunta fija"
+    return None
 
 
 def probar_robustez() -> bool:
@@ -288,6 +329,45 @@ def probar_idiomas() -> bool:
     return ok
 
 
+def probar_fija_y_condicional() -> bool:
+    """v6: pregunta fija la primera (con y sin IA) y una condicional en el respaldo de planta."""
+    print(f"\n{'=' * 70}\n  Caso 7: pregunta fija del compromiso y lógica condicional\n{'=' * 70}")
+    from unittest import mock
+    from backend.ia import generar
+    fija = {"texto": "¿Te da tiempo a hacer la pausa completa?", "tipo": "escala_1_5", "dimension": "bienestar"}
+    modelo = {"titulo": "Pausas", "intro": "Anónima.", "preguntas": [
+        {"id": "p1", "texto": "¿Te da tiempo a hacer la pausa completa en tu turno?", "tipo": "escala_1_5"},
+        {"id": "p2", "texto": "¿Cómo valoras el relevo?", "tipo": "escala_1_5"},
+        {"id": "p3", "texto": "¿Qué ha pasado? Cuéntanos qué mejorarías", "tipo": "texto",
+         "condicion": {"pregunta": "p2", "valor_max": 2}}]}
+    ok = True
+    for nombre, con_ia in (("sin IA", False), ("con IA", True)):
+        for colectivos in (["planta"], ["planta", "oficina"]):
+            necesidad = {"colectivos": colectivos, "objetivo": "Pausas", "duracion_max_seg": 120,
+                         "temas_prohibidos": ["salario"], "pregunta_fija": fija}
+            with mock.patch.object(generar, "hay_llm", lambda: con_ia), \
+                    mock.patch.object(generar, "llamar_llm_json", lambda *a, **k: dict(modelo)):
+                e = generar.generar_encuesta(necesidad)
+            primera = e["preguntas"][0]
+            bien = (primera.get("fija") is True and primera["texto"] == fija["texto"]
+                    and primera["id"] in ("p1", "c1") and not comprobar_condiciones_y_fija(e, necesidad))
+            print(f"  Fija {nombre} · {len(colectivos)} sector(es): {primera['id']} {primera['texto']} → "
+                  f"{'OK' if bien else 'ERROR'}")
+            ok = ok and bien
+    with mock.patch.object(generar, "hay_llm", lambda: False):
+        for colectivos in (["planta"], ["logistica"], ["planta", "oficina"]):
+            e = generar.generar_encuesta({"colectivos": colectivos, "objetivo": "Turnos",
+                                          "duracion_max_seg": 120, "temas_prohibidos": []})
+            todas = e["preguntas"] + [p for l in e["preguntas_por_colectivo"].values() for p in l]
+            condicionales = [p for p in todas if p.get("condicion")]
+            bien = len(condicionales) == 1 and not comprobar_condiciones_y_fija(e, {})
+            print(f"  Condicional sin IA · {'+'.join(colectivos)}: "
+                  f"{condicionales[0]['id'] + ' si ' + str(condicionales[0]['condicion']) if condicionales else 'ninguna'}"
+                  f" → {'OK' if bien else 'ERROR'}")
+            ok = ok and bien
+    return ok
+
+
 def main() -> int:
     """Ejecuta el conjunto completo de pruebas de generación."""
     print("=" * 70)
@@ -298,6 +378,7 @@ def main() -> int:
     ok_mala = probar_encuesta_mala()
     ok_mala = probar_robustez() and ok_mala
     ok_mala = probar_idiomas() and ok_mala
+    ok_mala = probar_fija_y_condicional() and ok_mala
 
     print("\n" + "=" * 70)
     if ok_casos and ok_mala:

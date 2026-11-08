@@ -48,15 +48,15 @@ def _config() -> tuple[str, str, str]:
 
 
 def hay_llm() -> bool:
-    """Indica si están configuradas la clave y la URL del modelo."""
-    return bool(os.getenv("LLM_API_KEY", "").strip() and os.getenv("LLM_BASE_URL", "").strip())
+    """Indica si hay clave del modelo. La URL y el modelo tienen valor por defecto (_config)."""
+    return bool(os.getenv("LLM_API_KEY", "").strip())
 
 
 def llamar_llm(sistema: str, usuario: str, timeout: float = TIMEOUT_SEG) -> str:
     """Envía un mensaje de sistema y uno de usuario al modelo y devuelve el texto de respuesta."""
     clave, base, modelo = _config()
     if not hay_llm():
-        raise RuntimeError("LLM_API_KEY o LLM_BASE_URL no configuradas")
+        raise RuntimeError("LLM_API_KEY no configurada")
 
     cuerpo = json.dumps({
         "model": modelo,

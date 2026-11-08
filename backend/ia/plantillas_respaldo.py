@@ -147,6 +147,11 @@ INTRO = {
 
 QUE_CAMBIARIAS = {"es": "¿Qué cambiarías?", "ca": "Què canviaries?", "en": "What would you change?"}
 
+# Pregunta abierta condicional (solo si la primera escala es 1 o 2), para planta y logística
+QUE_HA_PASADO = {"es": "¿Qué ha pasado? Cuéntanos qué mejorarías",
+                 "ca": "Què ha passat? Explica'ns què milloraries",
+                 "en": "What happened? Tell us what you would improve"}
+
 # Respaldo multisector: dos preguntas propias por colectivo, con el vocabulario de cada uno
 PREGUNTAS_SECTOR: dict[str, dict[str, list[tuple[str, str, str]]]] = {
     "es": {

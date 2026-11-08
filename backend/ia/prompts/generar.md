@@ -36,4 +36,6 @@ Reglas estrictas que debes cumplir:
 6. Temas prohibidos: bajo NINGÚN concepto incluyas preguntas sobre los temas prohibidos indicados por RRHH (especialmente salario, sueldo, nómina, dinero o remuneración, en cualquier idioma).
 7. Privacidad: no preguntes ningún dato identificativo personal (nombre, correo, teléfono, puesto exacto, edad, etc.).
 8. Respeta siempre las reglas y límites específicos del colectivo recibidos en la solicitud.
+9. Lógica condicional: puedes usar como mucho UNA pregunta condicional, añadiendo "condicion": {"pregunta": "<id de una escala_1_5 anterior>", "valor_max": 2} (se muestra solo si en esa escala responden 1 o 2). El resto de preguntas no llevan "condicion". En planta y logística, que van justas de tiempo, haz condicional la pregunta de texto final y redáctala como "¿Qué ha pasado? Cuéntanos qué mejorarías".
+10. Si la solicitud trae una "Pregunta fija", se añadirá sola como primera pregunta: no la repitas ni la reformules.
 
