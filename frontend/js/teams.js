@@ -6,20 +6,35 @@
  * dibujada en HTML con el aspecto de un mensaje de Teams.
  */
 import {
-  obtenerIntegraciones, vistaPreviaTeams, enviarTeamsPublicar, enviarTeamsResumen
+  obtenerIntegraciones, vistaPreviaTeams, enviarTeamsPublicar, enviarTeamsResumen,
+  obtenerEncuesta, obtenerAnalisis, obtenerRecomendaciones, colectivosDe, formatearColectivo, formatearPct
 } from '/js/api.js';
 import { escapar } from '/js/ui.js';
 import { t } from '/js/idioma.js';
+import { hora as horaLocal } from '/js/idioma_base.js';
 
 let integraciones = null;
 
 /** { teams: bool }, pedido una sola vez por página */
 export async function integracionesDisponibles() {
   if (integraciones) return integraciones;
+  // FastAPI publica sus rutas en /openapi.json: si /integraciones no está, ni se llama
+  // (así no aparecen errores 404 en la consola con un servidor sin Teams)
+  let rutas = null;
   try {
-    integraciones = await obtenerIntegraciones();
+    const r = await fetch('/openapi.json');
+    if (r.ok) rutas = Object.keys((await r.json()).paths || {});
+  } catch { /* sin openapi: se prueba directamente */ }
+  const tieneRuta = ruta => !rutas || rutas.some(x => x.replace(/\{[^}]+\}/g, '*') === ruta);
+  const conVistaPrevia = tieneRuta('/encuestas/*/teams/vista_previa');
+  if (rutas && !tieneRuta('/integraciones')) {
+    integraciones = { teams: false, vista_previa: conVistaPrevia };
+    return integraciones;
+  }
+  try {
+    integraciones = { vista_previa: conVistaPrevia, ...(await obtenerIntegraciones()) };
   } catch {
-    integraciones = { teams: false };
+    integraciones = { teams: false, vista_previa: conVistaPrevia };
   }
   return integraciones;
 }
@@ -65,6 +80,52 @@ function dibujarTarjeta(tarjeta) {
   return `<div class="ac-tarjeta">${cuerpo}${acciones ? `<div class="ac-acciones">${acciones}</div>` : ''}</div>`;
 }
 
+/**
+ * Tarjeta hecha en el navegador con los datos que ya da la API, para cuando el servidor
+ * todavía no tiene /teams/vista_previa (así el botón nunca termina en un error).
+ */
+async function tarjetaLocal(encuestaId, tipo) {
+  const texto = (text, extra = {}) => ({ type: 'TextBlock', text, wrap: true, ...extra });
+  if (tipo === 'publicar') {
+    const e = await obtenerEncuesta(encuestaId);
+    const sectores = colectivosDe(e).map(formatearColectivo).join(', ');
+    return {
+      body: [
+        texto(t('teams.t_nueva', 'Nueva encuesta: {titulo}', { titulo: e.titulo || '' }), { size: 'Large', weight: 'Bolder' }),
+        e.intro ? texto(e.intro) : null,
+        { type: 'FactSet', facts: [
+          { title: t('teams.t_sectores', 'Sectores'), value: sectores || '—' },
+          { title: t('teams.t_duracion', 'Duración'), value: t('teams.t_menos_min', 'menos de {min} min', { min: Math.max(1, Math.ceil((e.duracion_max_seg || e.necesidad?.duracion_max_seg || 120) / 60)) }) },
+          { title: t('teams.t_anonima', 'Anónima'), value: t('teams.t_anonima_valor', 'Sí, resultados agregados (mínimo 5 personas)') },
+        ] },
+      ].filter(Boolean),
+      actions: e.url ? [{ type: 'Action.OpenUrl', title: t('teams.t_responder', 'Responder'), url: e.url }] : [],
+    };
+  }
+  const [a, r] = await Promise.all([obtenerAnalisis(encuestaId), obtenerRecomendaciones(encuestaId).catch(() => null)]);
+  const noRep = (a.participacion || []).filter(f => !f.representativo).length;
+  const lectura = a.lectura || r?.lectura;
+  const alertas = (a.alertas || []).slice(0, 3).map(x => texto(`• ${x.mensaje || x}`));
+  const acciones = (r?.acciones || []).slice(0, 2).map(x => texto(`• ${x.titulo || x}`));
+  return {
+    body: [
+      texto(t('teams.t_resumen', 'Resumen · {titulo}', { titulo: a.titulo || '' }), { size: 'Large', weight: 'Bolder' }),
+      lectura ? texto(lectura) : null,
+      { type: 'FactSet', facts: [
+        { title: t('teams.t_respuestas', 'Respuestas'), value: String(a.n_respuestas ?? '—') },
+        { title: t('teams.t_participacion', 'Participación'), value: formatearPct(a.participacion_global) },
+        { title: t('teams.t_no_rep', 'No representativos'), value: `${noRep} / ${(a.participacion || []).length}` },
+      ] },
+      alertas.length ? texto(t('teams.t_alertas', 'Alertas'), { weight: 'Bolder', spacing: 'Medium' }) : null,
+      ...alertas,
+      acciones.length ? texto(t('teams.t_acciones', 'Acciones propuestas'), { weight: 'Bolder', spacing: 'Medium' }) : null,
+      ...acciones,
+    ].filter(Boolean),
+    actions: [{ type: 'Action.OpenUrl', title: t('teams.t_ver', 'Ver análisis'),
+                url: `${window.location.origin}/dashboard.html?id=${encodeURIComponent(encuestaId)}` }],
+  };
+}
+
 /** Ventana con la vista previa con aspecto de mensaje de Teams */
 function abrirVistaPrevia(tarjeta, nota) {
   let dialogo = document.getElementById('dialogo-teams');
@@ -75,12 +136,12 @@ function abrirVistaPrevia(tarjeta, nota) {
     dialogo.setAttribute('aria-labelledby', 'titulo-teams');
     document.body.appendChild(dialogo);
   }
-  const hora = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const hora = horaLocal(new Date(), false);
   dialogo.innerHTML = `
     <h3 id="titulo-teams">${escapar(t('teams.titulo', 'Vista previa del mensaje en Teams'))}</h3>
     ${nota ? `<p class="aviso info" style="margin: var(--e3) 0;">${escapar(nota)}</p>` : ''}
     <div class="teams-canal">
-      <div class="teams-cabecera"><span class="teams-canal-nombre">Damm Escucha activa – demo › Encuestas</span></div>
+      <div class="teams-cabecera"><span class="teams-canal-nombre">${escapar(t('teams.canal', 'Damm Escucha activa – demo › Encuestas'))}</span></div>
       <div class="teams-mensaje">
         <div class="teams-avatar" aria-hidden="true">W</div>
         <div class="teams-contenido">
@@ -105,7 +166,7 @@ export async function accionTeams(encuestaId, tipo, boton) {
   const textoOriginal = boton?.textContent;
   if (boton) { boton.disabled = true; boton.textContent = t('teams.preparando', 'Preparando…'); }
   try {
-    const { teams } = await integracionesDisponibles();
+    const { teams, vista_previa: conVistaPrevia } = await integracionesDisponibles();
     if (teams) {
       if (boton) boton.textContent = t('teams.enviando', 'Enviando…');
       try {
@@ -117,7 +178,14 @@ export async function accionTeams(encuestaId, tipo, boton) {
         if (err.status !== 503) return { ok: false, mensaje: `${t('teams.error_enviar', 'No se pudo enviar a Teams')}: ${err.message}` };
       }
     }
-    const tarjeta = await vistaPreviaTeams(encuestaId, tipo);
+    let tarjeta;
+    try {
+      tarjeta = conVistaPrevia === false ? await tarjetaLocal(encuestaId, tipo) : await vistaPreviaTeams(encuestaId, tipo);
+    } catch (err) {
+      // El servidor aún no tiene la ruta (404/405/501): se dibuja con los datos de la API
+      if (err.status && err.status < 500 && err.status !== 409) tarjeta = await tarjetaLocal(encuestaId, tipo);
+      else throw err;
+    }
     abrirVistaPrevia(tarjeta, t('teams.no_configurado', 'Teams no está configurado en este equipo. Así se vería el mensaje en el canal.'));
     return { ok: true, mensaje: '' };
   } catch (err) {

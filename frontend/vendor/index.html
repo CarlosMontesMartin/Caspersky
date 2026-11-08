@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mis encuestas · Damm Escucha activa</title>
+  <link rel="stylesheet" href="/css/estilos.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="barra-lateral" id="barra-lateral"></aside>
+
+    <main class="contenido">
+      <div class="contenido-interior">
+
+        <div class="cabecera-pagina">
+          <h1 data-i18n="menu.mis_encuestas">Mis encuestas</h1>
+          <div class="acciones">
+            <a href="/crear.html" class="btn btn-principal" data-i18n="menu.nueva">Nueva necesidad</a>
+          </div>
+        </div>
+
+        <div id="mensaje-error" class="aviso error oculto" role="alert"></div>
+
+        <section class="tarjeta" style="padding: 0;">
+          <div class="tabla-envoltura">
+            <table class="tabla">
+              <thead>
+                <tr>
+                  <th style="padding-left: var(--e5);" data-i18n="lista.titulo">Título</th>
+                  <th data-i18n="lista.sector">Sector</th>
+                  <th data-i18n="lista.estado">Estado</th>
+                  <th class="der" data-i18n="dash.kpi_respuestas">Respuestas</th>
+                  <th data-i18n="lista.periodo">Periodo</th>
+                  <th class="der" style="padding-right: var(--e5);"><span class="sr-only" data-i18n="lista.accion">Acción</span></th>
+                </tr>
+              </thead>
+              <tbody id="lista-encuestas">
+                <tr><td colspan="6" class="cargando" style="padding-left: var(--e5);" data-i18n="comun.cargando">Cargando…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="/js/layout.js"></script>
+  <script type="module">
+    import { listarEncuestas, formatearColectivo, formatearEstado } from '/js/api.js';
+    import { escapar, entero, nombrePeriodo } from '/js/ui.js';
+    import { t, alCambiarIdioma } from '/js/idioma.js';
+
+    const cuerpo = document.getElementById('lista-encuestas');
+    const error = document.getElementById('mensaje-error');
+
+    function destino(enc) {
+      const id = encodeURIComponent(enc.id);
+      return enc.estado === 'publicada' ? `/dashboard.html?id=${id}` : `/crear.html?id=${id}`;
+    }
+
+    function fila(enc) {
+      const url = destino(enc);
+      return `
+        <tr class="clicable" data-url="${url}">
+          <td style="padding-left: var(--e5);">
+            <a href="${url}" class="titulo-fila">${escapar(enc.titulo || t('comun.sin_titulo', 'Sin título'))}</a>
+            <span class="sub">${escapar(enc.id)}</span>
+          </td>
+          <td>${escapar(formatearColectivo(enc.colectivo))}</td>
+          <td><span class="badge badge-${escapar(enc.estado)}">${escapar(formatearEstado(enc.estado))}</span></td>
+          <td class="der num">${entero(enc.n_respuestas)}</td>
+          <td class="texto-2">${escapar(nombrePeriodo(enc.periodo))}</td>
+          <td class="der" style="padding-right: var(--e5);"><a href="${url}" class="btn btn-secundario">${escapar(t('lista.abrir', 'Abrir'))}</a></td>
+        </tr>`;
+    }
+
+    async function cargar() {
+      try {
+        const encuestas = await listarEncuestas();
+        if (!encuestas || encuestas.length === 0) {
+          cuerpo.innerHTML = `
+            <tr><td colspan="6" class="vacio" style="padding-left: var(--e5);">
+              ${escapar(t('lista.vacia', 'Todavía no hay encuestas.'))} <a href="/crear.html">${escapar(t('lista.crear_primera', 'Crear la primera'))}</a>
+            </td></tr>`;
+          return;
+        }
+        cuerpo.innerHTML = encuestas.map(fila).join('');
+      } catch (err) {
+        error.textContent = `${t('lista.error', 'No se pudieron cargar las encuestas')}: ${err.message}`;
+        error.classList.remove('oculto');
+        cuerpo.innerHTML = '';
+      }
+    }
+
+    // Toda la fila es clicable (además del enlace del título y el botón)
+    cuerpo.addEventListener('click', e => {
+      if (e.target.closest('a')) return;
+      const tr = e.target.closest('tr[data-url]');
+      if (tr) window.location.href = tr.dataset.url;
+    });
+
+    document.title = `${t('menu.mis_encuestas', 'Mis encuestas')} · Damm ${t('marca.producto', 'Escucha activa')}`;
+    cargar();
+  </script>
+</body>
+</html>

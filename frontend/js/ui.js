@@ -4,7 +4,11 @@
  * e iconos SVG de línea (sin emojis).
  */
 
-const ESPACIO_FINO = ' ';
+import {
+  numero, porcentaje as pct, entero as ent, nombrePeriodo as periodo, t, nombre
+} from '/js/idioma_base.js';
+
+const ESPACIO_FINO = '\u202F';
 
 /** Escapa texto para insertarlo en HTML */
 export function escapar(texto) {
@@ -13,54 +17,36 @@ export function escapar(texto) {
   ));
 }
 
-/** 2.8 → "2,8" */
-export function decimal(valor, decimales = 1) {
-  if (valor === null || valor === undefined || Number.isNaN(Number(valor))) return '—';
-  return Number(valor).toLocaleString('es-ES', {
-    minimumFractionDigits: decimales,
-    maximumFractionDigits: decimales,
-  });
-}
-
-/** 0.228 → "22,8 %" */
-export function porcentaje(tasa, decimales = 1) {
-  if (tasa === null || tasa === undefined || Number.isNaN(Number(tasa))) return '—';
-  return `${decimal(Number(tasa) * 100, decimales)}${ESPACIO_FINO}%`;
-}
-
-/** 1234 → "1.234" */
-export function entero(valor) {
-  return Number(valor || 0).toLocaleString('es-ES');
-}
-
-/** "2026-10" → "octubre 2026" */
-export function nombrePeriodo(periodo) {
-  if (!periodo || !/^\d{4}-\d{2}$/.test(periodo)) return periodo || '—';
-  const [a, m] = periodo.split('-').map(Number);
-  const mes = new Date(a, m - 1, 1).toLocaleString('es-ES', { month: 'long' });
-  return `${mes} ${a}`;
-}
+// Números y fechas en el idioma de la pantalla (Intl), contratos v4 §4
+/** 2.8 → "2,8" / "2.8" */
+export const decimal = (valor, decimales = 1) => numero(valor, decimales);
+/** 0.228 → "22,8 %" / "22.8%" */
+export const porcentaje = (tasa, decimales = 1) => pct(tasa, decimales);
+/** 1234 → "1.234" / "1,234" */
+export const entero = valor => ent(valor);
+/** "2026-10" → "octubre de 2026" / "October 2026" */
+export const nombrePeriodo = p => periodo(p);
 
 export const TIPOS_PREGUNTA = {
-  escala_1_5: 'Escala 1–5',
-  opcion: 'Opción',
-  si_no: 'Sí / No',
-  texto: 'Texto libre',
+  escala_1_5: t('tipo.escala_1_5', 'Escala 1–5'),
+  opcion: t('tipo.opcion', 'Opción'),
+  si_no: t('tipo.si_no', 'Sí / No'),
+  texto: t('tipo.texto', 'Texto libre'),
 };
 
-export const DIMENSIONES = {
+export const DIMENSIONES = Object.fromEntries(Object.entries({
   bienestar: 'Bienestar',
   liderazgo: 'Liderazgo',
   desarrollo: 'Desarrollo',
   cultura: 'Cultura',
   entorno: 'Entorno',
   condiciones: 'Condiciones',
-};
+}).map(([c, texto]) => [c, nombre('dimension', c, texto)]));
 
 export const TIPOS_ALERTA = {
-  representatividad: 'Representatividad',
-  caida: 'Caída',
-  tema_emergente: 'Tema emergente',
+  representatividad: t('alerta_tipo.representatividad', 'Representatividad'),
+  caida: t('alerta_tipo.caida', 'Caída'),
+  tema_emergente: t('alerta_tipo.tema_emergente', 'Tema emergente'),
 };
 
 /**
@@ -69,15 +55,17 @@ export const TIPOS_ALERTA = {
  */
 export function textoLegible(mensaje, mapaPreguntas = {}, formatearColectivo = c => c) {
   let texto = String(mensaje || '');
-  texto = texto.replace(/\bpregunta (p\d+)\b/g, (m, id) => (
-    mapaPreguntas[id] ? `pregunta «${mapaPreguntas[id]}»` : m
+  // "pregunta p4" / "pregunta c1" → «texto de la pregunta» (el backend ya escribe en el idioma pedido)
+  texto = texto.replace(/\b(?:pregunta|question) ([pc]\d+|[a-z]+_\d+)\b/gi, (m, id) => (
+    mapaPreguntas[id] ? m.replace(id, `«${mapaPreguntas[id]}»`) : m
   ));
-  texto = texto.replace(/\b(p\d+)\b/g, (m, id) => (mapaPreguntas[id] ? `«${mapaPreguntas[id]}»` : m));
-  texto = texto.replace(/(\d+)\.(\d+)/g, '$1,$2');
-  texto = texto.replace(/(\d) ?%/g, `$1${ESPACIO_FINO}%`);
+  texto = texto.replace(/\b([pc]\d+)\b/g, (m, id) => (mapaPreguntas[id] ? `«${mapaPreguntas[id]}»` : m));
+  // Decimales con el separador del idioma: "2.8" → "2,8" en es/ca; en inglés se quedan con punto
+  if (numero(1.5, 1).includes(',')) texto = texto.replace(/(\d+)\.(\d+)/g, '$1,$2');
+  texto = texto.replace(/(\d) ?%/g, numero(1, 0) && porcentaje(0.5, 0).includes('\u202F') ? `$1${ESPACIO_FINO}%` : '$1%');
   texto = texto.replace(/\b(planta|logistica|comercial|oficina|manager)\b/g, c => formatearColectivo(c).toLowerCase());
-  texto = texto.replace(/\bsin_turno\b/g, 'sin turno');
-  texto = texto.replace(/'([a-z_]+)'/g, (m, t) => `«${t.replace(/_/g, ' ')}»`);
+  texto = texto.replace(/\b(manana|tarde|noche|sin_turno)\b/g, c => nombre('turno', c).toLowerCase());
+  texto = texto.replace(/'([a-z_]+)'/g, (m, c) => `«${c.replace(/_/g, ' ')}»`);
   return texto;
 }
 

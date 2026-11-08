@@ -18,6 +18,8 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+// Textos en el idioma de la pantalla (contratos v4 §4, UAB 1)
+import { t, nombre as nombreCodigo, porcentaje, numero } from '/js/idioma_base.js';
 
 // =========================================================================
 // CONSTANTES
@@ -29,11 +31,11 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
  * calcula sola: la etiqueta se apoya en el tejado que haya debajo de ese punto.
  */
 export const ZONAS = {
-  planta:    { label: 'Planta',    fx:  0.25, fz: -0.20 },
-  logistica: { label: 'Logística', fx: -0.30, fz: -0.30 },
-  comercial: { label: 'Comercial', fx: -0.30, fz:  0.30 },
-  oficina:   { label: 'Oficina',   fx:  0.05, fz:  0.30 },
-  manager:   { label: 'Managers',  fx:  0.30, fz:  0.25 },
+  planta:    { label: nombreCodigo('colectivo', 'planta', 'Planta'),    fx:  0.25, fz: -0.20 },
+  logistica: { label: nombreCodigo('colectivo', 'logistica', 'Logística'), fx: -0.30, fz: -0.30 },
+  comercial: { label: nombreCodigo('colectivo', 'comercial', 'Comercial'), fx: -0.30, fz:  0.30 },
+  oficina:   { label: nombreCodigo('colectivo', 'oficina', 'Oficina'),   fx:  0.05, fz:  0.30 },
+  manager:   { label: nombreCodigo('colectivo', 'manager', 'Managers'),  fx:  0.30, fz:  0.25 },
 };
 
 /** Mallas del FBX que no forman parte de las instalaciones (decoración) */
@@ -49,11 +51,11 @@ export const COLORES = {
   rojo: '#d64545', ambar: '#e0a43a', verde: '#3f9e5a', gris: '#9aa0a6', atenuado: '#c9ccd1',
 };
 
-const NOMBRE_TEMA = {
+const NOMBRE_TEMA = Object.fromEntries(Object.entries({
   descansos: 'Descansos', turnos: 'Turnos', carga_trabajo: 'Carga de trabajo', comunicacion: 'Comunicación',
   liderazgo: 'Liderazgo', herramientas: 'Herramientas', formacion: 'Formación', reconocimiento: 'Reconocimiento',
   seguridad: 'Seguridad', ambiente: 'Ambiente', conciliacion: 'Conciliación', otros: 'Otros',
-};
+}).map(([c, texto]) => [c, nombreCodigo('tema', c, texto)]));
 const DURACION_PULSO = 1200;
 
 // =========================================================================
@@ -61,11 +63,11 @@ const DURACION_PULSO = 1200;
 // =========================================================================
 
 export function formatearPct(tasa) {
-  return `${Math.round((tasa || 0) * 100)} %`;
+  return porcentaje(tasa || 0, 0);
 }
 
 export function formatearMedia(media) {
-  return media == null ? '—' : media.toFixed(1).replace('.', ',');
+  return media == null ? '—' : numero(media, 1);
 }
 
 function flecha(variacion) {
@@ -84,12 +86,12 @@ export function valorCapa(zona, capa, noche = false, nombre = '') {
   let alertas = zona.alertas || [];
   if (noche) {
     fila = (zona.turnos || []).find((t) => t.turno === 'noche');
-    if (!fila) return { color: COLORES.atenuado, etiqueta: `${nombre} · Sin turno de noche`, atenuada: true };
-    alertas = alertas.filter((a) => /noche/i.test(a));
+    if (!fila) return { color: COLORES.atenuado, etiqueta: `${nombre} · ${t('maqueta.sin_noche', 'Sin turno de noche')}`, atenuada: true };
+    alertas = alertas.filter((a) => /noche|\bnit\b|night/i.test(a));
   }
 
   if (capa === 'valoracion') {
-    if (fila.media == null) return { color: COLORES.gris, etiqueta: `${nombre} · Oculto (n < 5)`, atenuada: false };
+    if (fila.media == null) return { color: COLORES.gris, etiqueta: `${nombre} · ${t('maqueta.oculto', 'Oculto (n < 5)')}`, atenuada: false };
     const color = fila.media < 2.5 ? COLORES.rojo : fila.media < 3.5 ? COLORES.ambar : COLORES.verde;
     return { color, etiqueta: `${nombre} · ${formatearMedia(fila.media)}${noche ? '' : flecha(zona.variacion)}`,
              atenuada: false };
@@ -97,7 +99,7 @@ export function valorCapa(zona, capa, noche = false, nombre = '') {
   if (capa === 'alertas') {
     const n = alertas.length;
     const color = n === 0 ? COLORES.verde : n === 1 ? COLORES.ambar : COLORES.rojo;
-    return { color, etiqueta: `${nombre} · ${n} ${n === 1 ? 'alerta' : 'alertas'}`, atenuada: false };
+    return { color, etiqueta: `${nombre} · ${n === 1 ? t('maqueta.una_alerta', '1 alerta') : t('maqueta.n_alertas', '{n} alertas', { n })}`, atenuada: false };
   }
   const tasa = fila.tasa || 0; // participacion
   const color = tasa < 0.1 ? COLORES.rojo : tasa < 0.2 ? COLORES.ambar : COLORES.verde;
@@ -107,11 +109,11 @@ export function valorCapa(zona, capa, noche = false, nombre = '') {
 /** Necesidad para "Crear encuesta para este sector". */
 export function necesidadParaZona(zona, nombre) {
   const tema = zona.temas?.[0]?.tema;
-  const temaTexto = tema ? (NOMBRE_TEMA[tema] || tema).toLowerCase() : 'el clima laboral';
+  const temaTexto = tema ? (NOMBRE_TEMA[tema] || tema).toLowerCase() : t('maqueta.clima', 'el clima laboral');
   return {
-    objetivo: `Profundizar en ${temaTexto} en ${nombre.toLowerCase()}`,
+    objetivo: t('maqueta.objetivo', 'Profundizar en {tema} en {sector}', { tema: temaTexto, sector: nombre.toLowerCase() }),
     colectivos: [zona.colectivo],
-    contexto: zona.alertas?.[0] || (tema ? `Tema principal: ${temaTexto}` : 'Seguimiento del último pulso'),
+    contexto: zona.alertas?.[0] || (tema ? t('maqueta.tema_principal', 'Tema principal: {tema}', { tema: temaTexto }) : t('maqueta.seguimiento', 'Seguimiento del último pulso')),
     duracion_max_seg: 60,
     temas_prohibidos: ['salario'],
   };
@@ -233,7 +235,7 @@ export function iniciarVista3D(contenedor, analisis, opciones = {}) {
   // --- Carga del modelo FBX (igual que antes) ---
   const loaderOverlay = document.createElement('div');
   loaderOverlay.className = 'visor-3d-loader';
-  loaderOverlay.textContent = 'Cargando maqueta…';
+  loaderOverlay.textContent = t('maqueta.cargando', 'Cargando maqueta…');
   contenedor.appendChild(loaderOverlay);
 
   new FBXLoader().load(
@@ -330,7 +332,7 @@ export function iniciarVista3D(contenedor, analisis, opciones = {}) {
     undefined,
     (err) => {
       console.error('Error cargando fabrica.fbx:', err);
-      loaderOverlay.textContent = '⚠ No se pudo cargar la maqueta 3D';
+      loaderOverlay.textContent = `⚠ ${t('maqueta.error', 'No se pudo cargar la maqueta 3D')}`;
       loaderOverlay.classList.add('visor-3d-loader-error');
       contenedor.dispatchEvent(new CustomEvent('vista3d-error'));
     },
@@ -384,27 +386,27 @@ export function iniciarVista3D(contenedor, analisis, opciones = {}) {
     if (!zona || !panel) return;
     const nombre = zonas[key].label;
     const variacion = zona.variacion == null ? '' :
-      ` (${zona.variacion > 0 ? '+' : ''}${zona.variacion.toFixed(2).replace('.', ',')} vs. periodo anterior)`;
+      ` (${zona.variacion > 0 ? '+' : ''}${numero(zona.variacion, 2)} ${t('maqueta.vs_anterior', 'vs. periodo anterior')})`;
     const temas = (zona.temas || []).length
       ? el('ul', {}, zona.temas.map((t) => el('li', { texto: `${NOMBRE_TEMA[t.tema] || t.tema} · ${t.n}` })))
-      : el('p', { texto: 'Sin temas con 5 comentarios o más.' });
+      : el('p', { texto: t('maqueta.sin_temas', 'Sin temas con 5 comentarios o más.') });
     const alertas = (zona.alertas || []).length
       ? el('ul', {}, zona.alertas.map((a) => el('li', { texto: a })))
-      : el('p', { texto: 'Sin alertas.' });
+      : el('p', { texto: t('maqueta.sin_alertas', 'Sin alertas.') });
     panel.replaceChildren(
       el('h3', { texto: nombre }),
-      el('p', { texto: `Participación: ${formatearPct(zona.tasa)} (${zona.respuestas} de ${zona.personas})` +
-                       (zona.representativo ? '' : ' · no representativa') }),
-      el('p', { texto: zona.media == null ? 'Valoración: oculta (n < 5)'
-                                          : `Valoración: ${formatearMedia(zona.media)} / 5${variacion}` }),
-      el('h4', { texto: 'Temas principales' }), temas,
-      el('h4', { texto: 'Alertas' }), alertas,
+      el('p', { texto: t('maqueta.participacion', 'Participación: {pct} ({n} de {total})', { pct: formatearPct(zona.tasa), n: zona.respuestas, total: zona.personas }) +
+                       (zona.representativo ? '' : ` · ${t('maqueta.no_representativa', 'no representativa')}`) }),
+      el('p', { texto: zona.media == null ? t('maqueta.valoracion_oculta', 'Valoración: oculta (n < 5)')
+                                          : `${t('maqueta.valoracion', 'Valoración: {media} / 5', { media: formatearMedia(zona.media) })}${variacion}` }),
+      el('h4', { texto: t('maqueta.temas', 'Temas principales') }), temas,
+      el('h4', { texto: t('maqueta.alertas', 'Alertas') }), alertas,
       el('div', { style: { display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' } }, [
-        el('button', { type: 'button', className: 'btn', texto: 'Crear encuesta para este sector', onclick: () => {
+        el('button', { type: 'button', className: 'btn', texto: t('maqueta.crear', 'Crear encuesta para este sector'), onclick: () => {
           sessionStorage.setItem('necesidad_prefill', JSON.stringify(necesidadParaZona(zona, nombre)));
           window.location.href = urlCrear;
         } }),
-        el('button', { type: 'button', className: 'btn', texto: 'Ver en el análisis', onclick: () => {
+        el('button', { type: 'button', className: 'btn', texto: t('maqueta.ver_analisis', 'Ver en el análisis'), onclick: () => {
           opciones.onVerEnAnalisis?.(key);
           document.dispatchEvent(new CustomEvent('vista3d:ver-en-analisis', { detail: { colectivo: key } }));
         } }),

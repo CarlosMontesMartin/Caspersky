@@ -8,6 +8,12 @@
 
 export const USAR_EJEMPLOS = false;
 
+// Idioma de la pantalla (contratos v4 §4): se añade a las llamadas y traduce los códigos
+import {
+  IDIOMAS, idioma as IDIOMA_ACTUAL, t as tr, nombre, porcentaje, numero
+} from "/js/idioma_base.js";
+export { IDIOMAS };
+
 import {
   ENCUESTA_MULTISECTOR, ANALISIS_MULTISECTOR, RECOMENDACIONES_MULTISECTOR, respuestaPreguntaEjemplo
 } from "/js/ejemplos_v2.js";
@@ -202,7 +208,18 @@ let _almacenSimulado = _obtenerAlmacen();
 /**
  * Petición HTTP centralizada al backend con manejo de errores FastAPI
  */
+/**
+ * Rutas de RRHH: se les añade ?idioma=<idioma de la pantalla> para que el backend
+ * devuelva sus frases (alertas, límites, lectura, acciones, escenarios…) en ese idioma.
+ * Las rutas /publico/* ya llevan su propio idioma (el de quien responde).
+ */
+function conIdioma(ruta) {
+  if (ruta.startsWith("/publico/") || /[?&]idioma=/.test(ruta)) return ruta;
+  return `${ruta}${ruta.includes("?") ? "&" : "?"}idioma=${encodeURIComponent(IDIOMA_ACTUAL)}`;
+}
+
 async function peticion(ruta, opciones = {}) {
+  ruta = conIdioma(ruta);
   const cabeceras = {
     "Accept": "application/json",
     ...(opciones.headers || {})
@@ -691,13 +708,6 @@ export async function simularRespuestas(id, opciones = {}) {
 // ============================================================================
 
 /** Idiomas de la aplicación: código, nombre en su propio idioma y etiqueta corta */
-export const IDIOMAS = [
-  { codigo: "es", nombre: "Español", corto: "ES" },
-  { codigo: "ca", nombre: "Català", corto: "CA" },
-  { codigo: "en", nombre: "English", corto: "EN" },
-  { codigo: "pt", nombre: "Português", corto: "PT" },
-  { codigo: "zh", nombre: "中文", corto: "中文" },
-];
 
 /**
  * POST /encuestas/{id}/regenerar
@@ -888,31 +898,33 @@ export function preguntasDe(encuesta, colectivo) {
 
 /** 0.261 → "26,1 %" */
 export function formatearPct(tasa, decimales = 1) {
-  if (tasa === null || tasa === undefined || Number.isNaN(Number(tasa))) return "—";
-  return `${(Number(tasa) * 100).toLocaleString("es-ES", { minimumFractionDigits: decimales, maximumFractionDigits: decimales })}\u202F%`;
+  return porcentaje(tasa, decimales);
 }
 
 /** 2.67 → "2,7" */
 export function formatearMedia(media, decimales = 1) {
-  if (media === null || media === undefined || Number.isNaN(Number(media))) return "—";
-  return Number(media).toLocaleString("es-ES", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
+  return numero(media, decimales);
 }
 
 // ============================================================================
 // Diccionarios y formateadores para etiquetas legibles (contratos/modulos.md)
 // ============================================================================
 
+// Los nombres salen de los diccionarios (claves colectivo.*, tema.*, turno.*, estado.*):
+// el castellano de aquí es solo el texto por defecto. Como la página se recarga al cambiar
+// de idioma, basta con calcularlos una vez al cargar.
+const traducirMapa = (tipo, mapa) =>
+  Object.fromEntries(Object.entries(mapa).map(([codigo, texto]) => [codigo, nombre(tipo, codigo, texto)]));
+
 export const ETIQUETAS_COLECTIVOS = {
-  planta: "Planta",
-  logistica: "Logística",
-  comercial: "Comercial",
-  oficina: "Oficina",
-  manager: "Managers",
-  todos: "Todos los sectores",
-  varios: "Varios sectores"
+  ...traducirMapa("colectivo", {
+    planta: "Planta", logistica: "Logística", comercial: "Comercial", oficina: "Oficina", manager: "Managers"
+  }),
+  todos: tr("colectivo.todos_etiqueta", "Todos los sectores"),
+  varios: tr("colectivo.varios_etiqueta", "Varios sectores"),
 };
 
-export const ETIQUETAS_TEMAS = {
+export const ETIQUETAS_TEMAS = traducirMapa("tema", {
   descansos: "Descansos",
   turnos: "Turnos",
   carga_trabajo: "Carga de trabajo",
@@ -926,39 +938,39 @@ export const ETIQUETAS_TEMAS = {
   ambiente: "Ambiente laboral",
   conciliacion: "Conciliación",
   otros: "Otros"
-};
+});
 
-export const ETIQUETAS_TURNOS = {
+export const ETIQUETAS_TURNOS = traducirMapa("turno", {
   manana: "Mañana",
   tarde: "Tarde",
   noche: "Noche",
   sin_turno: "Sin turno"
-};
+});
 
-export const ETIQUETAS_ESTADOS = {
+export const ETIQUETAS_ESTADOS = traducirMapa("estado", {
   borrador: "Borrador",
   aprobada: "Aprobada",
   publicada: "Publicada"
-};
+});
 
 export function formatearColectivo(colectivo) {
   if (!colectivo) return "-";
-  return ETIQUETAS_COLECTIVOS[colectivo] || colectivo.charAt(0).toUpperCase() + colectivo.slice(1);
+  return ETIQUETAS_COLECTIVOS[colectivo] || nombre("colectivo", colectivo);
 }
 
 export function formatearTema(tema) {
   if (!tema) return "-";
-  return ETIQUETAS_TEMAS[tema] || tema.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase());
+  return ETIQUETAS_TEMAS[tema] || nombre("tema", tema);
 }
 
 export function formatearTurno(turno) {
   if (!turno) return "-";
-  return ETIQUETAS_TURNOS[turno] || turno;
+  return ETIQUETAS_TURNOS[turno] || nombre("turno", turno);
 }
 
 export function formatearEstado(estado) {
   if (!estado) return "-";
-  return ETIQUETAS_ESTADOS[estado] || estado;
+  return ETIQUETAS_ESTADOS[estado] || nombre("estado", estado);
 }
 
 // Vinculación al objeto global window para uso tanto de módulos ES6 como scripts clásicos

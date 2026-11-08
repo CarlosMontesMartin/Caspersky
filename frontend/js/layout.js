@@ -18,8 +18,10 @@ const CLAVE_CACHE = 'encuestas_activas';
 const CACHE_MS = 30000;
 const CLAVE_DESPLEGADO = 'menu_encuestas_abierto';
 
+const tSinTitulo = () => t('comun.sin_titulo', 'Sin título');
+
 function recortar(texto, max = 32) {
-  const t = String(texto || 'Sin título').trim();
+  const t = String(texto || tSinTitulo()).trim();
   return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t;
 }
 
@@ -84,11 +86,11 @@ function montar() {
   const enListado = pagina === 'index.html';
 
   barra.innerHTML = `
-    <a href="/" class="marca" aria-label="Damm · Escucha activa, ir a Mis encuestas">
+    <a href="/" class="marca" data-i18n-aria-label="menu.ir_inicio" aria-label="Damm · Escucha activa, ir a Mis encuestas">
       <span class="marca-damm">Damm</span>
-      <span class="marca-producto">Escucha activa</span>
+      <span class="marca-producto" data-i18n="marca.producto">Escucha activa</span>
     </a>
-    <nav class="menu" aria-label="Secciones">
+    <nav class="menu" data-i18n-aria-label="menu.secciones" aria-label="Secciones">
       <div class="menu-grupo">
         <div class="menu-fila ${enListado ? 'activo' : ''}">
           <a href="/" ${enListado ? 'aria-current="page"' : ''}>${ICONOS.lista}<span data-i18n="menu.mis_encuestas">Mis encuestas</span></a>
@@ -118,6 +120,8 @@ function montar() {
   });
 
   traducirZona(barra);
+  // Título de la pestaña del navegador: "… · Damm Escucha activa"
+  document.title = document.title.replace('Escucha activa', t('marca.producto', 'Escucha activa'));
   pintarLista();
 
   // Estado del servidor: IA conectada o modo de respaldo
@@ -135,7 +139,24 @@ function montar() {
     .catch(() => {
       const el = document.getElementById('estado-servidor');
       if (el) { el.innerHTML = '<span class="punto punto-critico"></span><span data-i18n="menu.sin_conexion">Sin conexión con el servidor</span>'; traducirZona(el); }
+      avisoServidor();
     });
+}
+
+/**
+ * Si /salud falla o devuelve HTML, la página no se ha abierto desde el servidor de la app
+ * (por ejemplo, con Live Server en el puerto 5500): todas las llamadas fallarían.
+ */
+function avisoServidor() {
+  if (document.getElementById('banner-servidor')) return;
+  const destino = document.querySelector('.contenido-interior') || document.querySelector('.contenido');
+  if (!destino) return;
+  const aviso = document.createElement('div');
+  aviso.id = 'banner-servidor';
+  aviso.className = 'aviso error banner-servidor';
+  aviso.setAttribute('role', 'alert');
+  aviso.textContent = t('menu.abrir_servidor', 'Abre la aplicación desde http://localhost:8000 (no con Live Server). Si ya está ahí, reinicia el servidor.');
+  destino.prepend(aviso);
 }
 
 if (document.readyState === 'loading') {

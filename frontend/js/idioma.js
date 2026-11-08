@@ -1,83 +1,60 @@
 /**
- * idioma.js — idioma de las pantallas de RRHH (contratos v3, 5.5)
+ * idioma.js — selector de idioma y traducción del HTML de las pantallas de RRHH
+ * (contratos v3 §5.5 y v4 §4)
  *
- * - Selector de idioma arriba a la derecha (menú desplegable): español, català,
- *   English, português y 中文.
- * - Traduce los textos fijos: elementos con data-i18n (texto), data-i18n-placeholder,
- *   data-i18n-title y data-i18n-aria-label, y los que pide el código con t().
- * - Los datos y los textos que genera la IA siguen en castellano.
+ * - Selector arriba a la derecha: ES · CA · EN.
+ * - Traduce los elementos con data-i18n (texto), data-i18n-placeholder, data-i18n-title
+ *   y data-i18n-aria-label; el código usa t() para el resto.
+ * - Al cambiar de idioma se recarga la página: así api.js vuelve a pedir todo con
+ *   ?idioma= y el backend devuelve sus frases (alertas, lectura, acciones…) en ese idioma.
  *
- * Diccionarios: /i18n/rrhh_<código>.json (el castellano es el texto por defecto del HTML).
- * El idioma se guarda en sessionStorage["idioma"], la misma clave que usa responder.html.
+ * El idioma y los diccionarios están en idioma_base.js (sin efectos en la página).
  */
-import { IDIOMAS } from '/js/api.js';
+import { IDIOMAS, idioma, t as traducir, idiomaInicial } from '/js/idioma_base.js';
+
+export { idiomaInicial };
+export const t = traducir;
+export function idiomaActual() { return idioma; }
 
 const CLAVE = 'idioma';
-const CODIGOS = IDIOMAS.map(i => i.codigo);
-let actual = 'es';
-let diccionario = {};
-const avisos = [];
-const originales = new WeakMap(); // texto en castellano de cada elemento, para volver a él
+const antes = [];
 
-/** ?lang= de la URL, después sessionStorage, después el idioma del navegador; por defecto, es */
-export function idiomaInicial() {
-  const url = new URLSearchParams(window.location.search).get('lang');
-  if (CODIGOS.includes(url)) return url;
-  try {
-    const guardado = sessionStorage.getItem(CLAVE);
-    if (CODIGOS.includes(guardado)) return guardado;
-  } catch { /* nada */ }
-  const nav = (navigator.language || 'es').slice(0, 2).toLowerCase();
-  return CODIGOS.includes(nav) ? nav : 'es';
-}
-
-export function idiomaActual() { return actual; }
+/** Compatibilidad: con la recarga ya no hace falta repintar, pero se mantiene la función */
+export function alCambiarIdioma() { /* la página se recarga al cambiar de idioma */ }
 
 /**
- * Texto traducido. Si falta la clave, el texto por defecto (castellano).
- * Variables: t('x', 'Hola {nombre}', { nombre: 'Ana' })
+ * Función que se ejecuta antes de recargar por un cambio de idioma
+ * (por ejemplo, guardar el borrador en crear.html). Puede ser async.
  */
-export function t(clave, porDefecto = clave, variables = {}) {
-  const texto = diccionario[clave] ?? porDefecto;
-  return String(texto).replace(/\{(\w+)\}/g, (m, v) => (v in variables ? variables[v] : m));
-}
-
-/** Registra una función que se llama cada vez que cambia el idioma */
-export function alCambiarIdioma(fn) { avisos.push(fn); }
+export function antesDeCambiarIdioma(fn) { antes.push(fn); }
 
 function aplicar(raiz = document) {
   const pares = [
-    ['data-i18n', el => el.textContent, (el, v) => { el.textContent = v; }],
-    ['data-i18n-placeholder', el => el.getAttribute('placeholder'), (el, v) => el.setAttribute('placeholder', v)],
-    ['data-i18n-title', el => el.getAttribute('title'), (el, v) => el.setAttribute('title', v)],
-    ['data-i18n-aria-label', el => el.getAttribute('aria-label'), (el, v) => el.setAttribute('aria-label', v)],
+    ['data-i18n', (el, v) => { el.textContent = v; }, el => el.textContent],
+    ['data-i18n-placeholder', (el, v) => el.setAttribute('placeholder', v), el => el.getAttribute('placeholder')],
+    ['data-i18n-title', (el, v) => el.setAttribute('title', v), el => el.getAttribute('title')],
+    ['data-i18n-aria-label', (el, v) => el.setAttribute('aria-label', v), el => el.getAttribute('aria-label')],
   ];
-  pares.forEach(([atributo, leer, escribir]) => {
+  pares.forEach(([atributo, escribir, leer]) => {
     raiz.querySelectorAll(`[${atributo}]`).forEach(el => {
-      let guardados = originales.get(el);
-      if (!guardados) { guardados = {}; originales.set(el, guardados); }
-      if (!(atributo in guardados)) guardados[atributo] = (leer(el) || '').trim();
-      escribir(el, t(el.getAttribute(atributo), guardados[atributo]));
+      escribir(el, traducir(el.getAttribute(atributo), (leer(el) || '').trim()));
     });
   });
 }
 
+/** Vuelve a traducir una zona que el código acaba de pintar con data-i18n */
+export function traducirZona(raiz) { aplicar(raiz); }
+
 export async function cambiarIdioma(codigo) {
-  if (!CODIGOS.includes(codigo)) codigo = 'es';
-  let nuevo = {};
-  if (codigo !== 'es') {
-    try {
-      const r = await fetch(`/i18n/rrhh_${codigo}.json`);
-      if (r.ok) nuevo = await r.json();
-    } catch { /* sin diccionario: castellano */ }
+  if (!IDIOMAS.some(i => i.codigo === codigo) || codigo === idioma) return;
+  for (const fn of antes) {
+    try { await fn(codigo); } catch (e) { console.warn(e); }
   }
-  actual = codigo;
-  diccionario = nuevo;
   try { sessionStorage.setItem(CLAVE, codigo); } catch { /* nada */ }
-  document.documentElement.lang = codigo === 'zh' ? 'zh-Hans' : codigo;
-  aplicar();
-  pintarSelector();
-  avisos.forEach(fn => { try { fn(codigo); } catch (e) { console.error(e); } });
+  // ?lang= de la URL manda sobre sessionStorage: se cambia para que la recarga use el nuevo
+  const url = new URL(window.location.href);
+  if (url.searchParams.has('lang')) url.searchParams.set('lang', codigo);
+  window.location.replace(url.toString());
 }
 
 // ---------- Selector arriba a la derecha ----------
@@ -88,21 +65,20 @@ function pintarSelector() {
     caja.id = 'selector-idioma';
     caja.className = 'selector-idioma';
     document.body.appendChild(caja);
-    // Cerrar al pulsar fuera o con Escape
     document.addEventListener('click', e => { if (!caja.contains(e.target)) cerrarMenu(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarMenu(); });
   }
-  const info = IDIOMAS.find(i => i.codigo === actual) || IDIOMAS[0];
+  const info = IDIOMAS.find(i => i.codigo === idioma) || IDIOMAS[0];
   caja.innerHTML = `
     <button type="button" class="selector-idioma-boton" aria-haspopup="true" aria-expanded="false"
-            aria-label="${t('idioma.cambiar', 'Cambiar idioma')}: ${info.nombre}">
+            aria-label="${traducir('idioma.cambiar', 'Cambiar idioma')}: ${info.nombre}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
       <span>${info.corto}</span>
       <svg class="selector-idioma-flecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
     </button>
     <ul class="selector-idioma-menu oculto" role="menu">
       ${IDIOMAS.map(i => `
-        <li role="none"><button type="button" role="menuitemradio" aria-checked="${i.codigo === actual}" data-idioma="${i.codigo}" lang="${i.codigo}">
+        <li role="none"><button type="button" role="menuitemradio" aria-checked="${i.codigo === idioma}" data-idioma="${i.codigo}" lang="${i.codigo}">
           <span class="selector-idioma-corto">${i.corto}</span><span>${i.nombre}</span>
         </button></li>`).join('')}
     </ul>`;
@@ -126,10 +102,11 @@ function cerrarMenu() {
   caja.querySelector('.selector-idioma-boton')?.setAttribute('aria-expanded', 'false');
 }
 
-/** Vuelve a traducir una zona que el código acaba de pintar con data-i18n */
-export function traducirZona(raiz) { aplicar(raiz); }
-
-// Arranque: el idioma inicial se aplica en cuanto carga la página
-const inicio = () => cambiarIdioma(idiomaInicial());
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', inicio);
-else inicio();
+function iniciar() {
+  try { sessionStorage.setItem(CLAVE, idioma); } catch { /* nada */ }
+  document.documentElement.lang = idioma;
+  aplicar();
+  pintarSelector();
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+else iniciar();
