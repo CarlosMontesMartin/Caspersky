@@ -171,7 +171,7 @@ en ese caso usan el **modo de respaldo** descrito en cada una.
 | `llamar_llm(sistema, usuario)` | `str`, `str` | `str` | Llama a la API del evento, compatible con OpenAI: `POST {LLM_BASE_URL}/chat/completions` con la librería estándar de Python (sin el paquete `openai`, para no añadir dependencias), cabecera `Authorization: Bearer {LLM_API_KEY}`, `model = LLM_MODEL` (por defecto `ornith`) y mensajes `system` + `user`. Timeout 30 s. Lanza excepción si falla. |
 | `llamar_llm_json(sistema, usuario)` | `str`, `str` | `dict` o `list` | Llama a `llamar_llm`, extrae el primer bloque JSON del texto y lo parsea. Un reintento si el JSON no es válido. |
 
-### `prompts/` · `generar.md`, `clasificar.md`, `resumir.md`, `recomendar.md`
+### `prompts/` · `generar.md`, `generar_sectores.md`, `clasificar.md`, `resumir.md`, `recomendar_completo.md`, `preguntar.md`, `sugerir.md`, `traducir.md`, `compromiso.md`, `comentarios_simulados.md`
 Textos de los prompts de sistema. Cada uno exige responder solo en JSON con el formato exacto.
 
 ### `generar.py`
