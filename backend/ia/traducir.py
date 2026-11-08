@@ -1,4 +1,4 @@
-"""Traducción de encuestas al catalán, inglés, portugués y chino para quien responde.
+"""Traducción de encuestas al catalán y al inglés para quien responde.
 
 Una llamada al modelo por idioma. Se conservan los ids y el número y orden de las opciones, para
 que las respuestas se puedan guardar siempre con los valores originales en castellano.
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -17,7 +18,7 @@ from .llm import hay_llm, llamar_llm_json
 log = logging.getLogger(__name__)
 
 TIMEOUT_TRADUCIR_SEG = 30
-NOMBRE_IDIOMA = {"ca": "catalán", "en": "inglés", "pt": "portugués", "zh": "chino simplificado"}
+NOMBRE_IDIOMA = {"ca": "catalán", "en": "inglés"}
 IDIOMAS_TRADUCCION = list(NOMBRE_IDIOMA)
 _PROMPTS = Path(__file__).resolve().parent / "prompts"
 
@@ -79,15 +80,20 @@ def _traducir_idioma(original: dict[str, Any], idioma: str,
     usuario = (f"Idioma de destino: {NOMBRE_IDIOMA[idioma]} ({idioma})\n"
                f"Colectivos que responden: {', '.join(colectivos) or 'varios'}\n\n"
                "Encuesta en castellano (JSON):\n" + json.dumps(original, ensure_ascii=False))
+    inicio = time.monotonic()
     try:
         salida = llamar_llm_json((_PROMPTS / "traducir.md").read_text(encoding="utf-8"),
                                  usuario, TIMEOUT_TRADUCIR_SEG)
         traduccion = _validar(original, salida)
         if traduccion is None:
-            log.warning("Traducción al %s descartada: no respeta ids u opciones", NOMBRE_IDIOMA[idioma])
+            log.warning("Traducción al %s descartada: no respeta ids u opciones (%.1f s)",
+                        NOMBRE_IDIOMA[idioma], time.monotonic() - inicio)
+        else:
+            log.info("Traducción al %s lista en %.1f s", NOMBRE_IDIOMA[idioma], time.monotonic() - inicio)
         return traduccion
     except Exception as error:
-        log.warning("Traducción al %s no disponible: %s", NOMBRE_IDIOMA[idioma], error)
+        log.warning("Traducción al %s no disponible (%.1f s): %s", NOMBRE_IDIOMA[idioma],
+                    time.monotonic() - inicio, error)
         return None
 
 
@@ -95,7 +101,8 @@ def traducir_encuesta(encuesta: dict[str, Any], idiomas: list[str]) -> dict[str,
     """Traduce título, intro y preguntas a cada idioma pedido: {"ca": {...}, "en": {...}}.
 
     Mismos ids y mismo número y orden de opciones que el original. Un idioma que falla o no
-    supera la validación no se incluye (la página lo muestra en castellano). Sin modelo, {}.
+    supera la validación no se incluye y queda en el log (la ruta marca estado_traduccion =
+    "error" y la página lo muestra en castellano). Sin modelo, {}.
     """
     idiomas = [i for i in dict.fromkeys(idiomas or []) if i in NOMBRE_IDIOMA]
     if not idiomas or not hay_llm():

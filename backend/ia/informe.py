@@ -1,8 +1,8 @@
 """Pregunta a tus datos y preguntas sugeridas, a partir de resultados agregados.
 
 El modelo solo recibe datos agregados (nunca comentarios individuales) y las preguntas que
-buscan identificar a alguien se rechazan antes de llamarlo, en castellano, catalán, inglés,
-portugués o chino.
+buscan identificar a alguien se rechazan antes de llamarlo. Se responde en castellano, catalán
+o inglés: el de la pregunta y, si no se puede saber, el de la pantalla de RRHH.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from . import segundo_plano
 from .analizar import clasificacion_en_curso
 from .llm import hay_llm, llamar_llm_json
 from .recomendar import datos_agregados
+from . import textos_respaldo as textos
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ TIMEOUT_PREGUNTAR_SEG = 25
 MAX_CARACTERES = 300
 MAX_PALABRAS = 120
 _PROMPTS = Path(__file__).resolve().parent / "prompts"
-_CACHE: dict[tuple[str, str], dict[str, Any]] = {}
+_CACHE: dict[tuple[str, str, str], dict[str, Any]] = {}
 
 MAX_PALABRAS_SUGERENCIA = 14
 
@@ -36,9 +37,6 @@ AYUDA = {
            "o què ha canviat respecte al mes passat?"),
     "en": ("Ask a question about the results, for example: which area is doing worst and why? "
            "or what has changed since last month?"),
-    "pt": ("Escreve uma pergunta sobre os resultados, por exemplo: que setor está pior e porquê? "
-           "ou o que mudou em relação ao mês passado?"),
-    "zh": "请就结果提一个问题，例如：哪个部门情况最差，为什么？或者与上个月相比有什么变化？",
 }
 RESPUESTA_PRIVACIDAD = {
     "es": ("Esta herramienta solo trabaja con resultados agregados: no puede identificar a nadie, "
@@ -50,24 +48,17 @@ RESPUESTA_PRIVACIDAD = {
     "en": ("This tool only works with aggregated results: it cannot identify anyone, reveal what a "
            "person answered or support decisions about specific people. You can ask about groups, "
            "shifts or topics."),
-    "pt": ("Esta ferramenta só trabalha com resultados agregados: não pode identificar ninguém, dizer o "
-           "que uma pessoa respondeu nem servir para tomar decisões sobre pessoas concretas. Podes "
-           "perguntar por grupos, turnos ou temas."),
-    "zh": ("本工具只处理汇总结果：不能识别任何人，不能透露某个人的回答，也不能用于针对具体个人的决定。"
-           "你可以按群体、班次或主题提问。"),
 }
 SIN_IA = {
     "es": "La IA no está disponible en este momento.",
     "ca": "La IA no està disponible en aquest moment.",
     "en": "AI is not available right now.",
-    "pt": "A IA não está disponível neste momento.",
-    "zh": "人工智能暂时不可用。",
 }
 RESUMEN_AUTOMATICO = {"es": "Resumen automático de los datos:", "ca": "Resum automàtic de les dades:",
-                      "en": "Automatic summary of the data:", "pt": "Resumo automático dos dados:",
-                      "zh": "数据自动摘要："}
+                      "en": "Automatic summary of the data:"}
 
-# Peticiones que buscan identificar o actuar sobre personas concretas (castellano, catalán, inglés)
+# Peticiones que buscan identificar o actuar sobre personas concretas. Se responde en es, ca o en,
+# pero se bloquean también en portugués y chino por si alguien pregunta en esos idiomas.
 _IDENTIFICAR = re.compile(
     r"\bquien(es)?\b|\bnombres?\b(?! (del?|de la) (tema|sector|colectivo|turno|encuesta|pregunta))"
     r"|\bdni\b|\bnie\b|\bcorreos?\b|\be-?mails?\b|\btelefonos?\b"
@@ -100,9 +91,6 @@ _MARCAS_IDIOMA = {
     "en": set("what which who whom why how the is are does did has have worst best shift night month "
               "complained complain people anyone someone names fire said say area topic since last "
               "can we".split()),
-    "pt": set("quem qual quais pior melhor noite nao sao voce mudou setor dos das em uma um isso houve "
-              "porque funcionarios turno mes passado ha quanto esta queixou queixa queixaram alguem "
-              "demitir ninguem tambem voces".split()),
 }
 
 
@@ -111,15 +99,14 @@ def _normalizar(texto: str) -> str:
     return "".join(c for c in texto if unicodedata.category(c) != "Mn")
 
 
-def detectar_idioma(texto: str) -> str:
-    """Idioma probable de la pregunta: es, ca, en, pt o zh (caracteres chinos o palabras frecuentes)."""
-    if re.search(r"[\u4e00-\u9fff]", texto or ""):
-        return "zh"
+def detectar_idioma(texto: str, por_defecto: str | None = "es") -> str | None:
+    """Idioma probable de la pregunta (es, ca o en) por sus palabras frecuentes; si no hay pistas,
+    `por_defecto`."""
     palabras = re.findall(r"[a-z]+", _normalizar(texto))
     puntos = {idioma: sum(p in marcas for p in palabras) for idioma, marcas in _MARCAS_IDIOMA.items()}
     # Las palabras compartidas entre castellano y catalán (es, son, ha...) no deciden por sí solas
     mejor = max(puntos, key=lambda i: (puntos[i], i == "es"))
-    return mejor if puntos[mejor] > 0 else "es"
+    return mejor if puntos[mejor] > 0 else por_defecto
 
 
 def busca_identificar(pregunta: str) -> bool:
@@ -131,39 +118,65 @@ def _respuesta(texto: str, cifras: list[str], confianza: str, origen: str) -> di
     return {"respuesta": texto, "cifras": cifras, "confianza": confianza, "origen": origen}
 
 
-def _pct(valor: Any) -> str:
-    return f"{float(valor) * 100:.0f} %" if isinstance(valor, (int, float)) else "—"
+def _pct(valor: Any, idioma: str = "es") -> str:
+    return textos.pct(float(valor), idioma) if isinstance(valor, (int, float)) else "—"
+
+
+_CIFRAS = {
+    "es": {"respuestas": "{n} respuestas en {periodo}",
+           "no_repr": "{quien}: {pct} de participación (no representativo)",
+           "tema": "{tema}: {n} comentarios ({tendencia})",
+           "tendencia": {"nuevo": "nuevo", "sube": "sube", "estable": "estable", "baja": "baja"}},
+    "ca": {"respuestas": "{n} respostes a {periodo}",
+           "no_repr": "{quien}: {pct} de participació (no representatiu)",
+           "tema": "{tema}: {n} comentaris ({tendencia})",
+           "tendencia": {"nuevo": "nou", "sube": "puja", "estable": "estable", "baja": "baixa"}},
+    "en": {"respuestas": "{n} responses in {periodo}",
+           "no_repr": "{quien}: {pct} participation (not representative)",
+           "tema": "{tema}: {n} comments ({tendencia})",
+           "tendencia": {"nuevo": "new", "sube": "rising", "estable": "stable", "baja": "falling"}},
+}
 
 
 def _respuesta_reglas(analisis: dict[str, Any], recomendaciones: dict[str, Any] | None,
                       idioma: str) -> dict[str, Any]:
     # Sin modelo no se interpreta la pregunta: se resumen los datos clave, sin inventar nada
+    f = _CIFRAS[idioma]
     cifras = []
     if analisis.get("n_respuestas"):
-        cifras.append(f"{analisis['n_respuestas']} respuestas en {analisis.get('periodo_actual', '')}")
+        cifras.append(f["respuestas"].format(n=analisis["n_respuestas"],
+                                             periodo=analisis.get("periodo_actual", "")))
     for fila in analisis.get("participacion") or []:
         if fila.get("representativo") is False:
-            cifras.append(f"{fila.get('colectivo')} {fila.get('turno')}: {_pct(fila.get('tasa'))} "
-                          f"de participación (no representativo)")
+            quien = textos.quien(fila.get("colectivo", ""), fila.get("turno"), idioma)
+            cifras.append(f["no_repr"].format(quien=quien[:1].upper() + quien[1:],
+                                              pct=_pct(fila.get("tasa"), idioma)))
     for tema in (analisis.get("temas") or [])[:3]:
-        cifras.append(f"{tema.get('tema')}: {tema.get('n')} comentarios ({tema.get('tendencia')})")
-    lectura = (recomendaciones or {}).get("lectura") or ""
+        nombre = textos.nombre("tema", tema.get("tema", ""), idioma)
+        cifras.append(f["tema"].format(tema=nombre[:1].upper() + nombre[1:], n=tema.get("n"),
+                                       tendencia=f["tendencia"].get(tema.get("tendencia"), "")))
+    # La lectura solo se reutiliza si está en el mismo idioma
+    recs = recomendaciones or {}
+    lectura = (recs.get("lectura") or "") if recs.get("idioma", "es") == idioma else ""
     texto = f"{SIN_IA[idioma]} {RESUMEN_AUTOMATICO[idioma]} {lectura}".strip()
     return _respuesta(texto, cifras[:6], "baja", "reglas")
 
 
 def preguntar(pregunta: str, analisis: dict[str, Any],
-              recomendaciones: dict[str, Any] | None = None) -> dict[str, Any]:
+              recomendaciones: dict[str, Any] | None = None, idioma: str = "es") -> dict[str, Any]:
     """Responde una pregunta en lenguaje natural citando cifras de los resultados agregados.
+
+    Responde en el idioma de la pregunta; si no se puede detectar, en `idioma` (el de la pantalla).
 
     Rechaza sin llamar al modelo las preguntas que buscan identificar a alguien. Límite de 25 s;
     sin modelo o si falla, devuelve un resumen de los datos sin interpretar la pregunta.
     """
     pregunta = " ".join(str(pregunta or "").split())[:MAX_CARACTERES]
     analisis = analisis or {}
-    idioma = detectar_idioma(pregunta)
+    pantalla = textos.idioma_valido(idioma)
+    idioma = detectar_idioma(pregunta, por_defecto=pantalla)
     if not pregunta:
-        return _respuesta(AYUDA["es"], [], "alta", "reglas")
+        return _respuesta(AYUDA[pantalla], [], "alta", "reglas")
     if busca_identificar(pregunta):
         return _respuesta(RESPUESTA_PRIVACIDAD[idioma], [], "alta", "reglas")
     if not hay_llm():
@@ -173,15 +186,15 @@ def preguntar(pregunta: str, analisis: dict[str, Any],
     datos["resumenes_temas"] = {t.get("tema"): t.get("resumen")
                                 for t in analisis.get("temas") or [] if t.get("resumen")}
     datos["acciones_propuestas"] = [a.get("titulo") for a in (recomendaciones or {}).get("acciones") or []]
-    clave = (_normalizar(pregunta), json.dumps(datos, ensure_ascii=False, sort_keys=True))
+    clave = (idioma, _normalizar(pregunta), json.dumps(datos, ensure_ascii=False, sort_keys=True))
     if clave in _CACHE:
         return _CACHE[clave]
 
     try:
         usuario = (f"Pregunta de RRHH: {pregunta}\n\nDatos agregados (JSON):\n"
                    + json.dumps(datos, ensure_ascii=False))
-        salida = llamar_llm_json((_PROMPTS / "preguntar.md").read_text(encoding="utf-8"),
-                                 usuario, TIMEOUT_PREGUNTAR_SEG)
+        prompt = (_PROMPTS / "preguntar.md").read_text(encoding="utf-8") + textos.instruccion_idioma(idioma)
+        salida = llamar_llm_json(prompt, usuario, TIMEOUT_PREGUNTAR_SEG)
         texto = str(salida.get("respuesta", "")).strip() if isinstance(salida, dict) else ""
         if not texto:
             raise ValueError("respuesta vacía")
@@ -199,9 +212,9 @@ def preguntar(pregunta: str, analisis: dict[str, Any],
     return resultado
 
 
-def _sugerir_con_ia(datos: dict[str, Any]) -> list[str] | None:
-    salida = llamar_llm_json((_PROMPTS / "sugerir.md").read_text(encoding="utf-8"),
-                             json.dumps(datos, ensure_ascii=False), segundo_plano.TIMEOUT_SEG)
+def _sugerir_con_ia(datos: dict[str, Any], idioma: str = "es") -> list[str] | None:
+    prompt = (_PROMPTS / "sugerir.md").read_text(encoding="utf-8") + textos.instruccion_idioma(idioma)
+    salida = llamar_llm_json(prompt, json.dumps(datos, ensure_ascii=False), segundo_plano.TIMEOUT_SEG)
     propuestas = salida.get("preguntas") if isinstance(salida, dict) else salida
     preguntas = []
     for texto in propuestas if isinstance(propuestas, list) else []:
@@ -210,26 +223,30 @@ def _sugerir_con_ia(datos: dict[str, Any]) -> list[str] | None:
             continue
         if not texto.endswith("?"):
             texto += "?"
-        if not texto.startswith("¿"):
+        if idioma == "es" and not texto.startswith("¿"):
             texto = "¿" + texto
+        elif idioma != "es":
+            texto = texto.lstrip("¿")
         preguntas.append(texto)
     return preguntas[:3] if len(preguntas) >= 3 else None
 
 
-def sugerir_preguntas(analisis: dict[str, Any]) -> dict[str, Any]:
-    """Tres preguntas que RRHH debería hacerse con estos resultados, propuestas por el modelo.
+def sugerir_preguntas(analisis: dict[str, Any], idioma: str = "es") -> dict[str, Any]:
+    """Tres preguntas que RRHH debería hacerse con estos resultados, propuestas por el modelo
+    y escritas en `idioma` (es, ca o en).
 
     Se calculan en segundo plano con caché por los datos. Sin modelo, o si falla, no hay
     sugerencias: nunca se devuelve una lista fija.
     """
     analisis = analisis or {}
+    idioma = textos.idioma_valido(idioma)
     if not hay_llm() or not analisis.get("n_respuestas"):
         return {"preguntas": [], "origen": "ninguno"}
     if clasificacion_en_curso():
         return {"preguntas": [], "origen": "pendiente"}
     datos = datos_agregados(analisis)
-    clave = ("sugerir", json.dumps(datos, ensure_ascii=False, sort_keys=True))
-    estado, preguntas = segundo_plano.consultar(clave, lambda: _sugerir_con_ia(datos))
+    clave = ("sugerir", idioma, json.dumps(datos, ensure_ascii=False, sort_keys=True))
+    estado, preguntas = segundo_plano.consultar(clave, lambda: _sugerir_con_ia(datos, idioma))
     if estado == "pendiente":
         return {"preguntas": [], "origen": "pendiente"}
     return {"preguntas": preguntas, "origen": "ia"} if preguntas else {"preguntas": [], "origen": "ninguno"}
