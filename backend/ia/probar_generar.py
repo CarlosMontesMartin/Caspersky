@@ -256,6 +256,38 @@ def probar_robustez() -> bool:
     return not fallos
 
 
+def probar_idiomas() -> bool:
+    """Sin IA, una encuesta en catalán o en inglés sale entera en ese idioma (v5, P0-1)."""
+    print(f"\n{'=' * 70}\n  Caso 6: idioma original (es, ca, en) y temas prohibidos en cualquier idioma\n{'=' * 70}")
+    from backend.api.validacion import validar_preguntas
+    marcas = {"es": ("¿", "turnos"), "ca": ("torns", "Com "), "en": ("shift", "How ")}
+    ajenas = {"es": ("torns", "shift"), "ca": ("¿", "shift"), "en": ("¿", "torns")}
+    ok = True
+    for idioma in ("es", "ca", "en"):
+        for colectivos in (["planta"], ["planta", "logistica", "oficina"]):
+            e = generar_encuesta({"colectivos": colectivos, "objetivo": "Nuevo sistema de turnos",
+                                  "contexto": "", "duracion_max_seg": 120,
+                                  "temas_prohibidos": ["salario"]}, "", idioma)
+            textos = " ".join([e["titulo"], e["intro"]] + [p["texto"] for p in e["preguntas"]]
+                              + [p["texto"] for l in e["preguntas_por_colectivo"].values() for p in l])
+            bien = (e.get("idioma_original") == idioma and any(m in textos for m in marcas[idioma])
+                    and not any(m in textos for m in ajenas[idioma]))
+            try:
+                validar_preguntas(e)
+            except Exception as error:  # noqa: BLE001
+                bien = False
+                print(f"    validar_preguntas rechaza la encuesta: {error}")
+            print(f"  {idioma} · {len(colectivos)} sector(es): {e['titulo']} → {'OK' if bien else 'ERROR'}")
+            ok = ok and bien
+    for lista in (["salario"], ["sou"], ["salary"]):
+        t = _construir_terminos_prohibidos(lista)
+        frases = ["¿Estás contento con tu sueldo?", "Estàs content amb el teu sou?", "Is your salary fair?"]
+        bien = all(_texto_contiene_prohibido(f, t) for f in frases)
+        print(f"  Prohibido {lista} bloquea es/ca/en: {'OK' if bien else 'ERROR'}")
+        ok = ok and bien
+    return ok
+
+
 def main() -> int:
     """Ejecuta el conjunto completo de pruebas de generación."""
     print("=" * 70)
@@ -265,6 +297,7 @@ def main() -> int:
     ok_casos = probar_tres_necesidades()
     ok_mala = probar_encuesta_mala()
     ok_mala = probar_robustez() and ok_mala
+    ok_mala = probar_idiomas() and ok_mala
 
     print("\n" + "=" * 70)
     if ok_casos and ok_mala:
