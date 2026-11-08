@@ -35,7 +35,7 @@
           </div>
           <div class="acciones">
             <button type="button" class="btn btn-secundario" id="btn-actualizar">Actualizar</button>
-            <a class="btn btn-secundario" id="btn-informe">Informe ejecutivo</a>
+            <a class="btn btn-secundario oculto" id="btn-informe">Informe ejecutivo</a>
             <button type="button" class="btn btn-secundario" id="btn-formulario">Formulario (QR)</button>
             <button type="button" class="btn btn-secundario oculto" id="btn-simular">Simular respuestas</button>
           </div>
@@ -45,6 +45,7 @@
 
         <nav class="pestanas" role="tablist" aria-label="Vistas">
           <button type="button" class="pestana activa" role="tab" aria-selected="true" data-pestana="resumen">Resumen</button>
+          <button type="button" class="pestana" role="tab" aria-selected="false" data-pestana="graficos">Gráficos</button>
           <button type="button" class="pestana" role="tab" aria-selected="false" data-pestana="maqueta">Maqueta 3D</button>
         </nav>
 
@@ -96,7 +97,52 @@
               <ul class="lista-alertas" id="lista-alertas"></ul>
             </section>
 
-            <!-- 4. Gráficos -->
+            <!-- 4. Pregunta a tus datos -->
+            <section class="tarjeta seccion" id="seccion-preguntar">
+              <div class="tarjeta-cabecera" style="margin-bottom: var(--e2);">
+                <h3>Pregunta a tus datos</h3>
+                <span class="nota">Solo usa datos agregados. No identifica a nadie.</span>
+              </div>
+              <form id="form-preguntar" class="preguntar">
+                <label class="sr-only" for="input-pregunta">Tu pregunta</label>
+                <input type="text" id="input-pregunta" class="entrada" maxlength="300"
+                       placeholder="Escribe una pregunta sobre estos resultados">
+                <button type="submit" class="btn btn-secundario" id="btn-preguntar">Preguntar</button>
+              </form>
+              <div class="sugerencias" id="sugerencias">
+                <button type="button" class="chip">¿Qué sector está peor y por qué?</button>
+                <button type="button" class="chip">¿Qué ha cambiado respecto al mes pasado?</button>
+                <button type="button" class="chip">¿Es fiable el dato del turno de noche?</button>
+              </div>
+              <div id="respuesta-datos" class="respuesta-datos oculto" aria-live="polite"></div>
+            </section>
+
+            <!-- 5. Recomendaciones -->
+            <section class="seccion">
+              <div class="tarjeta-cabecera">
+                <h3>Recomendaciones <span class="badge oculto" id="badge-origen-recs"></span></h3>
+                <span class="nota">Propuestas para que RRHH decida</span>
+              </div>
+              <div class="recomendaciones" id="lista-recomendaciones"></div>
+              <div class="tarjeta seguimiento oculto" id="bloque-seguimiento">
+                <div>
+                  <div class="etiqueta">Encuesta de seguimiento propuesta</div>
+                  <div class="texto-2" id="seguimiento-objetivo" style="margin-top: var(--e1);"></div>
+                  <div class="nota" id="seguimiento-sectores" style="margin-top: var(--e1);"></div>
+                </div>
+                <button type="button" class="btn btn-principal" id="btn-seguimiento">Crear encuesta de seguimiento</button>
+              </div>
+            </section>
+
+            <!-- 6. Límites -->
+            <div class="limites" id="limites"></div>
+          </div>
+        </div>
+
+        <!-- ===================== GRÁFICOS ===================== -->
+        <div id="vista-graficos" class="oculto">
+          <div id="cargando-graficos" class="cargando">Cargando…</div>
+          <div id="graficos" class="oculto">
             <div class="dos-columnas">
               <section class="tarjeta">
                 <div class="tarjeta-cabecera">
@@ -141,45 +187,6 @@
               <div id="calor-sectores"></div>
             </section>
 
-            <!-- 5. Pregunta a tus datos -->
-            <section class="tarjeta seccion" id="seccion-preguntar">
-              <div class="tarjeta-cabecera" style="margin-bottom: var(--e2);">
-                <h3>Pregunta a tus datos</h3>
-                <span class="nota">Solo usa datos agregados. No identifica a nadie.</span>
-              </div>
-              <form id="form-preguntar" class="preguntar">
-                <label class="sr-only" for="input-pregunta">Tu pregunta</label>
-                <input type="text" id="input-pregunta" class="entrada" maxlength="300"
-                       placeholder="Escribe una pregunta sobre estos resultados">
-                <button type="submit" class="btn btn-secundario" id="btn-preguntar">Preguntar</button>
-              </form>
-              <div class="sugerencias" id="sugerencias">
-                <button type="button" class="chip">¿Qué sector está peor y por qué?</button>
-                <button type="button" class="chip">¿Qué ha cambiado respecto al mes pasado?</button>
-                <button type="button" class="chip">¿Es fiable el dato del turno de noche?</button>
-              </div>
-              <div id="respuesta-datos" class="respuesta-datos oculto" aria-live="polite"></div>
-            </section>
-
-            <!-- 6. Recomendaciones -->
-            <section class="seccion">
-              <div class="tarjeta-cabecera">
-                <h3>Recomendaciones <span class="badge oculto" id="badge-origen-recs"></span></h3>
-                <span class="nota">Propuestas para que RRHH decida</span>
-              </div>
-              <div class="recomendaciones" id="lista-recomendaciones"></div>
-              <div class="tarjeta seguimiento oculto" id="bloque-seguimiento">
-                <div>
-                  <div class="etiqueta">Encuesta de seguimiento propuesta</div>
-                  <div class="texto-2" id="seguimiento-objetivo" style="margin-top: var(--e1);"></div>
-                  <div class="nota" id="seguimiento-sectores" style="margin-top: var(--e1);"></div>
-                </div>
-                <button type="button" class="btn btn-principal" id="btn-seguimiento">Crear encuesta de seguimiento</button>
-              </div>
-            </section>
-
-            <!-- 7. Límites -->
-            <div class="limites" id="limites"></div>
           </div>
         </div>
 
@@ -283,6 +290,10 @@
       $('badge-estado').className = `badge badge-${encuesta.estado}`;
       $('badge-estado').textContent = formatearEstado(encuesta.estado);
       $('btn-informe').href = `/informe.html?id=${encodeURIComponent(encuestaId)}`;
+      // informe.html es de UAB 2: el botón aparece solo cuando la página existe
+      fetch('/informe.html', { method: 'HEAD' })
+        .then(r => { if (r.ok) $('btn-informe').classList.remove('oculto'); })
+        .catch(() => {});
       actualizarMapaPreguntas();
     }
 
@@ -322,6 +333,8 @@
         cargandoAhora = false;
         $('cargando').classList.add('oculto');
         $('resumen').classList.toggle('oculto', !analisis);
+        $('cargando-graficos').classList.add('oculto');
+        $('graficos').classList.toggle('oculto', !analisis);
       }
     }
 
@@ -707,9 +720,9 @@
         </div>` : '';
     }
 
-    /** Resalta la columna de un sector (lo usa "Ver en el análisis" de la maqueta 3D) */
+    /** Resalta la columna de un sector en el mapa de calor (lo usa "Ver en el análisis" de la maqueta 3D) */
     function resaltarSector(colectivo) {
-      cambiarPestana('resumen');
+      cambiarPestana('graficos');
       document.querySelectorAll('[data-col]').forEach(el => el.classList.toggle('resaltado', el.dataset.col === colectivo));
       $('seccion-calor').scrollIntoView({ behavior: 'smooth', block: 'start' });
       setTimeout(() => document.querySelectorAll('.resaltado').forEach(el => el.classList.remove('resaltado')), 4000);
@@ -868,7 +881,10 @@
         p.setAttribute('aria-selected', String(activa));
       });
       $('vista-resumen').classList.toggle('oculto', nombre !== 'resumen');
+      $('vista-graficos').classList.toggle('oculto', nombre !== 'graficos');
       $('vista-maqueta').classList.toggle('oculto', nombre !== 'maqueta');
+      // Los gráficos se dibujan con la pestaña oculta: al mostrarla se ajustan a su tamaño
+      if (nombre === 'graficos') Object.values(graficos).forEach(g => g.resize());
       if (nombre === 'maqueta') { pintarLeyenda(); abrirMaqueta(); }
       else cerrarMaqueta();
     }

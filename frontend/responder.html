@@ -63,19 +63,25 @@
   </main>
 
   <script type="module">
-    import { obtenerEncuestaPublica, enviarRespuesta, formatearTurno } from '/js/api.js';
+    import {
+      obtenerEncuestaPublica, enviarRespuesta, formatearTurno, formatearColectivo, colectivosDe, preguntasDe
+    } from '/js/api.js';
     import { escapar } from '/js/ui.js';
 
     const app = document.getElementById('app');
     const encuestaId = decodeURIComponent(window.location.pathname.split('/').filter(Boolean).pop() || '');
-    const canalUrl = new URLSearchParams(window.location.search).get('canal');
+    const parametros = new URLSearchParams(window.location.search);
+    const canalUrl = parametros.get('canal');
+    const colectivoUrl = parametros.get('colectivo'); // QR de un sector: ?colectivo=planta
     const canal = canalUrl === 'quiosco' ? 'quiosco' : 'qr';
     const esQuiosco = canal === 'quiosco';
     if (esQuiosco) document.body.classList.add('quiosco');
 
     let encuesta = null;
     let transparencia = { corta: [], completa: '' };
-    let estado = null; // { turno, valores, indice }
+    let estado = null; // { colectivo, turno, valores, indice }
+    let sectores = [];  // sectores de la encuesta
+    let sectorFijo = null; // si el QR ya indica el sector, no se pregunta
 
     // ---------- Texto de transparencia ----------
     // El servidor envía contenido/transparencia.md. Si es el documento completo,
@@ -101,6 +107,20 @@
     }
     function prepararTransparencia(texto) {
       const md = String(texto || '').replace(/\r/g, '');
+      // Formato actual: sección "## Castellano" con dos frases y una lista de garantías
+      const castellano = md.match(/^##\s*Castellano[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m);
+      if (castellano) {
+        const lineas = castellano[1].split('\n').map(l => l.trim()).filter(Boolean);
+        const frases = lineas.filter(l => !l.startsWith('- ') && !l.startsWith('>')).map(limpiar).filter(Boolean);
+        const lista = lineas.filter(l => l.startsWith('- ')).map(l => limpiar(l.slice(2))).filter(Boolean);
+        return {
+          corta: frases.slice(0, 2),
+          completa: [
+            ...frases.slice(2).map(f => `<p>${escapar(f)}</p>`),
+            lista.length ? `<ul>${lista.map(l => `<li>${escapar(l)}</li>`).join('')}</ul>` : '',
+          ].join(''),
+        };
+      }
       if (!/^##\s/m.test(md)) {
         const frases = md.split(/(?<=\.)\s+/).map(s => s.trim()).filter(Boolean);
         return { corta: frases.slice(0, 2), completa: frases.slice(2).length ? `<p>${escapar(frases.slice(2).join(' '))}</p>` : '' };
@@ -117,8 +137,15 @@
     }
 
     // ---------- Preguntas visibles (respetando las condiciones) ----------
+    // Núcleo común + preguntas propias del sector elegido (contratos v2, 1.1).
+    // La pregunta abierta del núcleo se muestra al final, después de las del sector.
+    const preguntasSector = () => {
+      const todas = preguntasDe(encuesta, estado.colectivo);
+      return [...todas.filter(p => p.tipo !== 'texto'), ...todas.filter(p => p.tipo === 'texto')];
+    };
+
     function visibles() {
-      return encuesta.preguntas.filter(p => {
+      return preguntasSector().filter(p => {
         if (!p.condicion) return true;
         const v = estado.valores[p.condicion.pregunta];
         return typeof v === 'number' && v <= p.condicion.valor_max;
@@ -131,9 +158,18 @@
     };
 
     // ---------- Pantallas ----------
+    function turnosDelSector() {
+      if (!estado.colectivo) return [];
+      return (encuesta.turnos_por_colectivo || {})[estado.colectivo] || encuesta.turnos || ['sin_turno'];
+    }
+
     function pantallaInicio() {
-      const turnos = encuesta.turnos || ['sin_turno'];
+      const preguntarSector = sectores.length > 1 && !sectorFijo;
+      const turnos = turnosDelSector();
       if (turnos.length === 1) estado.turno = turnos[0];
+      else if (!turnos.includes(estado.turno)) estado.turno = null;
+      const listo = !!estado.colectivo && !!estado.turno;
+      const n = estado.colectivo ? preguntasSector().length : null;
       const t = transparencia;
       app.innerHTML = `
         <div class="resp-marca">Damm</div>
@@ -144,14 +180,19 @@
           ${t.completa ? `<button type="button" class="mas" id="btn-mas" aria-expanded="false">Más información</button>
             <div class="completa oculto" id="texto-completo">${t.completa}</div>` : ''}
         </div>
+        ${preguntarSector ? `
+          <p class="enunciado" id="titulo-sector">¿Dónde trabajas?</p>
+          <div class="opciones-resp sectores-resp" role="group" aria-labelledby="titulo-sector">
+            ${sectores.map(c => `<button type="button" class="opcion-resp" data-sector="${escapar(c)}" aria-pressed="${estado.colectivo === c}">${escapar(formatearColectivo(c))}</button>`).join('')}
+          </div>` : ''}
         ${turnos.length > 1 ? `
-          <p class="enunciado">¿En qué turno trabajas?</p>
-          <div class="opciones-resp" role="group" aria-label="Turno">
+          <p class="enunciado" id="titulo-turno" style="${preguntarSector ? 'margin-top: var(--e5);' : ''}">¿En qué turno trabajas?</p>
+          <div class="opciones-resp" role="group" aria-labelledby="titulo-turno">
             ${turnos.map(tu => `<button type="button" class="opcion-resp" data-turno="${escapar(tu)}" aria-pressed="${estado.turno === tu}">${escapar(formatearTurno(tu))}</button>`).join('')}
           </div>` : ''}
         <div class="resp-pie">
-          <span class="nota">${encuesta.preguntas.length} preguntas · menos de ${Math.max(1, Math.ceil((encuesta.tiempo_estimado_seg || 60) / 60))} min</span>
-          <button type="button" class="btn btn-principal" id="btn-empezar" ${estado.turno ? '' : 'disabled'}>Empezar</button>
+          <span class="nota">${n ? `${n} preguntas · ` : ''}menos de ${Math.max(1, Math.ceil((encuesta.tiempo_estimado_seg || 60) / 60))} min</span>
+          <button type="button" class="btn btn-principal" id="btn-empezar" ${listo ? '' : 'disabled'}>Empezar</button>
         </div>`;
 
       document.getElementById('btn-mas')?.addEventListener('click', e => {
@@ -160,10 +201,20 @@
         e.target.textContent = abierto ? 'Más información' : 'Menos información';
         document.getElementById('texto-completo').classList.toggle('oculto', abierto);
       });
+      app.querySelectorAll('[data-sector]').forEach(b => b.addEventListener('click', () => {
+        if (estado.colectivo !== b.dataset.sector) {
+          estado.colectivo = b.dataset.sector;
+          estado.turno = null;
+          estado.valores = {}; // las preguntas propias cambian con el sector
+        }
+        pantallaInicio();
+        // En el móvil, llevar la vista a la pregunta del turno
+        document.getElementById('titulo-turno')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }));
       app.querySelectorAll('[data-turno]').forEach(b => b.addEventListener('click', () => {
         estado.turno = b.dataset.turno;
         app.querySelectorAll('[data-turno]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-        document.getElementById('btn-empezar').disabled = false;
+        document.getElementById('btn-empezar').disabled = !estado.colectivo;
       }));
       document.getElementById('btn-empezar').addEventListener('click', () => { estado.indice = 0; pantallaPregunta(); });
     }
@@ -230,7 +281,7 @@
       app.querySelectorAll('[data-valor]').forEach(b => b.addEventListener('click', () => {
         estado.valores[p.id] = p.tipo === 'escala_1_5' ? Number(b.dataset.valor) : b.dataset.valor;
         // Si cambia la respuesta, las preguntas que ya no aplican se descartan
-        encuesta.preguntas.forEach(x => {
+        preguntasSector().forEach(x => {
           if (x.condicion?.pregunta === p.id && !visibles().includes(x)) delete estado.valores[x.id];
         });
         const listaNueva = visibles();
@@ -261,7 +312,7 @@
         valores[p.id] = typeof v === 'string' ? v.trim() : v;
       });
       try {
-        await enviarRespuesta(encuestaId, { turno: estado.turno, canal, valores });
+        await enviarRespuesta(encuestaId, { colectivo: estado.colectivo, turno: estado.turno, canal, valores });
         pantallaFinal();
       } catch (err) {
         const caja = document.getElementById('error-envio');
@@ -284,13 +335,16 @@
     }
 
     function reiniciar() {
-      estado = { turno: null, valores: {}, indice: 0 };
+      // En quiosco se vuelve a preguntar el sector, salvo que el QR lo indique
+      estado = { colectivo: sectorFijo || (sectores.length === 1 ? sectores[0] : null), turno: null, valores: {}, indice: 0 };
       pantallaInicio();
     }
 
     async function iniciar() {
       try {
         encuesta = await obtenerEncuestaPublica(encuestaId);
+        sectores = colectivosDe(encuesta);
+        sectorFijo = sectores.includes(colectivoUrl) ? colectivoUrl : null;
         transparencia = prepararTransparencia(encuesta.transparencia);
         reiniciar();
       } catch (err) {
