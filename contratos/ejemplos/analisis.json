@@ -75,19 +75,23 @@
       "tipo": "representatividad",
       "mensaje": "El turno de noche de planta solo ha respondido un 3 % (4 de 140): los resultados pueden no representarle.",
       "colectivo": "planta",
-      "turno": "noche"
+      "turno": "noche",
+      "tasa": 0.029
     },
     {
       "tipo": "representatividad",
       "mensaje": "Logística solo ha respondido un 10 % (9 de 90): los resultados pueden no representarle.",
       "colectivo": "logistica",
-      "turno": "sin_turno"
+      "turno": "sin_turno",
+      "tasa": 0.1
     },
     {
       "tipo": "caida",
       "mensaje": "«¿Cómo valoras el nuevo sistema de turnos?» baja de 3,3 a 2,4 en planta respecto al periodo anterior.",
       "colectivo": "planta",
-      "pregunta": "c1"
+      "pregunta": "c1",
+      "antes": 3.3,
+      "despues": 2.4
     }
   ],
   "limites": [
@@ -372,5 +376,6 @@
     "origen_recomendaciones": "ia",
     "resumenes_listos": true,
     "recomendaciones_listas": true
-  }
+  },
+  "idioma": "es"
 }

@@ -11,6 +11,7 @@ from backend.api import simulacion, traducciones
 from backend.api.qr import generar_qr
 from backend.api.validacion import colectivos_de, etiqueta_colectivo, validar_necesidad, validar_preguntas
 from backend.datos import almacen, metricas
+from backend.reglas import IDIOMAS, idioma_valido
 
 router = APIRouter()
 
@@ -45,12 +46,16 @@ def _completar_temas(temas: list, actual: list, anterior: list) -> list:
     return temas
 
 
-def analisis_y_recomendaciones(encuesta: dict) -> tuple[dict, dict]:
+def analisis_y_recomendaciones(encuesta: dict, idioma: str = "es") -> tuple[dict, dict]:
+    """Análisis y recomendaciones con las frases del backend y de la IA en `idioma`.
+    Los textos de RRHH (título y preguntas) salen traducidos si existe traducciones[idioma]."""
+    idioma = idioma_valido(idioma)
+    vista = traducciones.aplicar(encuesta, idioma)  # mismos ids, textos en el idioma si hay traducción
     respuestas = almacen.leer_respuestas(encuesta["id"])
-    base = metricas.calcular_metricas(respuestas, almacen.leer_plantilla(), encuesta)
+    base = metricas.calcular_metricas(respuestas, almacen.leer_plantilla(), vista, idioma)
     actual, anterior, _, _ = metricas.separar_periodos(respuestas)
 
-    temas = _completar_temas(ia.analizar_comentarios(actual, anterior), actual, anterior)
+    temas = _completar_temas(ia.analizar_comentarios(actual, anterior, idioma), actual, anterior)
 
     con_texto = [r for r in actual if r.get("comentario")]
     textos = [r["comentario"] for r in con_texto]
@@ -58,9 +63,9 @@ def analisis_y_recomendaciones(encuesta: dict) -> tuple[dict, dict]:
     zonas = metricas.calcular_zonas(actual, anterior, base["participacion"], encuesta,
                                     base["alertas"], temas_por_respuesta)
 
-    analisis = {"encuesta_id": encuesta["id"], "titulo": encuesta.get("titulo", ""), **base,
+    analisis = {"encuesta_id": encuesta["id"], "titulo": vista.get("titulo", ""), "idioma": idioma, **base,
                 "temas": temas, "zonas": zonas, "lectura": "", "estado_ia": {}}
-    recomendaciones = ia.recomendar(analisis, encuesta)
+    recomendaciones = ia.recomendar(analisis, encuesta, idioma)
     analisis["lectura"] = recomendaciones.get("lectura", "")
 
     llm = ia.hay_llm()
@@ -88,19 +93,38 @@ def salud():
     return {"ok": True, "llm": ia.hay_llm(), "modo_demo": modo_demo()}
 
 
+def _en_idioma(valor, idioma: str):
+    """{"es": …, "ca": …, "en": …} → el del idioma (o castellano). Cualquier otro valor, tal cual."""
+    if isinstance(valor, dict) and valor and set(valor) <= set(IDIOMAS):
+        return valor.get(idioma) or valor.get("es") or next(iter(valor.values()))
+    return valor
+
+
 @router.get("/escenarios")
-def escenarios():
-    """contenido/escenarios.json (UAB 2) si existe; si no, los escenarios de respaldo de backend/api."""
+def escenarios(idioma: str = "es"):
+    """contenido/escenarios.json (UAB 2) en el idioma pedido; si no existe, los de backend/api/escenarios.py."""
+    idioma = idioma_valido(idioma)
     archivo = almacen.CONTENIDO / "escenarios.json"
     if archivo.exists():
-        return json.loads(archivo.read_text(encoding="utf-8"))
-    from backend.api.escenarios import ESCENARIOS
-    return ESCENARIOS
+        lista = json.loads(archivo.read_text(encoding="utf-8"))
+    else:
+        from backend.api.escenarios import ESCENARIOS
+        lista = ESCENARIOS
+    return [{k: (v if k == "necesidad" else _en_idioma(v, idioma)) for k, v in e.items()} for e in lista]
 
 
 @router.get("/encuestas")
-def listar():
-    return almacen.listar_encuestas()
+def listar(idioma: str = "es"):
+    """Resumen de las encuestas; el título, traducido si existe traducciones[idioma]."""
+    idioma = idioma_valido(idioma)
+    lista = almacen.listar_encuestas()
+    if idioma != "es":
+        for fila in lista:
+            encuesta = almacen.leer_encuesta(fila["id"]) or {}
+            titulo = ((encuesta.get("traducciones") or {}).get(idioma) or {}).get("titulo")
+            if isinstance(titulo, str) and titulo.strip():
+                fila["titulo"] = titulo
+    return lista
 
 
 def _desde_necesidad(necesidad: dict, encuesta_id: str, periodo: str) -> dict:
@@ -151,7 +175,11 @@ def duplicar(encuesta_id: str):
 
 
 @router.get("/encuestas/{encuesta_id}")
-def ver(encuesta_id: str):
+def ver(encuesta_id: str, idioma: str = "es"):
+    """Siempre la encuesta original: es la que RRHH edita y guarda con PUT.
+    (Si devolviéramos los textos traducidos, al guardar se perderían los originales.)
+    Las traducciones van en encuesta["traducciones"] por si la pantalla quiere mostrarlas."""
+    idioma_valido(idioma)
     return obtener(encuesta_id)
 
 
@@ -198,6 +226,8 @@ def publicar(encuesta_id: str):
             raise HTTPException(409, f"No se puede publicar: la encuesta está '{encuesta['estado']}' y debe estar aprobada")
         url = f"{base_url()}/responder/{encuesta_id}"
         encuesta.update(estado="publicada", url=url, qr=generar_qr(url))
+        encuesta.setdefault("traducciones", {})
+        encuesta.setdefault("estado_traduccion", "pendiente")  # se publica aunque siga pendiente (v4 P1)
         guardada = almacen.guardar_encuesta(encuesta)
     if guardada.get("estado_traduccion") != "lista":
         traducciones.lanzar(guardada)  # por si la de aprobar falló o no llegó a lanzarse
@@ -205,29 +235,30 @@ def publicar(encuesta_id: str):
 
 
 @router.get("/encuestas/{encuesta_id}/analisis")
-def analisis(encuesta_id: str):
-    return analisis_y_recomendaciones(obtener(encuesta_id))[0]
+def analisis(encuesta_id: str, idioma: str = "es"):
+    return analisis_y_recomendaciones(obtener(encuesta_id), idioma)[0]
 
 
 @router.get("/encuestas/{encuesta_id}/recomendaciones")
-def recomendaciones(encuesta_id: str):
-    return analisis_y_recomendaciones(obtener(encuesta_id))[1]
+def recomendaciones(encuesta_id: str, idioma: str = "es"):
+    return analisis_y_recomendaciones(obtener(encuesta_id), idioma)[1]
 
 
 @router.get("/encuestas/{encuesta_id}/sugerencias")
-def sugerencias(encuesta_id: str):
+def sugerencias(encuesta_id: str, idioma: str = "es"):
     """Preguntas sugeridas para "Pregunta a tus datos" (las propone la IA; sin IA, ninguna)."""
-    datos, _ = analisis_y_recomendaciones(obtener(encuesta_id))
-    return ia.sugerir_preguntas(datos)
+    datos, _ = analisis_y_recomendaciones(obtener(encuesta_id), idioma)
+    return ia.sugerir_preguntas(datos, idioma_valido(idioma))
 
 
 @router.post("/encuestas/{encuesta_id}/preguntar")
-def preguntar(encuesta_id: str, cuerpo: dict):
+def preguntar(encuesta_id: str, cuerpo: dict, idioma: str = "es"):
     pregunta = cuerpo.get("pregunta")
     if not isinstance(pregunta, str):
         raise HTTPException(422, "Envía {\"pregunta\": \"…\"}")
-    datos, recs = analisis_y_recomendaciones(obtener(encuesta_id))
-    return ia.preguntar(pregunta.strip()[:300], datos, recs)
+    idioma = idioma_valido(cuerpo.get("idioma") or idioma)
+    datos, recs = analisis_y_recomendaciones(obtener(encuesta_id), idioma)
+    return ia.preguntar(pregunta.strip()[:300], datos, recs, idioma)
 
 
 @router.post("/encuestas/{encuesta_id}/simular")

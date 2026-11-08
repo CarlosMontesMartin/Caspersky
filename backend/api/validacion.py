@@ -4,12 +4,15 @@ Lanzan HTTPException 422 con un mensaje claro.
 """
 from fastapi import HTTPException
 
-ORDEN_COLECTIVOS = ["planta", "logistica", "comercial", "oficina", "manager"]
+from backend import reglas
+
+# Todo sale de backend/reglas.py (único sitio con las reglas, v4.md P0-1)
+ORDEN_COLECTIVOS = list(reglas.COLECTIVOS)
 COLECTIVOS = set(ORDEN_COLECTIVOS)
-TIPOS = {"escala_1_5", "opcion", "si_no", "texto"}
-TIPOS_SECTOR = {"escala_1_5", "opcion", "si_no"}
-DIMENSIONES = {"bienestar", "liderazgo", "desarrollo", "cultura", "entorno", "condiciones"}
-CANALES_PUBLICOS = {"qr", "quiosco"}
+TIPOS = set(reglas.TIPOS)
+TIPOS_SECTOR = set(reglas.TIPOS_PROPIAS)
+DIMENSIONES = set(reglas.DIMENSIONES)
+CANALES_PUBLICOS = {"qr", "quiosco", "teams"}  # teams: enlace de la tarjeta de Teams
 TURNOS_PLANTA = ["manana", "tarde", "noche"]
 
 
@@ -74,8 +77,14 @@ def validar_necesidad(necesidad: dict) -> None:
     elif necesidad.get("colectivo") not in COLECTIVOS | {"todos"}:
         error(f"Indica colectivos (lista) con valores de {ORDEN_COLECTIVOS}")
     duracion = necesidad.get("duracion_max_seg")
-    if not isinstance(duracion, int) or duracion <= 0:
+    if not isinstance(duracion, int) or isinstance(duracion, bool) or duracion <= 0:
         error("duracion_max_seg debe ser un número entero de segundos")
+    n_sectores = len(colectivos_de(necesidad))
+    minimo = reglas.duracion_minima(n_sectores)
+    if duracion < minimo:
+        sectores = "un sector" if n_sectores <= 1 else f"{n_sectores} sectores"
+        error(f"Con {sectores} la duración mínima es de {minimo} segundos (has puesto {duracion}): "
+              f"no caben {reglas.TOTAL_MIN} preguntas por sector. Sube la duración o quita sectores.")
     if not isinstance(necesidad.get("temas_prohibidos", []), list):
         error("temas_prohibidos debe ser una lista")
 
@@ -102,15 +111,15 @@ def validar_preguntas(encuesta: dict) -> None:
     if not isinstance(nucleo, list) or not isinstance(por_colectivo, dict):
         error("preguntas debe ser una lista y preguntas_por_colectivo un objeto")
 
-    if not por_colectivo:  # un solo colectivo (o enc_000): como siempre
-        if not 1 <= len(nucleo) <= 6:
-            error("La encuesta debe tener entre 1 y 6 preguntas")
+    if not por_colectivo:  # un solo colectivo (o enc_000)
+        if not reglas.TOTAL_MIN <= len(nucleo) <= reglas.TOTAL_MAX:
+            error(f"La encuesta debe tener entre {reglas.TOTAL_MIN} y {reglas.TOTAL_MAX} preguntas")
         for p in nucleo:
             _validar_pregunta(p, TIPOS, "la encuesta")
     else:
         colectivos = colectivos_de(encuesta)
-        if not 1 <= len(nucleo) <= 3:
-            error("El núcleo común debe tener entre 1 y 3 preguntas")
+        if not reglas.NUCLEO_MIN <= len(nucleo) <= reglas.NUCLEO_MAX:
+            error(f"El núcleo común debe tener entre {reglas.NUCLEO_MIN} y {reglas.NUCLEO_MAX} preguntas")
         for p in nucleo:
             _validar_pregunta(p, TIPOS, "el núcleo común")
         if not any(p["tipo"] == "escala_1_5" for p in nucleo):
@@ -123,12 +132,13 @@ def validar_preguntas(encuesta: dict) -> None:
             error(f"Hay preguntas para sectores que no son de la encuesta: {sorted(sobran)}")
         for colectivo in colectivos:
             propias = por_colectivo.get(colectivo, [])
-            if not 1 <= len(propias) <= 3:
-                error(f"{colectivo} debe tener entre 1 y 3 preguntas propias")
+            if not reglas.PROPIAS_MIN <= len(propias) <= reglas.PROPIAS_MAX:
+                error(f"{colectivo} debe tener entre {reglas.PROPIAS_MIN} y {reglas.PROPIAS_MAX} preguntas propias")
             for p in propias:
                 _validar_pregunta(p, TIPOS_SECTOR, f"las preguntas de {colectivo}")
-            if not 3 <= len(nucleo) + len(propias) <= 6:
-                error(f"{colectivo} debe tener entre 3 y 6 preguntas en total (núcleo + propias)")
+            if not reglas.TOTAL_MIN <= len(nucleo) + len(propias) <= reglas.TOTAL_MAX:
+                error(f"{colectivo} debe tener entre {reglas.TOTAL_MIN} y {reglas.TOTAL_MAX} preguntas "
+                      f"en total (núcleo + propias)")
 
     ids = [p["id"] for p in todas_las_preguntas(encuesta)]
     repetidos = sorted({i for i in ids if ids.count(i) > 1})
@@ -144,7 +154,7 @@ def validar_respuesta_entrada(entrada: dict, encuesta: dict, colectivo: str) -> 
     if entrada.get("turno") not in turnos_de(colectivo):
         error(f"Turno no válido para {colectivo}: {entrada.get('turno')}")
     if entrada.get("canal", "qr") not in CANALES_PUBLICOS:
-        error("canal debe ser qr o quiosco")
+        error("canal debe ser qr, quiosco o teams")
     valores = entrada.get("valores", {})
     if not isinstance(valores, dict):
         error("valores debe ser un objeto")

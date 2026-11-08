@@ -1,4 +1,4 @@
-"""Recorre el ciclo completo por la API y dice OK o FALLO en cada comprobación · UPC 2 (v2.md 3.6 y v3.md 3.5).
+"""Recorre el ciclo completo por la API y dice OK o FALLO en cada comprobación · UPC 2 (v2 3.6, v3 3.5, v4 P1).
 
     python -m backend.api.probar_ciclo                       # sin servidor, datos temporales
     python -m backend.api.probar_ciclo --url http://localhost:8000   # contra un servidor arrancado
@@ -212,8 +212,9 @@ def recorrer(c, res: Resultado, almacen=None, local: bool = False) -> None:
 
     recorrer_multisector(c, res, pedir)
     recorrer_v3(c, res, pedir, almacen, local)
+    recorrer_v4(c, res, pedir, eid, local)
 
-    res.seccion("11. Histórico enc_000 (escenario C)")
+    res.seccion("13. Histórico enc_000 (escenario C)")
     estado, lista = pedir("get", "/encuestas")
     if any(e["id"] == "enc_000" for e in lista or []):
         estado, a0 = pedir("get", "/encuestas/enc_000/analisis")
@@ -393,6 +394,88 @@ def recorrer_v3(c, res: Resultado, pedir, almacen=None, local: bool = False) -> 
     res.comprobar("Sugerencias de una que no existe → 404", estado == 404, f"devolvió {estado}")
 
 
+def recorrer_v4(c, res: Resultado, pedir, eid: str, local: bool = False) -> None:
+    import random
+    res.seccion("11. Estabilidad (v4): reglas, rutas e idiomas")
+    corta = dict(NECESIDAD_MULTI, duracion_max_seg=30)
+    estado, err = pedir("post", "/encuestas/generar", json=corta)
+    res.comprobar("30 s con 2 sectores → 422 con mensaje claro",
+                  estado == 422 and "60" in str((err or {}).get("detail", "")), f"{estado} {err}")
+    estado, err = pedir("post", "/esta/ruta/no/existe", json={})
+    res.comprobar("POST a una ruta inexistente → 404 con «¿Has reiniciado…?»",
+                  estado == 404 and "reiniciado" in str((err or {}).get("detail", "")), f"{estado} {err}")
+
+    estado, a_ca = pedir("get", f"/encuestas/{eid}/analisis?idioma=ca")
+    textos_ca = " ".join([x["mensaje"] for x in a_ca.get("alertas", [])] + a_ca.get("limites", []))
+    res.comprobar("?idioma=ca → alertas y límites en catalán",
+                  estado == 200 and ("ha respost" in textos_ca or "resultats" in textos_ca)
+                  and "ha respondido" not in textos_ca, textos_ca[:160])
+    estado, a_en = pedir("get", f"/encuestas/{eid}/analisis?idioma=en")
+    textos_en = " ".join([x["mensaje"] for x in a_en.get("alertas", [])] + a_en.get("limites", []))
+    res.comprobar("?idioma=en → alertas y límites en inglés",
+                  estado == 200 and "responded" in textos_en and "respondido" not in textos_en, textos_en[:160])
+    res.comprobar("Las alertas conservan los campos estructurados",
+                  all("colectivo" in x and ("tasa" in x or "antes" in x) for x in a_ca.get("alertas", [])))
+    estado, a_raro = pedir("get", f"/encuestas/{eid}/analisis?idioma=pt")
+    res.comprobar("Idioma no soportado (pt) → castellano", estado == 200 and a_raro.get("idioma") == "es")
+
+    estado, es = pedir("get", "/escenarios?idioma=es")
+    estado, en = pedir("get", "/escenarios?idioma=en")
+    res.comprobar("GET /escenarios?idioma=en responde", estado == 200 and len(en) == len(es) and len(en) > 0)
+    res.comprobar("Escenarios con nombre en texto (no objeto)", all(not isinstance(e.get("nombre", e.get("titulo")), dict) for e in en))
+    if any(e.get("nombre") != f.get("nombre") for e, f in zip(es, en)):
+        res.comprobar("Escenarios: los nombres cambian con el idioma", True)
+    else:
+        res.omitir("Escenarios en inglés", "contenido/escenarios.json aún no tiene {es, ca, en} (UAB 2)")
+
+    estado, pub = pedir("get", f"/encuestas/{eid}")
+    res.comprobar("La encuesta guarda estado_traduccion", pub.get("estado_traduccion") in ("pendiente", "lista", "error"))
+
+    res.seccion("12. Teams sin conexión (vista previa)")
+    estado, integ = pedir("get", "/integraciones")
+    res.comprobar("GET /integraciones → teams false", estado == 200 and integ.get("teams") is False, str(integ))
+    estado, tarjeta = pedir("get", f"/encuestas/{eid}/teams/vista_previa?tipo=publicar&idioma=ca")
+    botones = [x.get("title") for x in (tarjeta or {}).get("actions", [])]
+    res.comprobar("Vista previa de publicar con el botón «Respondre» (ca)",
+                  estado == 200 and tarjeta.get("type") == "AdaptiveCard" and "Respondre" in botones, str(botones))
+    res.comprobar("El enlace de la tarjeta lleva canal=teams",
+                  "canal=teams" in ((tarjeta or {}).get("actions") or [{}])[0].get("url", ""))
+    estado, resumen = pedir("get", f"/encuestas/{eid}/teams/vista_previa?tipo=resumen&idioma=en")
+    res.comprobar("Vista previa del resumen sin comentarios ni datos personales",
+                  estado == 200 and not any(n in json.dumps(resumen, ensure_ascii=False) for n in NOMBRES_INVENTADOS)
+                  and "View analysis" in json.dumps(resumen))
+    estado, _ = pedir("post", f"/encuestas/{eid}/teams/publicar")
+    res.comprobar("POST teams/publicar → 503 (N/A)", estado == 503, f"devolvió {estado}")
+    estado, _ = pedir("post", f"/encuestas/{eid}/teams/resumen")
+    res.comprobar("POST teams/resumen → 503 (N/A)", estado == 503, f"devolvió {estado}")
+    estado, _ = pedir("post", f"/publico/encuestas/{eid}/respuestas",
+                      json={"turno": "manana", "canal": "teams", "valores": {next(iter(_escalas(c, eid, pedir)), "p1"): 4}})
+    res.comprobar("Respuesta con canal teams se acepta", estado == 200, f"devolvió {estado}")
+
+    res.seccion("12b. Generaciones al azar (sectores y duraciones válidas)")
+    sectores = ["planta", "logistica", "comercial", "oficina", "manager"]
+    azar = random.Random(4)
+    fallos = []
+    for _ in range(10):
+        elegidos = azar.sample(sectores, azar.randint(1, 5))
+        duracion = azar.choice([45 if len(elegidos) == 1 else 60, 90, 120, 300])
+        necesidad = {"objetivo": "Saber cómo afecta el nuevo sistema de turnos", "colectivos": elegidos,
+                     "contexto": "x", "duracion_max_seg": duracion, "temas_prohibidos": ["salario"]}
+        estado, enc = pedir("post", "/encuestas/generar", json=necesidad)
+        if estado != 200:
+            fallos.append(f"generar {elegidos} {duracion}s → {estado} {enc}")
+            continue
+        estado, err = pedir("post", f"/encuestas/{enc['id']}/aprobar")
+        if estado != 200:
+            fallos.append(f"aprobar {elegidos} {duracion}s → {estado} {(err or {}).get('detail')}")
+    res.comprobar("10 encuestas generadas se pueden aprobar", not fallos, " | ".join(fallos)[:400])
+
+
+def _escalas(c, eid, pedir):
+    estado, enc = pedir("get", f"/encuestas/{eid}")
+    return [p["id"] for p in (enc or {}).get("preguntas", []) if p["tipo"] == "escala_1_5"]
+
+
 def _comprobar_traduccion_local(res: Resultado, pedir, almacen) -> None:
     """Inyecta una traducción a mano (sin IA) para probar cómo se aplica."""
     base = {"id": "enc_prueba_idiomas", "titulo": "Turnos", "intro": "Hola", "periodo": "2026-11",
@@ -400,6 +483,8 @@ def _comprobar_traduccion_local(res: Resultado, pedir, almacen) -> None:
             "preguntas": [{"id": "p1", "texto": "¿Qué tal?", "tipo": "escala_1_5", "opciones": [],
                            "dimension": "condiciones", "condicion": None},
                           {"id": "p2", "texto": "¿Qué cuesta más?", "tipo": "opcion", "opciones": ["Pausas", "Horario"],
+                           "dimension": "condiciones", "condicion": None},
+                          {"id": "p3", "texto": "¿Qué cambiarías?", "tipo": "texto", "opciones": [],
                            "dimension": "condiciones", "condicion": None}],
             "preguntas_por_colectivo": {}, "estado": "publicada", "estado_traduccion": "lista",
             "traducciones": {"ca": {"titulo": "Torns", "intro": "Hola!", "preguntas": [

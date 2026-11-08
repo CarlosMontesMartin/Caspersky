@@ -15,19 +15,19 @@ import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
+from backend import reglas
 from backend.api import ia_o_respaldo as ia
 from backend.datos import almacen
 
-IDIOMAS = ["es", "ca", "en"]
-IDIOMAS_TRADUCIDOS = ["ca", "en"]
+IDIOMAS = list(reglas.IDIOMAS)
+IDIOMAS_TRADUCIDOS = [i for i in IDIOMAS if i != "es"]
 
 bloqueo = threading.RLock()
 _pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="traducir")
 _en_curso: dict[str, object] = {}
 
 
-def idioma_valido(idioma) -> str:
-    return idioma if idioma in IDIOMAS else "es"
+idioma_valido = reglas.idioma_valido
 
 
 def firma(encuesta: dict) -> str:
@@ -48,8 +48,10 @@ def reiniciar(encuesta: dict) -> dict:
 def _traducir(encuesta_id: str, huella: str, copia: dict) -> None:
     try:
         resultado = ia.traducir_encuesta(copia, IDIOMAS_TRADUCIDOS)
-        traducciones = {i: t for i, t in (resultado or {}).items() if i in IDIOMAS_TRADUCIDOS and isinstance(t, dict)}
-        estado = "lista"
+        traducciones = {i: t for i, t in (resultado or {}).items() if i in IDIOMAS_TRADUCIDOS and isinstance(t, dict) and t}
+        estado = "lista" if all(i in traducciones for i in IDIOMAS_TRADUCIDOS) else "error"
+        if estado == "error":
+            print(f"[traducir] {encuesta_id}: faltan idiomas {[i for i in IDIOMAS_TRADUCIDOS if i not in traducciones]}")
     except Exception as error:
         print(f"[traducir] {encuesta_id}: {error!r}")
         traducciones, estado = {}, "error"
