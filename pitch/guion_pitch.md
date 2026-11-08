@@ -1,66 +1,67 @@
-# Guion del pitch · v3 · 3:30 min · palabra por palabra
+# Guion del pitch · v6 · 3:15 min · palabra por palabra
 
 > Dueño: UAB 2 · Slides en `pitch/estructura_slides.md`.
-> Unas 300 palabras habladas (≈ 2:15 a 135 palabras/minuto); el resto del tiempo son las pausas del demo en directo. Margen de 30 s hasta los 4 min.
-> **Ponente 1** narra (UAB 2). **Ponente 2** maneja el demo (UAB 1). Lo que va entre [corchetes] son acotaciones o cifras que se rellenan en el ensayo final.
-> Antes de empezar: escenario D generado, aprobado (con las traducciones listas) y publicado; dashboard abierto en la Maqueta 3D; cartel con el QR de planta impreso; Teams abierto en el canal "Encuestas" si está configurado.
+> Unas 400 palabras habladas; el resto del tiempo son las pausas del demo. Margen de 15 s hasta los 3:30 y de 45 s hasta los 4 min.
+> **Ponente 1** narra (UAB 2). **Ponente 2** maneja el demo (UAB 1). Lo que va entre [corchetes] son acotaciones o cifras que se rellenan en el ensayo.
+> Antes de empezar: almacén limpio; escenario D generado, aprobado (traducciones listas) y publicado; un compromiso preparado en `enc_000` con su encuesta de seguimiento publicada y su QR en pantalla; dashboard abierto en Resumen; Teams abierto en el canal si está conectado.
 
 ---
 
 ## Slide 1 · 0:00–0:20 · El problema
 
 > "[Siete coma cinco] por ciento. Es lo que responde el turno de noche de planta en nuestro demo, con datos sintéticos.
-> Responden siempre los mismos, una encuesta no encaja igual a un operario que a un comercial, y los comentarios se leen tarde.
-> Escuchamos. Pero no a todos."
+> Responden siempre los mismos. ¿Por qué? Porque nunca ven qué pasa después.
+> Escuchamos, pero no lo demostramos."
 
-## Slide 2 · 0:20–0:55 · La IA propone, RRHH decide
+## Slide 2 · 0:20–0:50 · La IA propone, RRHH decide
 
-[Ponente 2 abre Nueva necesidad, escenario D, y pulsa Generar.]
+[Ponente 2: Nueva necesidad → escenario D → Generar.]
 
-> "People escribe qué quiere entender, para planta, logística y comercial. La IA crea preguntas comunes para comparar y preguntas propias de cada sector.
-> Nada es una plantilla: si cambiamos la necesidad, regeneramos.
-> Y decide una persona: editamos, aprobamos… y solo entonces se publica."
+> "People escribe qué quiere entender, para planta, logística y comercial. La IA crea preguntas comunes para comparar, preguntas propias de cada sector y una pregunta que solo aparece si alguien puntúa mal.
+> Reordenamos, editamos… y solo cuando una persona aprueba, se publica."
 
-## Slide 3 · 0:55–1:20 · En tu idioma, donde estás
+## Slide 3 · 0:50–1:10 · En tu idioma, donde estás
 
-[Ponente 1 levanta el cartel QR de planta.]
+[Ponente 2 proyecta el móvil del equipo con el formulario.]
 
-> "Escaneadlo. Arriba podéis elegir castellano, catalán o inglés, y es ampliable a más idiomas: la IA ha traducido la encuesta al aprobarla. Cambiad de idioma a mitad: lo que habéis marcado se queda.
-> Y todas las respuestas se analizan juntas, en cualquier idioma."
+> "Quien responde lo hace desde un QR, una tablet en la sala de descanso o Teams. En castellano, catalán o inglés, y ampliable a más idiomas. Treinta segundos."
 
-## Slide 4 · 1:20–1:50 · Centro de mando en directo
+## Slide 4 · 1:10–1:35 · Centro de mando en directo
 
-[Ponente 2 en la Maqueta 3D. Se espera el pulso del edificio.]
+[Ponente 2: Maqueta 3D → Simular respuestas.]
 
-> "Ese edificio que late es vuestra respuesta. Cada edificio se colorea por participación. Pulsamos noche: planta, en rojo.
-> Donde hay menos de cinco respuestas, no mostramos nada. Nunca.
-> Y desde aquí: crear una encuesta para este sector."
+> "Cada edificio es un sector, coloreado por participación. Llegan respuestas: late. Pulsamos noche: planta, en rojo.
+> Y donde hay menos de cinco, no mostramos nada, ni siquiera a sus vecinos: no se puede deducir restando."
 
-## Slide 5 · 1:50–2:20 · IA que se ve y se mide
+## Slide 5 · 1:35–2:05 · Entender
 
-[Ponente 2 cambia a Resumen.]
+[Ponente 2: Resumen → temas → una pregunta sugerida → Informe ejecutivo.]
 
-> "Mientras la IA lee los comentarios, la pantalla lo dice. Nunca rellenamos con textos inventados.
-> Aquí, los temas que crecen y los que aparecen. Y lo hemos medido: la IA acierta el tema en el [X] por ciento de los comentarios."
+> "La IA lee todos los comentarios y detecta lo que crece. Lo hemos medido: acierta el tema en el [X] por ciento.
+> RRHH pregunta en lenguaje natural, y dirección tiene su informe en un clic."
 
-## Slide 6 · 2:20–2:55 · Pregunta a tus datos e informe
+## Slide 6 · 2:05–2:45 · Dijisteis → Hemos hecho
 
-[Ponente 2 pulsa una de las preguntas sugeridas.]
+[Ponente 2: Acción "Asegurar las pausas en planta" → Comprometer.]
 
-> "Estas preguntas también las propone la IA, para estos resultados. Responde con cifras y avisa si un dato no es fiable."
+> "Y aquí es donde casi todas las encuestas se quedan. Nosotros no.
+> La IA redacta lo que nos dijisteis, con la cifra. RRHH escribe lo que va a hacer, quién y cuándo, y lo firma."
 
-[Ponente 2 escribe: "¿Quién se queja del turno de noche?".]
+[Ponente 1 levanta el QR del seguimiento hacia el jurado.]
 
-> "¿Y si alguien pregunta quién se queja? Se niega. Solo resultados agregados.
-> Para dirección, un clic: informe ejecutivo en una hoja."
+> "Escaneadlo. Lo primero que veis no es una pregunta: es lo que la empresa ha hecho con vuestra voz. En vuestro idioma."
 
-## Slide 7 · 2:55–3:30 · Teams y cierre
+[Ponente 2: Maqueta → Simular respuestas → el banderín pasa de ámbar a verde.]
 
-[Ponente 2 pulsa "Publicar en Teams" y se ve la tarjeta en el canal.]
+> "Y lo medimos con la misma pregunta: antes [dos coma cuatro], ahora [tres coma seis]. Sin prometer que sea la causa."
 
-> "Y todo llega donde ya trabaja RRHH: la encuesta se publica en Teams con un botón para responder, y el resumen con las alertas, sin un solo comentario individual.
-> No buscábamos una encuesta más. Buscábamos esto:
-> escoltar millor, actuar abans. Gràcies."
+## Slide 7 · 2:45–3:15 · Teams y cierre
+
+[Ponente 2: tarjeta del compromiso en Teams o su vista previa.]
+
+> "El compromiso llega también a Teams, con un botón: ¿ha funcionado? Responde en treinta segundos.
+> Las encuestas no fallan por las preguntas: fallan por el silencio de después.
+> Escoltar millor, actuar abans… i demostrar-ho. Gràcies."
 
 ---
 
@@ -68,22 +69,23 @@
 
 | Si falla… | Qué hacer | Frase puente |
 |---|---|---|
-| La IA tarda al generar | Esperar el respaldo (sale con la etiqueta "Sin IA") | "Si la IA no responde, la plataforma sigue funcionando y lo dice." |
-| Nadie del jurado escanea | Responder desde un móvil del equipo | "Os lo enseño yo mismo." |
-| La traducción no está lista | Enseñar el cambio de idioma de la interfaz | "La traducción se prepara al aprobar; en unos segundos estará." |
-| Teams no responde o no está configurado | Vista previa de la tarjeta | "Esta es la tarjeta que llega al canal." |
+| La IA tarda al generar o al redactar el "Dijisteis" | Esperar el respaldo (sale con la etiqueta "Sin IA") | "Si la IA no responde, la plataforma sigue funcionando y lo dice." |
+| El jurado no llega al QR (wifi o 4G) | Hotspot del equipo; si no, el móvil del equipo proyectado | "Os lo enseño en este móvil." |
+| El "después" no tiene 5 respuestas | Simular otra vez con mejora | "Con menos de cinco, no lo enseñamos: también aquí manda el umbral." |
+| Teams no está conectado | Vista previa de la tarjeta y el JSON en el Adaptive Cards Designer | "Esta es la tarjeta exacta que Teams acepta." |
 | Se cae todo | Vídeo de respaldo de 90 s y narrar encima | "Para no perder tiempo, os lo enseño en vídeo." |
 
 ## Ensayo
 
-- 3 ensayos cronometrados. Objetivo: **3:20–3:35**. Si pasa de 3:45, recortar la frase del informe (slide 6).
-- Rellenar las cifras entre corchetes con las del ensayo y el dato de precisión de UPC 1.
-- Antes de salir: cerrar terminales, `.env` y cualquier pestaña con la URL del webhook de Teams.
+- 3 ensayos cronometrados. Objetivo: **3:05–3:20**. Si pasa de 3:30, recortar primero la frase del informe (slide 5).
+- Rellenar las cifras entre corchetes con las del ensayo y el dato de precisión de UPC 1. No prometer porcentajes de participación reales.
+- Antes de salir: cerrar terminales, `.env` y cualquier pestaña con la URL del webhook de Teams. Recargar el navegador con Ctrl+Shift+R.
 
 ## Respuestas para el jurado (≤ 20 s cada una)
 
-- **¿Cómo comparáis sectores con preguntas distintas?** — "Por el núcleo común: las mismas preguntas para todos. Las propias sirven para profundizar."
-- **¿La traducción cambia los resultados?** — "No: en las opciones se muestra el texto traducido, pero se guarda el valor original. Todo se analiza junto."
-- **¿Y si la IA hace una pregunta inadecuada?** — "Hay temas prohibidos, un filtro y, sobre todo, aprobación humana obligatoria antes de publicar."
-- **¿Qué sale en Teams?** — "La encuesta con su botón y resúmenes agregados. Nunca comentarios ni datos de nadie. La dirección del webhook es un secreto y no está en el código."
-- **¿Qué pasa sin IA?** — "Todo funciona con reglas de respaldo, y la pantalla lo indica con la etiqueta "Sin IA"."
+- **¿Por qué no Typeform?** — "Publicar es una pieza intercambiable: hoy usamos nuestro formulario porque necesitamos idioma original con traducciones, el canal, el umbral de cinco y que no se guarde nada de quien responde. Con un token, el mismo flujo crearía el formulario en Typeform por su API."
+- **¿Se puede saltar el umbral restando?** — "No. Si un turno tiene menos de cinco, también ocultamos a sus vecinos, y las cifras globales excluyen los grupos pequeños: no se puede deducir restando."
+- **¿Quién puede entrar al panel?** — "En Damm iría detrás de Entra ID, el inicio de sesión de Microsoft 365; aquí es local."
+- **¿El compromiso no promete demasiado?** — "Lo firma una persona, con responsable y fecha, y el antes y después solo se enseña con cinco respuestas o más y avisando de que no demuestra la causa."
+- **¿Cómo comparáis sectores con preguntas distintas?** — "Por el núcleo común: las mismas preguntas para todos."
+- **¿Qué pasa sin IA?** — "Todo funciona con reglas y la pantalla lo indica con la etiqueta 'Sin IA'."

@@ -1,79 +1,69 @@
-# Estructura de diapositivas · v3 · 7 slides · 3:30 min
+# Estructura de diapositivas · v6 · 7 slides · 3:15 min (+15 s de margen)
 
 > Dueño: UAB 2 · Guion palabra por palabra en `pitch/guion_pitch.md`.
-> Las cifras entre `[corchetes]` salen del ensayo con el escenario D (multisector) y del dato de precisión de UPC 1 (`evaluar.py`). Se rellenan en el ensayo final y no se cambian después.
-> Estilo: fondo claro, rojo Damm solo como acento, una idea por slide, cifras grandes, sin párrafos. Ninguna captura muestra tokens, `.env`, la URL del webhook de Teams, la terminal ni URLs de la API.
+> Idea fuerza única: **"Escuchar, actuar y demostrarlo."**
+> Las cifras entre `[corchetes]` salen del ensayo con datos sintéticos y del dato de precisión de UPC 1 (`backend/ia/evaluar.py`). Se rellenan en el ensayo y no se cambian después. No prometáis porcentajes de participación: no hay datos reales de Damm.
+> Estilo: fondo claro, rojo Damm solo como acento, una idea por slide y cifras grandes. Ninguna captura muestra tokens, `.env`, la URL del webhook de Teams, la terminal ni URLs de la API.
 
 | # | Título en pantalla | Tiempo | Qué se ve | Criterio del jurado |
 |---|---|---|---|---|
-| 1 | Escuchamos… pero no a todos | 0:00–0:20 | Cifra grande | Adecuación al problema (20 %) |
-| 2 | La IA propone. RRHH decide. | 0:20–0:55 | Demo `crear.html` | Uso útil de la IA (15 %) · Prototipo (15 %) |
-| 3 | Respondes donde estás, en tu idioma | 0:55–1:20 | Demo `responder` en el móvil | Representatividad e inclusión (10 %) |
-| 4 | El centro de mando, en directo | 1:20–1:50 | Demo maqueta 3D | Representatividad · Privacidad (15 %) |
-| 5 | IA que se ve y se mide | 1:50–2:20 | Demo Resumen | Calidad de insights (10 %) · Uso de la IA |
-| 6 | Pregunta a tus datos. Informe en un clic. | 2:20–2:55 | Demo pregunta + informe | Privacidad · Valor para las personas |
-| 7 | Donde ya trabaja RRHH: Teams | 2:55–3:30 | Canal de Teams + cierre | Integración M365 (10 %) · Evolución (5 %) |
+| 1 | Nadie responde si nunca ve qué pasa después | 0:00–0:20 | Cifra grande | Adecuación al problema (20 %) |
+| 2 | La IA propone. RRHH decide. | 0:20–0:50 | Demo `crear.html` | Uso útil de la IA (15 %) · Prototipo (15 %) |
+| 3 | Respondes donde estás, en tu idioma | 0:50–1:10 | Formulario en el móvil | Representatividad e inclusión (10 %) |
+| 4 | El centro de mando, en directo | 1:10–1:35 | Maqueta 3D | Representatividad · Privacidad (15 %) |
+| 5 | Entender, con la IA medida | 1:35–2:05 | Resumen + pregunta + informe | Calidad de insights (10 %) · Uso de la IA |
+| 6 | **Dijisteis → Hemos hecho** | 2:05–2:45 | Compromiso + QR del jurado + maqueta | Valor para las personas (20 %) · ciclo completo |
+| 7 | Donde ya trabaja RRHH: Teams | 2:45–3:15 | Tarjeta del compromiso + cierre | Integración M365 (10 %) · Evolución (5 %) |
 
 ---
 
-## Slide 1 · Escuchamos… pero no a todos
+## Slide 1 · Nadie responde si nunca ve qué pasa después
 
 - **Visual:** cifra gigante **[7,5 %]**; debajo, pequeño: "participación del turno de noche de planta en nuestro demo · datos sintéticos".
-- **Tres líneas:** "Responden siempre los mismos." · "Una encuesta no encaja con un operario, un comercial y un manager." · "Los comentarios se leen tarde."
-- **Pie fijo:** "100 % datos sintéticos · resultados solo agregados · mínimo 5 respuestas".
+- **Tres líneas:** "Responden siempre los mismos." · "¿Por qué? Porque nunca ven qué pasa después." · "Y los comentarios se leen cuando ya es tarde."
+- **Pie fijo:** "100 % datos sintéticos · solo resultados agregados · mínimo 5 respuestas".
 
 ## Slide 2 · La IA propone. RRHH decide.
 
-- **Demo:** `crear.html` con el escenario **D · Encuesta multisector** (planta, logística y comercial).
-- **Momentos a enseñar:**
-  1. La IA crea el núcleo común y las preguntas propias de cada sector (pestañas por sector).
-  2. RRHH vuelve al paso 1, cambia la necesidad y pulsa **Regenerar preguntas**: nada es una plantilla fija.
-  3. RRHH edita una pregunta y **aprueba**. Sin aprobación no se publica.
-- **Franja inferior:** "Sin respuestas predefinidas · cuando no hay IA, la pantalla lo dice ("Sin IA")".
+- **Demo:** escenario **D · Encuesta multisector** (planta, logística y comercial).
+- **Momentos:** núcleo común + preguntas propias de cada sector → una pregunta condicional ("¿Qué ha pasado?" solo si se puntúa 1–2) → reordenar con ↑ → **Aprobar**. Sin aprobación no se publica.
+- **Franja inferior:** "Sin respuestas predefinidas · cuando no hay IA, la pantalla lo dice".
 
 ## Slide 3 · Respondes donde estás, en tu idioma
 
-- **Demo:** el jurado escanea el **QR de planta** con su móvil.
-- **Momentos a enseñar:**
-  1. Selector **ES · CA · EN** arriba a la derecha: la encuesta, traducida por la IA al aprobarla, cambia de idioma sin perder lo ya marcado.
-  2. Botones grandes y caritas; en la tablet del quiosco vuelve al inicio tras cada respuesta y mantiene el idioma.
-- **Texto en pantalla:** "Castellano, catalán e inglés, ampliable a más idiomas: para una plantilla internacional." · "Las respuestas se analizan juntas: el idioma no parte los datos."
+- **Demo:** el formulario en el móvil del equipo, proyectado: QR del sector, selector **ES · CA · EN**, botones grandes y caritas.
+- **Texto en pantalla:** "Castellano, catalán e inglés, ampliable a más idiomas." · "QR, quiosco o Teams: el mismo análisis."
 
 ## Slide 4 · El centro de mando, en directo
 
-- **Demo:** pestaña **Maqueta 3D** con la recarga automática activa.
-- **Momentos a enseñar:**
-  1. El edificio de planta **late** con la respuesta del jurado: "+1 respuestas en Planta".
-  2. Botón **Día/Noche (turno de noche)**: planta en rojo.
-  3. Un sector con menos de 5 respuestas: gris, "Oculto (n < 5)".
-  4. Panel de zona → **"Crear encuesta para este sector"**.
+- **Demo:** pestaña **Maqueta 3D** → "Simular respuestas" → el edificio **late** y aparece un solo aviso, en el idioma de la pantalla.
+- **Momentos:** botón **Día/Noche** (turno de noche en rojo) → un turno con menos de 5 respuestas sale oculto **y también sus vecinos** → "Ver en el análisis".
+- **Texto en pantalla:** "Menos de 5: no se muestra, ni siquiera a sus vecinos. No se puede deducir restando."
 
-## Slide 5 · IA que se ve y se mide
+## Slide 5 · Entender, con la IA medida
 
-- **Demo:** pestaña Resumen.
-- **Momentos a enseñar:**
-  1. Mientras trabaja: esqueleto gris con **"La IA está preparando… ([75] de [101] comentarios analizados)"**; se rellena solo.
-  2. **Temas: antes y ahora**, con "Nuevo" y "↑", y el resumen escrito por la IA.
-- **Dato grande en la slide:** "La IA acierta el tema en el **[X] %** de los comentarios" (precisión contra `tema_real`, de UPC 1).
+- **Demo rápida:** temas nuevos y en aumento con su resumen → una pregunta sugerida de "Pregunta a tus datos" → botón **Informe ejecutivo** (una hoja A4).
+- **Dato grande:** "La IA acierta el tema en el **[X] %** de los comentarios" (precisión contra `tema_real`).
 - **Línea de límites:** "Correlación no es causa · tamaño de muestra siempre visible".
 
-## Slide 6 · Pregunta a tus datos. Informe en un clic.
+## Slide 6 · Dijisteis → Hemos hecho
 
-- **Demo:**
-  1. Las 3 preguntas sugeridas **las propone la IA** para estos resultados. Pulsar una → respuesta con cifras y confianza.
-  2. Escribir en directo: **"¿Quién se queja del turno de noche?"** → la herramienta se niega: solo trabaja con datos agregados.
-  3. Botón **Informe ejecutivo** → una hoja A4 con lectura, KPIs, hallazgos y acciones con responsable, plazo e indicador.
+- **Demo (40 s):**
+  1. Acciones → "Asegurar las pausas en planta" → **Comprometer**. El diálogo trae el "Dijisteis" con cifras y sin citas. Escribimos la fecha y el responsable → **Firmar**. "La IA propone el texto; tú lo firmas."
+  2. **El jurado escanea el QR** de la encuesta de seguimiento: la primera pantalla es "Lo que nos dijisteis / Lo que hemos hecho", en el idioma de su móvil. Una pregunta y "Gracias".
+  3. Maqueta: banderín **ámbar** sobre planta → "Simular respuestas" → el panel pasa a "Antes [2,4] → ahora [3,6] · n = [41]" y el banderín se pone **verde**. Con el aviso: "No demuestra que la acción sea la causa".
+- **Texto en pantalla:** "Las encuestas no fallan por las preguntas: fallan por el silencio de después."
 
 ## Slide 7 · Donde ya trabaja RRHH: Teams
 
-- **Demo (si Teams está configurado):** **Publicar en Teams** → la tarjeta aparece en el canal "Encuestas" con el botón "Responder". **Enviar resumen a Teams** → lectura, 3 datos, alertas y acciones, nunca comentarios.
-- **Si no está configurado:** vista previa de la tarjeta y esquema: Escucha activa → webhook → Workflow de Teams → canal.
-- **Cierre grande:** "Escoltar millor, actuar abans."
+- **Demo:** tarjeta del compromiso en Teams: "Dijisteis / Hemos hecho / ¿Ha funcionado? Responde en 30 s". Si Teams no está conectado: vista previa y el JSON validado en el Adaptive Cards Designer.
+- **Hoja de ruta (una línea):** radar de silencios (quién falta y cómo llegar a él) · inicio de sesión con Entra ID · más idiomas.
+- **Cierre grande:** "Escoltar millor, actuar abans… i demostrar-ho."
 
 ---
 
 ## Respaldo
 
-- **Vídeo de 90 s** con el recorrido D → QR en catalán → maqueta → Resumen → pregunta → Teams.
-- **Capturas** de cada momento, incluida la tarjeta publicada en el canal de Teams.
-- **Anexo oculto:** tabla de privacidad (anonimización, n ≥ 5, sin identificadores, validación humana) y arquitectura.
+- **Vídeo de 90 s** grabado en el portátil de la demo después de la congelación: escenario D → móvil en catalán → maqueta → compromiso → QR del seguimiento → banderín verde → Teams.
+- **Capturas** de cada momento, incluido el JSON de la tarjeta dibujado en el Adaptive Cards Designer.
+- **Anexo oculto:** tabla de privacidad (umbral y supresión complementaria, anonimización, minimización, sin perfiles, validación humana) y arquitectura.
