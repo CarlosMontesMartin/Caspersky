@@ -35,7 +35,9 @@ _CACHE_IA: dict[str, str] = {}      # Texto -> tema asignado por el modelo
 _EN_CURSO: set[str] = set()         # Textos en un lote que aún no ha terminado
 _FALLIDOS: dict[str, float] = {}    # Texto -> momento del fallo, para no reintentar en bucle
 _BLOQUEO = threading.Lock()
-REINTENTO_FALLIDOS_SEG = 120
+# Un lote que falla se queda con las palabras clave: reintentarlo cada 2 min volvía a poner
+# "clasificación en curso" y dejaba la lectura y las recomendaciones en "pendiente" sin fin
+REINTENTO_FALLIDOS_SEG = float("inf")
 
 # Raíces sin tildes, en castellano y catalán. Las que empiezan por \\b son expresiones regulares.
 PALABRAS_CLAVE: dict[str, list[str]] = {
@@ -210,17 +212,20 @@ def _clasificar_lote_ia(lote: list[str]) -> dict[str, str]:
     return resultado
 
 
-def clasificar_comentarios(textos: list[str]) -> list[str]:
+def clasificar_comentarios(textos: list[str], todos: bool = False) -> list[str]:
     """Asigna a cada comentario un tema de la lista cerrada, en el mismo orden.
 
     Responde al momento: usa el tema del modelo si ya está y, si no, el de las palabras clave.
-    Con modelo, lanza en segundo plano lotes de 25 con los comentarios que aún no tiene.
+    Con modelo, lanza en segundo plano lotes de 25 SOLO con los comentarios que las palabras
+    clave no entienden (la IA donde aporta: así no hay decenas de llamadas antes de la lectura).
+    todos=True manda todos al modelo (solo para medir su precisión en evaluar.py).
     """
     if hay_llm():
         ahora = time.monotonic()
         with _BLOQUEO:
             nuevos = sorted({t for t in textos if t and t not in _CACHE_IA and t not in _EN_CURSO
-                             and ahora - _FALLIDOS.get(t, -1e9) > REINTENTO_FALLIDOS_SEG})
+                             and ahora - _FALLIDOS.get(t, -1e9) > REINTENTO_FALLIDOS_SEG
+                             and (todos or _necesita_ia(t))})
             _EN_CURSO.update(nuevos)
         for i in range(0, len(nuevos), TAMANO_LOTE):
             lote = nuevos[i:i + TAMANO_LOTE]
@@ -229,10 +234,18 @@ def clasificar_comentarios(textos: list[str]) -> list[str]:
     return [_CACHE_IA.get(t) or clasificar_por_palabras(t) for t in textos]
 
 
+def _necesita_ia(texto: str) -> bool:
+    """Solo van al modelo los comentarios sin ninguna palabra clave."""
+    return _tema_por_palabras(texto) is None
+
+
 def estado_clasificacion(textos: list[str]) -> dict[str, int]:
-    """Cuántos comentarios distintos hay y cuántos tienen ya el tema asignado por el modelo."""
+    """Cuántos comentarios distintos hay y cuántos tienen ya su tema definitivo
+    (por palabras clave, por el modelo o porque el modelo falló con ellos)."""
     unicos = {t for t in textos if t}
-    return {"total": len(unicos), "por_ia": sum(1 for t in unicos if t in _CACHE_IA)}
+    with _BLOQUEO:
+        hechos = sum(1 for t in unicos if t in _CACHE_IA or t in _FALLIDOS or not _necesita_ia(t))
+    return {"total": len(unicos), "por_ia": hechos}
 
 
 def clasificacion_en_curso() -> bool:

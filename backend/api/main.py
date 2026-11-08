@@ -2,6 +2,7 @@
 
 Arranque: ./run.sh  ·  Documentación: http://localhost:8000/docs
 """
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -23,9 +24,45 @@ FRONTEND = RAIZ / "frontend"
 EJEMPLOS = RAIZ / "contratos" / "ejemplos"
 
 
+def precalentar_ia() -> None:
+    """Al arrancar, con IA, prepara en segundo plano el análisis de las encuestas publicadas
+    (clasificación, resúmenes, lectura, recomendaciones y sugerencias) para que el dashboard
+    se abra ya listo. Idiomas en PRECALENTAR_IDIOMAS (por defecto "es"; p. ej. "es,ca")."""
+    import os
+    from backend.api import ia_o_respaldo as ia
+    from backend.api.rutas_encuestas import analisis_y_recomendaciones
+    if not ia.hay_llm():
+        return
+    try:
+        from backend.ia import segundo_plano
+    except Exception:
+        return
+    idiomas = [i.strip() for i in os.getenv("PRECALENTAR_IDIOMAS", "es").split(",") if i.strip()]
+    for _ in range(5):  # cada vuelta lanza lo que ya se puede lanzar y espera a que acabe
+        listo = True
+        for fila in almacen.listar_encuestas():
+            encuesta = almacen.leer_encuesta(fila["id"]) if fila.get("estado") == "publicada" else None
+            if not encuesta:
+                continue
+            for idioma in idiomas:
+                try:
+                    datos, _ = analisis_y_recomendaciones(encuesta, idioma)
+                    sugerencias = ia.sugerir_preguntas(datos, idioma)
+                except Exception as error:
+                    print(f"[precalentar] {fila['id']} ({idioma}): {error!r}")
+                    continue
+                listo = listo and datos["estado_ia"]["listo"] and sugerencias.get("origen") != "pendiente"
+        if listo:
+            print("[precalentar] análisis con IA listo")
+            return
+        segundo_plano.esperar(timeout=120)
+    print("[precalentar] la IA no ha terminado en el tiempo previsto; el dashboard seguirá esperándola")
+
+
 @asynccontextmanager
 async def arranque(app):
     almacen.inicializar()
+    threading.Thread(target=precalentar_ia, name="precalentar-ia", daemon=True).start()
     yield
 
 

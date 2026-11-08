@@ -256,6 +256,10 @@ def _recomendar_con_ia(datos: dict[str, Any], base: dict[str, Any], idioma: str)
     return _validar_modelo(respuesta, base)
 
 
+# Última recomendación de la IA por (encuesta, idioma): se enseña mientras se calcula la nueva
+_ULTIMA: dict[tuple, dict[str, Any]] = {}
+
+
 def recomendar(analisis: dict[str, Any], encuesta: dict[str, Any], idioma: str = "es") -> dict[str, Any]:
     """Devuelve lectura ejecutiva, 2-3 acciones con responsable, plazo e indicador y seguimiento.
 
@@ -270,10 +274,15 @@ def recomendar(analisis: dict[str, Any], encuesta: dict[str, Any], idioma: str =
         return base
     # Mientras se clasifican los comentarios los temas cambian: se espera a que terminen
     if clasificacion_en_curso():
-        return {**base, "origen": "pendiente"}
+        return _ULTIMA.get(((encuesta or {}).get("id"), idioma)) or {**base, "origen": "pendiente"}
     datos = datos_agregados(analisis)
     clave = ("recomendar", idioma, json.dumps(datos, ensure_ascii=False, sort_keys=True))
-    estado, valor = segundo_plano.consultar(clave, lambda: _recomendar_con_ia(datos, base, idioma))
+    estado, valor = segundo_plano.consultar(clave, lambda: _recomendar_con_ia(datos, base, idioma),
+                                            prioritario=True)
+    ultima = (encuesta or {}).get("id"), idioma
     if estado == "pendiente":
-        return {**base, "origen": "pendiente"}
+        # Mientras se recalcula (llegan respuestas nuevas), se sigue enseñando la última de la IA
+        return _ULTIMA.get(ultima) or {**base, "origen": "pendiente"}
+    if valor:
+        _ULTIMA[ultima] = valor
     return valor or base

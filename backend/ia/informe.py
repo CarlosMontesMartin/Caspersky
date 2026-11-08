@@ -246,7 +246,8 @@ def sugerir_preguntas(analisis: dict[str, Any], idioma: str = "es") -> dict[str,
         return {"preguntas": [], "origen": "pendiente"}
     datos = datos_agregados(analisis)
     clave = ("sugerir", idioma, json.dumps(datos, ensure_ascii=False, sort_keys=True))
-    estado, preguntas = segundo_plano.consultar(clave, lambda: _sugerir_con_ia(datos, idioma))
+    estado, preguntas = segundo_plano.consultar(clave, lambda: _sugerir_con_ia(datos, idioma),
+                                                prioritario=True)
     if estado == "pendiente":
         return {"preguntas": [], "origen": "pendiente"}
     return {"preguntas": preguntas, "origen": "ia"} if preguntas else {"preguntas": [], "origen": "ninguno"}

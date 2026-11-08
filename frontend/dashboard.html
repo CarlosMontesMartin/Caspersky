@@ -375,6 +375,7 @@
         `<span class="esqueleto-linea" style="width: ${[100, 92, 70, 85][i % 4]}%"></span>`).join('')}</div>`;
     }
     const textoPreparando = () => `${t('dash.preparando', 'La IA está preparando…')} ${progresoIA()}`.trim();
+    const textoProvisional = () => `${t('dash.provisional', 'Versión por reglas, calculada con los datos. La IA la está mejorando…')} ${progresoIA()}`.trim();
 
     function etiquetaOrigen(badge, origen) {
       badge.classList.toggle('oculto', origen === 'pendiente' || !origen);
@@ -390,9 +391,11 @@
       etiquetaOrigen($('badge-origen-lectura'), origen);
 
       const p = $('texto-lectura');
-      if (origen === 'pendiente' || !lectura) {
-        // Mientras la IA trabaja no se enseña el texto de respaldo
+      if (!lectura) {
         p.innerHTML = `${esqueleto(3)}<span class="nota">${escapar(textoPreparando())}</span>`;
+      } else if (origen === 'pendiente') {
+        // Mientras la IA trabaja se enseña la lectura por reglas (calculada con los datos), marcada como provisional
+        p.innerHTML = `${escapar(legible(lectura))}<span class="nota" style="display:block; margin-top: var(--e2);">${escapar(textoProvisional())}</span>`;
       } else {
         p.textContent = legible(lectura);
       }
@@ -846,8 +849,8 @@
     function pintarRecomendaciones() {
       const origen = origenRecomendaciones();
       etiquetaOrigen($('badge-origen-recs'), origen);
-      if (origen === 'pendiente') {
-        // La IA está preparando las acciones: no se enseñan las de respaldo
+      if (origen === 'pendiente' && !(recs?.acciones || []).length) {
+        // La IA está preparando las acciones y no hay versión por reglas que enseñar
         $('lista-recomendaciones').innerHTML = [1, 2, 3].map(() => `
           <article class="tarjeta recomendacion">${esqueleto(4)}</article>`).join('') +
           `<p class="nota" style="grid-column: 1 / -1;">${escapar(textoPreparando())}</p>`;
@@ -871,6 +874,10 @@
                 </dl>` : ''}
             </article>`).join('')
         : `<p class="vacio">${escapar(tr('dash.sin_recomendaciones', 'Sin recomendaciones para este periodo.'))}</p>`;
+      if (origen === 'pendiente' && acciones.length) {
+        $('lista-recomendaciones').insertAdjacentHTML('beforeend',
+          `<p class="nota" style="grid-column: 1 / -1;">${escapar(textoProvisional())}</p>`);
+      }
 
       seguimiento = recs?.seguimiento || null;
       $('bloque-seguimiento').classList.toggle('oculto', !seguimiento);

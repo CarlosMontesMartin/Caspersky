@@ -393,5 +393,6 @@
   "tipo.escala_1_5": "1–5 scale",
   "tipo.opcion": "Multiple choice",
   "tipo.si_no": "Yes / No",
-  "tipo.texto": "Free text"
+  "tipo.texto": "Free text",
+  "dash.provisional": "Rule-based version, calculated from the data. The AI is improving it…"
 }

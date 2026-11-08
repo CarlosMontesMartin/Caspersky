@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from . import segundo_plano
-from .analizar import (TEMAS, clasificacion_en_curso, clasificar_comentarios,
-                       clasificar_por_palabras, estado_clasificacion)
+from .analizar import (_CACHE_IA, TEMAS, clasificacion_en_curso, clasificar_comentarios,
+                       clasificar_por_palabras)
 from .llm import hay_llm
 
 RAIZ = Path(__file__).resolve().parents[2]
@@ -39,12 +39,12 @@ def precision_clasificacion(respuestas: list[dict[str, Any]]) -> dict[str, Any]:
     con_tema = [r for r in respuestas if r.get("comentario") and r.get("tema_real") in TEMAS]
     textos = [r["comentario"] for r in con_tema]
     reales = [r["tema_real"] for r in con_tema]
-    predichos = clasificar_comentarios(textos)
+    predichos = clasificar_comentarios(textos, todos=True)
     if hay_llm():
         limite = time.monotonic() + 600
         while clasificacion_en_curso() and time.monotonic() < limite:
             segundo_plano.esperar(timeout=30)
-        predichos = clasificar_comentarios(textos)
+        predichos = clasificar_comentarios(textos, todos=True)
     return _precision(predichos, reales)
 
 
@@ -63,12 +63,13 @@ def main() -> int:
 
     inicio = time.monotonic()
     modelo = precision_clasificacion(respuestas)
-    estado = estado_clasificacion([r["comentario"] for r in con_tema])
+    distintos = {r["comentario"] for r in con_tema}
+    estado = {"por_ia": sum(1 for t in distintos if t in _CACHE_IA), "total": len(distintos)}
     print(f"Modelo + respaldo: {modelo['precision']:.1%}  "
           f"({estado['por_ia']} de {estado['total']} comentarios distintos clasificados por el "
           f"modelo, {time.monotonic() - inicio:.0f} s)")
     fallos = Counter((r["tema_real"], p) for r, p in
-                     zip(con_tema, clasificar_comentarios([r["comentario"] for r in con_tema]))
+                     zip(con_tema, clasificar_comentarios([r["comentario"] for r in con_tema], todos=True))
                      if p != r["tema_real"])
     if fallos:
         print("Confusiones más frecuentes (real → asignado):",

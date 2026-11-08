@@ -393,5 +393,6 @@
   "tipo.escala_1_5": "Escala 1–5",
   "tipo.opcion": "Opció",
   "tipo.si_no": "Sí / No",
-  "tipo.texto": "Text lliure"
+  "tipo.texto": "Text lliure",
+  "dash.provisional": "Versió per regles, calculada amb les dades. La IA l'està millorant…"
 }
