@@ -280,14 +280,19 @@ def _recomendar_con_ia(datos: dict[str, Any], base: dict[str, Any]) -> dict[str,
 def recomendar(analisis: dict[str, Any], encuesta: dict[str, Any]) -> dict[str, Any]:
     """Devuelve lectura ejecutiva, 2-3 acciones con responsable, plazo e indicador y seguimiento.
 
-    Al momento, la versión por reglas (origen reglas). Con modelo, lanza en segundo plano la
-    versión del modelo y la devuelve (origen ia) en cuanto está lista y es válida.
+    origen ia (del modelo), pendiente (el modelo trabaja; se devuelve la versión por reglas, que
+    la pantalla no muestra) o reglas (no hay modelo o ha fallado).
     """
     analisis = analisis or {}
     base = _recomendar_respaldo(analisis, encuesta or {})
-    # Mientras se clasifican los comentarios los temas cambian: se espera a que terminen
-    if not hay_llm() or not analisis.get("temas") or clasificacion_en_curso():
+    if not hay_llm() or not (analisis.get("n_respuestas") or analisis.get("temas")):
         return base
+    # Mientras se clasifican los comentarios los temas cambian: se espera a que terminen
+    if clasificacion_en_curso():
+        return {**base, "origen": "pendiente"}
     datos = datos_agregados(analisis)
     clave = ("recomendar", json.dumps(datos, ensure_ascii=False, sort_keys=True))
-    return segundo_plano.obtener(clave, lambda: _recomendar_con_ia(datos, base)) or base
+    estado, valor = segundo_plano.consultar(clave, lambda: _recomendar_con_ia(datos, base))
+    if estado == "pendiente":
+        return {**base, "origen": "pendiente"}
+    return valor or base

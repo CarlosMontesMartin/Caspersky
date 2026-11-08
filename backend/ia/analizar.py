@@ -227,19 +227,28 @@ def _resumen_respaldo(tema: str, n: int) -> str:
 
 
 def resumir_tema(tema: str, textos: list[str]) -> str:
-    """Devuelve un resumen breve y anónimo de los comentarios de un tema.
+    """Devuelve un resumen breve y anónimo de los comentarios de un tema."""
+    return resumir_tema_con_origen(tema, textos)[0]
 
-    Responde al momento con el resumen de respaldo y pide el del modelo en segundo plano;
-    las siguientes consultas ya reciben el del modelo.
+
+def resumir_tema_con_origen(tema: str, textos: list[str]) -> tuple[str, str]:
+    """Devuelve (resumen, origen): origen ia, pendiente (el modelo trabaja) o reglas (sin modelo).
+
+    Mientras el resumen está pendiente se devuelve el texto de respaldo, que la pantalla no muestra.
     """
     if not textos:
-        return ""
+        return "", "reglas"
     respaldo = _resumen_respaldo(tema, len(textos))
+    if not hay_llm():
+        return respaldo, "reglas"
     # Mientras la clasificación avanza los grupos cambian; se resume al terminar
-    if not hay_llm() or clasificacion_en_curso():
-        return respaldo
+    if clasificacion_en_curso():
+        return respaldo, "pendiente"
     clave = ("resumen", tema, len(textos), hash(tuple(sorted(textos))))
-    return segundo_plano.obtener(clave, lambda: _resumir_con_ia(tema, textos)) or respaldo
+    estado, valor = segundo_plano.consultar(clave, lambda: _resumir_con_ia(tema, textos))
+    if estado == "pendiente":
+        return respaldo, "pendiente"
+    return (valor, "ia") if valor else (respaldo, "reglas")
 
 
 def _resumir_con_ia(tema: str, textos: list[str]) -> str | None:
@@ -333,13 +342,14 @@ def analizar_comentarios(respuestas_actual: list[dict[str, Any]],
         cuenta_ant[tema] = cuenta_ant.get(tema, 0) + 1
 
     visibles = {t: txt for t, txt in por_tema.items() if len(txt) >= UMBRAL_MINIMO}
-    resumenes = {tema: resumir_tema(tema, txt) for tema, txt in visibles.items()}
+    resumenes = {tema: resumir_tema_con_origen(tema, txt) for tema, txt in visibles.items()}
 
     resultado = [
         {
             "tema": tema,
             "n": len(txt),
-            "resumen": resumenes[tema],
+            "resumen": resumenes[tema][0],
+            "resumen_origen": resumenes[tema][1],
             "tendencia": calcular_tendencia(len(txt), len(actuales),
                                             cuenta_ant.get(tema, 0), len(anteriores)),
             "n_anterior": cuenta_ant.get(tema, 0),
