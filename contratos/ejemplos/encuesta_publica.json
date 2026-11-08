@@ -1,7 +1,7 @@
 {
   "id": "enc_004",
-  "titulo": "Nuevos turnos: ¿cómo lo estás viviendo?",
-  "intro": "Menos de 2 minutos. Es anónimo: solo vemos resultados de grupos de 5 personas o más.",
+  "titulo": "Nous torns: com ho estàs vivint?",
+  "intro": "Menys de 2 minuts. És anònima: només veiem resultats de grups de 5 persones o més.",
   "colectivo": "varios",
   "tiempo_estimado_seg": 90,
   "colectivos": [
@@ -11,7 +11,7 @@
   "preguntas": [
     {
       "id": "c1",
-      "texto": "¿Cómo valoras el nuevo sistema de turnos?",
+      "texto": "Com valores el nou sistema de torns?",
       "tipo": "escala_1_5",
       "opciones": [],
       "dimension": "condiciones",
@@ -19,7 +19,7 @@
     },
     {
       "id": "c2",
-      "texto": "¿Sientes que te han explicado bien el cambio?",
+      "texto": "Sents que t'han explicat bé el canvi?",
       "tipo": "escala_1_5",
       "opciones": [],
       "dimension": "liderazgo",
@@ -27,7 +27,7 @@
     },
     {
       "id": "c3",
-      "texto": "¿Qué cambiarías?",
+      "texto": "Què canviaries?",
       "tipo": "texto",
       "opciones": [],
       "dimension": "condiciones",
@@ -38,7 +38,7 @@
     "planta": [
       {
         "id": "planta_p1",
-        "texto": "¿Te da tiempo a hacer la pausa completa en tu turno?",
+        "texto": "Tens temps de fer la pausa sencera al teu torn?",
         "tipo": "si_no",
         "opciones": [],
         "dimension": "bienestar",
@@ -46,13 +46,13 @@
       },
       {
         "id": "planta_p2",
-        "texto": "¿Qué te cuesta más del nuevo cuadrante?",
+        "texto": "Què et costa més del nou quadrant?",
         "tipo": "opcion",
         "opciones": [
-          "Las pausas",
-          "Conciliar con mi vida personal",
-          "Saber mi turno con antelación",
-          "Otra cosa"
+          "Les pauses",
+          "Conciliar amb la vida personal",
+          "Saber el torn amb antelació",
+          "Una altra cosa"
         ],
         "dimension": "condiciones",
         "condicion": null
@@ -61,7 +61,7 @@
     "logistica": [
       {
         "id": "logistica_p1",
-        "texto": "¿Te llega a tiempo el cuadrante de rutas?",
+        "texto": "Et arriba a temps el quadrant de rutes?",
         "tipo": "escala_1_5",
         "opciones": [],
         "dimension": "condiciones",
@@ -69,7 +69,7 @@
       },
       {
         "id": "logistica_p2",
-        "texto": "¿Te avisan con tiempo de los cambios en el muelle?",
+        "texto": "T'avisen amb temps dels canvis al moll?",
         "tipo": "si_no",
         "opciones": [],
         "dimension": "liderazgo",
@@ -77,7 +77,7 @@
       }
     ]
   },
-  "transparencia": "Esta encuesta sirve para mejorar la organización de los turnos. Es anónima y solo se ven resultados de grupos de 5 personas o más.",
+  "transparencia": "Aquesta enquesta serveix per millorar l'organització dels torns. És anònima i només es veuen resultats de grups de 5 persones o més.",
   "turnos": [
     "manana",
     "tarde",
@@ -92,5 +92,11 @@
     "logistica": [
       "sin_turno"
     ]
-  }
+  },
+  "idioma": "ca",
+  "idiomas_disponibles": [
+    "es",
+    "ca",
+    "en"
+  ]
 }

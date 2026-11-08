@@ -179,5 +179,10 @@ def leer_reglas() -> str:
     return _leer_texto(CONTENIDO / "reglas_colectivos.md")
 
 
-def leer_transparencia() -> str:
+def leer_transparencia(idioma: str = "es") -> str:
+    """contenido/transparencia.md (es) o transparencia_<idioma>.md; si falta, la de castellano."""
+    if idioma in ("ca", "en"):
+        traducida = _leer_texto(CONTENIDO / f"transparencia_{idioma}.md")
+        if traducida.strip():
+            return traducida
     return _leer_texto(CONTENIDO / "transparencia.md")

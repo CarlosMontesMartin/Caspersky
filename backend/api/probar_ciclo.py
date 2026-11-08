@@ -1,4 +1,4 @@
-"""Recorre el ciclo completo por la API y dice OK o FALLO en cada comprobación · UPC 2 (v2.md 3.6).
+"""Recorre el ciclo completo por la API y dice OK o FALLO en cada comprobación · UPC 2 (v2.md 3.6 y v3.md 3.5).
 
     python -m backend.api.probar_ciclo                       # sin servidor, datos temporales
     python -m backend.api.probar_ciclo --url http://localhost:8000   # contra un servidor arrancado
@@ -41,7 +41,8 @@ CAMPOS_ANALISIS_V2 = {"encuesta_id", "titulo", "n_respuestas", "periodo_actual",
                       "medias", "alertas", "limites", "temas", "n_anterior", "n_simuladas", "colectivos",
                       "participacion_global", "medias_anterior", "preguntas", "distribuciones", "zonas",
                       "lectura", "estado_ia"}
-CAMPOS_ESTADO_IA = {"llm", "pendientes", "comentarios_total", "comentarios_ia", "listo", "origen_recomendaciones"}
+CAMPOS_ESTADO_IA = {"llm", "pendientes", "comentarios_total", "comentarios_ia", "listo", "origen_recomendaciones",
+                    "resumenes_listos", "recomendaciones_listas"}
 NOMBRES_INVENTADOS = ("Ramón", "Ramon", "Jordi", "Montse", "Pepe", "pepe")
 
 
@@ -145,7 +146,7 @@ def recorrer(c, res: Resultado, almacen=None, local: bool = False) -> None:
                       json.dumps(guardada, ensure_ascii=False))
         res.comprobar("No se guarda nada fuera del contrato",
                       set(guardada) <= {"id", "encuesta_id", "fecha", "periodo", "colectivo", "centro_tipo",
-                                        "turno", "canal", "valores", "comentario"}, sorted(guardada))
+                                        "turno", "canal", "idioma", "valores", "comentario"}, sorted(guardada))
     else:
         res.omitir("Comentario anonimizado al guardar", "solo sin --url")
 
@@ -210,8 +211,9 @@ def recorrer(c, res: Resultado, almacen=None, local: bool = False) -> None:
         res.comprobar("El seguimiento se puede generar (cierra el ciclo)", estado == 200, f"devolvió {estado}")
 
     recorrer_multisector(c, res, pedir)
+    recorrer_v3(c, res, pedir, almacen, local)
 
-    res.seccion("9. Histórico enc_000 (escenario C)")
+    res.seccion("11. Histórico enc_000 (escenario C)")
     estado, lista = pedir("get", "/encuestas")
     if any(e["id"] == "enc_000" for e in lista or []):
         estado, a0 = pedir("get", "/encuestas/enc_000/analisis")
@@ -308,6 +310,119 @@ def recorrer_multisector(c, res: Resultado, pedir) -> None:
     seg = (rec or {}).get("seguimiento") or {}
     res.comprobar("Recomendaciones con lectura y seguimiento con colectivos",
                   estado == 200 and bool(rec.get("lectura")) and isinstance(seg.get("colectivos"), list), f"{estado}")
+
+
+def recorrer_v3(c, res: Resultado, pedir, almacen=None, local: bool = False) -> None:
+    res.seccion("9. Volver atrás: necesidad, regenerar y duplicar")
+    estado, enc = pedir("post", "/encuestas/generar", json=NECESIDAD_A)
+    if not res.comprobar("Generar guarda la necesidad", estado == 200 and
+                         (enc.get("necesidad") or {}).get("objetivo") == NECESIDAD_A["objetivo"], f"{estado}"):
+        return
+    eid = enc["id"]
+    res.comprobar("Encuesta nueva con traducciones pendientes", enc.get("estado_traduccion") == "pendiente"
+                  and enc.get("traducciones") == {}, str(enc.get("estado_traduccion")))
+    otra = dict(NECESIDAD_A, objetivo="Saber si las pausas del nuevo turno son suficientes")
+    estado, reg = pedir("post", f"/encuestas/{eid}/regenerar", json=otra)
+    res.comprobar("Regenerar conserva el id", estado == 200 and reg.get("id") == eid, f"{estado} {reg.get('id') if reg else ''}")
+    res.comprobar("Regenerar cambia la necesidad y vuelve a borrador",
+                  estado == 200 and reg["necesidad"]["objetivo"] == otra["objetivo"] and reg["estado"] == "borrador")
+    res.comprobar("Regenerar conserva el periodo", estado == 200 and reg.get("periodo") == enc.get("periodo"))
+    estado, _ = pedir("post", f"/encuestas/{eid}/regenerar", json={"colectivos": ["inventado"]})
+    res.comprobar("Regenerar con necesidad no válida → 422", estado == 422, f"devolvió {estado}")
+    sin_necesidad = {k: v for k, v in reg.items() if k != "necesidad"}
+    estado, editada = pedir("put", f"/encuestas/{eid}", json=sin_necesidad)
+    res.comprobar("Editar (PUT) conserva la necesidad",
+                  estado == 200 and (editada.get("necesidad") or {}).get("objetivo") == otra["objetivo"], f"{estado}")
+
+    pedir("post", f"/encuestas/{eid}/aprobar")
+    estado, aprobada = pedir("get", f"/encuestas/{eid}")
+    res.comprobar("Aprobar deja estado_traduccion válido",
+                  aprobada.get("estado_traduccion") in ("pendiente", "lista", "error"), str(aprobada.get("estado_traduccion")))
+    pedir("post", f"/encuestas/{eid}/publicar")
+    estado, _ = pedir("post", f"/encuestas/{eid}/regenerar", json=otra)
+    res.comprobar("Regenerar una encuesta publicada → 409", estado == 409, f"devolvió {estado}")
+
+    escala = next((p["id"] for p in reg["preguntas"] if p["tipo"] == "escala_1_5"), None)
+    pedir("post", f"/publico/encuestas/{eid}/respuestas", json={"turno": "manana", "valores": {escala: 3}})
+    estado, copia = pedir("post", f"/encuestas/{eid}/duplicar")
+    res.comprobar("Duplicar da un id nuevo en borrador",
+                  estado == 200 and copia.get("id") != eid and copia.get("estado") == "borrador", f"{estado}")
+    res.comprobar("Duplicar copia preguntas y necesidad, sin url ni QR",
+                  estado == 200 and copia.get("preguntas") == reg.get("preguntas") and copia.get("necesidad") == reg.get("necesidad")
+                  and copia.get("url") is None and copia.get("qr") is None and copia.get("traducciones") == {})
+    estado, lista = pedir("get", "/encuestas")
+    fila = next((e for e in lista or [] if e["id"] == copia.get("id")), {})
+    res.comprobar("La copia no tiene respuestas", fila.get("n_respuestas") == 0, str(fila))
+    estado, _ = pedir("post", "/encuestas/enc_999/duplicar")
+    res.comprobar("Duplicar una que no existe → 404", estado == 404, f"devolvió {estado}")
+
+    res.seccion("10. Idiomas y sugerencias")
+    estado, es = pedir("get", f"/publico/encuestas/{eid}")
+    estado, ca = pedir("get", f"/publico/encuestas/{eid}?idioma=ca")
+    res.comprobar("?idioma=ca devuelve idioma e idiomas_disponibles",
+                  estado == 200 and ca.get("idioma") == "ca" and "es" in ca.get("idiomas_disponibles", []), f"{estado}")
+    if "ca" not in ca.get("idiomas_disponibles", []):
+        res.comprobar("Sin traducción, los textos salen en castellano",
+                      ca.get("titulo") == es.get("titulo") and ca.get("preguntas") == es.get("preguntas"))
+    estado, xx = pedir("get", f"/publico/encuestas/{eid}?idioma=fr")
+    res.comprobar("Idioma desconocido → castellano", estado == 200 and xx.get("idioma") == "es")
+    estado, _ = pedir("post", f"/publico/encuestas/{eid}/respuestas",
+                      json={"turno": "noche", "idioma": "ca", "valores": {escala: 2}})
+    res.comprobar("Respuesta con idioma ca se acepta", estado == 200, f"devolvió {estado}")
+    estado, _ = pedir("post", f"/publico/encuestas/{eid}/respuestas",
+                      json={"turno": "noche", "idioma": "fr", "valores": {escala: 2}})
+    res.comprobar("Respuesta con idioma no válido → 422", estado == 422, f"devolvió {estado}")
+    if local and almacen is not None:
+        res.comprobar("Se guarda el idioma de la respuesta", almacen.leer_respuestas(eid)[-1].get("idioma") == "ca")
+        _comprobar_traduccion_local(res, pedir, almacen)
+    else:
+        res.omitir("Traducción aplicada y opciones en castellano", "solo sin --url")
+
+    estado, sug = pedir("get", f"/encuestas/{eid}/sugerencias")
+    res.comprobar("GET sugerencias responde", estado == 200 and isinstance(sug.get("preguntas"), list)
+                  and sug.get("origen") in ("ia", "pendiente", "ninguno"), f"{estado} {sug}")
+    if local:
+        res.comprobar("Sugerencias sin IA → origen ninguno y lista vacía",
+                      sug.get("origen") == "ninguno" and sug.get("preguntas") == [], str(sug))
+    estado, a = pedir("get", f"/encuestas/{eid}/analisis")
+    res.comprobar("estado_ia con resumenes_listos y recomendaciones_listas",
+                  {"resumenes_listos", "recomendaciones_listas"} <= set(a.get("estado_ia", {})))
+    res.comprobar("Cada tema con resumen_origen", all(t.get("resumen_origen") in ("ia", "pendiente", "reglas")
+                                                      for t in a.get("temas", [])))
+    estado, _ = pedir("get", "/encuestas/enc_999/sugerencias")
+    res.comprobar("Sugerencias de una que no existe → 404", estado == 404, f"devolvió {estado}")
+
+
+def _comprobar_traduccion_local(res: Resultado, pedir, almacen) -> None:
+    """Inyecta una traducción a mano (sin IA) para probar cómo se aplica."""
+    base = {"id": "enc_prueba_idiomas", "titulo": "Turnos", "intro": "Hola", "periodo": "2026-11",
+            "colectivo": "planta", "colectivos": ["planta"], "origen": "ia", "url": None, "qr": None,
+            "preguntas": [{"id": "p1", "texto": "¿Qué tal?", "tipo": "escala_1_5", "opciones": [],
+                           "dimension": "condiciones", "condicion": None},
+                          {"id": "p2", "texto": "¿Qué cuesta más?", "tipo": "opcion", "opciones": ["Pausas", "Horario"],
+                           "dimension": "condiciones", "condicion": None}],
+            "preguntas_por_colectivo": {}, "estado": "publicada", "estado_traduccion": "lista",
+            "traducciones": {"ca": {"titulo": "Torns", "intro": "Hola!", "preguntas": [
+                {"id": "p1", "texto": "Què tal?", "opciones": []},
+                {"id": "p2", "texto": "Què costa més?", "opciones": ["Pauses", "Horari"]}]}}}
+    almacen.guardar_encuesta(base)
+    estado, ca = pedir("get", "/publico/encuestas/enc_prueba_idiomas?idioma=ca")
+    res.comprobar("Con traducción: textos en catalán",
+                  estado == 200 and ca["titulo"] == "Torns" and ca["preguntas"][1]["opciones"] == ["Pauses", "Horari"])
+    res.comprobar("idiomas_disponibles incluye ca", ca.get("idiomas_disponibles") == ["es", "ca"], str(ca.get("idiomas_disponibles")))
+    estado, en = pedir("get", "/publico/encuestas/enc_prueba_idiomas?idioma=en")
+    res.comprobar("Idioma sin traducción → castellano", en.get("titulo") == "Turnos")
+    estado, _ = pedir("post", "/publico/encuestas/enc_prueba_idiomas/respuestas",
+                      json={"turno": "noche", "idioma": "ca", "valores": {"p1": 3, "p2": "Horari"}})
+    guardada = almacen.leer_respuestas("enc_prueba_idiomas")[-1] if estado == 200 else {}
+    res.comprobar("Opción traducida se guarda en castellano", guardada.get("valores", {}).get("p2") == "Horario",
+                  f"{estado} {guardada.get('valores')}")
+    borrador = dict(base, id="enc_prueba_editar", estado="aprobada")
+    almacen.guardar_encuesta(borrador)
+    cambiada = dict(borrador, titulo="Turnos (editado)")
+    estado, ed = pedir("put", "/encuestas/enc_prueba_editar", json=cambiada)
+    res.comprobar("Editar textos borra las traducciones",
+                  estado == 200 and ed.get("traducciones") == {} and ed.get("estado_traduccion") == "pendiente", f"{estado}")
 
 
 def main() -> int:

@@ -105,7 +105,8 @@
       "tendencia": "sube",
       "n_anterior": 18,
       "pct": 0.301,
-      "pct_anterior": 0.124
+      "pct_anterior": 0.124,
+      "resumen_origen": "ia"
     },
     {
       "tema": "comunicacion",
@@ -114,7 +115,8 @@
       "tendencia": "nuevo",
       "n_anterior": 0,
       "pct": 0.221,
-      "pct_anterior": 0.0
+      "pct_anterior": 0.0,
+      "resumen_origen": "ia"
     },
     {
       "tema": "turnos",
@@ -123,7 +125,8 @@
       "tendencia": "sube",
       "n_anterior": 20,
       "pct": 0.186,
-      "pct_anterior": 0.138
+      "pct_anterior": 0.138,
+      "resumen_origen": "ia"
     },
     {
       "tema": "herramientas",
@@ -132,7 +135,8 @@
       "tendencia": "baja",
       "n_anterior": 30,
       "pct": 0.08,
-      "pct_anterior": 0.207
+      "pct_anterior": 0.207,
+      "resumen_origen": "ia"
     }
   ],
   "n_anterior": 246,
@@ -365,6 +369,8 @@
     "comentarios_total": 113,
     "comentarios_ia": 113,
     "listo": true,
-    "origen_recomendaciones": "ia"
+    "origen_recomendaciones": "ia",
+    "resumenes_listos": true,
+    "recomendaciones_listas": true
   }
 }

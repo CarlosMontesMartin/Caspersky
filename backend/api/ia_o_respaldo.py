@@ -226,3 +226,24 @@ def banco_contextual(encuesta: dict, temas: list) -> dict:
         _aviso("banco_contextual", error)
     return {}
 
+
+
+# ---------- v3: sugerencias y traducciones ----------
+
+def sugerir_preguntas(analisis: dict) -> dict:
+    """{"preguntas": [3 textos], "origen": "ia|pendiente|ninguno"}. Sin IA: lista vacía, sin textos fijos."""
+    try:
+        from backend.ia.informe import sugerir_preguntas as real
+        resultado = real(analisis) or {}
+        preguntas = [p for p in resultado.get("preguntas", []) if isinstance(p, str) and p.strip()]
+        origen = resultado.get("origen") if resultado.get("origen") in ("ia", "pendiente", "ninguno") else "ninguno"
+        return {"preguntas": preguntas[:3] if origen == "ia" else [], "origen": origen}
+    except Exception as error:
+        _aviso("sugerir_preguntas", error)
+    return {"preguntas": [], "origen": "ninguno"}
+
+
+def traducir_encuesta(encuesta: dict, idiomas: list) -> dict:
+    """{"ca": {...}, "en": {...}} (formato de `traducciones`). Lanza la excepción si UPC 1 falla."""
+    from backend.ia.traducir import traducir_encuesta as real
+    return real(encuesta, idiomas) or {}
