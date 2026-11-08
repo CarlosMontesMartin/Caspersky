@@ -10,8 +10,10 @@ from backend.api import ia_o_respaldo as ia
 from backend.api import simulacion, traducciones
 from backend.api.qr import generar_qr
 from backend import textos
-from backend.api.validacion import colectivos_de, etiqueta_colectivo, validar_necesidad, validar_preguntas
+from backend.api.validacion import (colectivos_de, etiqueta_colectivo, todas_las_preguntas, validar_necesidad,
+                                    validar_preguntas)
 from backend.datos import almacen, metricas
+from backend.datos import compromisos as compromisos_datos
 from backend.reglas import IDIOMAS, idioma_valido
 
 router = APIRouter()
@@ -65,8 +67,14 @@ def analisis_y_recomendaciones(encuesta: dict, idioma: str = "es") -> tuple[dict
     zonas = metricas.calcular_zonas(actual, anterior, base["participacion"], encuesta,
                                     base["alertas"], temas_por_respuesta)
 
+    vistas = compromisos_datos.de_encuesta(encuesta["id"], idioma)  # con el "después" ya calculado
+    for zona in zonas:
+        zona["compromisos"] = compromisos_datos.para_zona(vistas, zona["colectivo"])
+    valoracion, limite_sesgo = metricas.calcular_valoracion(zonas, idioma)
+    if limite_sesgo:
+        base["limites"] = list(base["limites"]) + [limite_sesgo]
     analisis = {"encuesta_id": encuesta["id"], "titulo": vista.get("titulo", ""), "idioma": idioma, **base,
-                "temas": temas, "zonas": zonas, "lectura": "", "estado_ia": {}}
+                "valoracion": valoracion, "temas": temas, "zonas": zonas, "lectura": "", "estado_ia": {}}
     recomendaciones = ia.recomendar(analisis, encuesta, idioma)
     analisis["lectura"] = recomendaciones.get("lectura", "")
 
@@ -151,6 +159,36 @@ def _idioma_de_necesidad(necesidad: dict, idioma_ruta: str | None) -> str:
     return idioma_valido(necesidad.get("idioma") or idioma_ruta)
 
 
+def _asegurar_pregunta_fija(encuesta: dict, necesidad: dict) -> None:
+    """Seguimiento de un compromiso: la pregunta que se midió antes va PRIMERA, con "fija": true y su
+    texto tal cual (v6 UPC 1 P0-3). UPC 1 la inserta al generar; si su versión aún no lo hace, la
+    insertamos aquí. Si no cabe (límites de preguntas), sustituye a la primera escala_1_5."""
+    fija = necesidad.get("pregunta_fija")
+    if not isinstance(fija, dict) or not str(fija.get("texto") or "").strip():
+        return
+    nucleo = encuesta.setdefault("preguntas", [])
+    if any(p.get("fija") is True for p in todas_las_preguntas(encuesta)):
+        return  # ya la puso la IA
+    ids = {p["id"] for p in todas_las_preguntas(encuesta)}
+    multi = bool(encuesta.get("preguntas_por_colectivo"))
+    libre = "c1" if multi else "p1"
+    n = 1
+    while libre in ids:
+        libre, n = f"fija_{n}", n + 1
+    pregunta = {"id": libre, "texto": str(fija["texto"]).strip(), "tipo": "escala_1_5", "opciones": [],
+                "dimension": fija.get("dimension") or "bienestar", "condicion": None, "fija": True}
+    original = copy.deepcopy(nucleo)
+    encuesta["preguntas"] = [pregunta] + nucleo
+    try:
+        validar_preguntas(encuesta)
+    except HTTPException:
+        i = next((k for k, p in enumerate(original) if p.get("tipo") == "escala_1_5"), 0)
+        reemplazada = original[i] if original else None
+        if reemplazada:
+            pregunta["id"] = reemplazada["id"]  # las condiciones que apuntaban a ella siguen valiendo
+        encuesta["preguntas"] = original[:i] + [pregunta] + original[i + 1:]
+
+
 def _desde_necesidad(necesidad: dict, encuesta_id: str, periodo: str, idioma: str = "es") -> dict:
     """Genera una Encuesta en borrador a partir de una Necesidad ya validada (generar y regenerar).
     La encuesta se escribe en `idioma`, que queda como su idioma original (v5 §1)."""
@@ -166,6 +204,11 @@ def _desde_necesidad(necesidad: dict, encuesta_id: str, periodo: str, idioma: st
                     colectivos=colectivos, colectivo=etiqueta_colectivo(colectivos),
                     idioma_original=idioma_valido(encuesta.get("idioma_original") or idioma),
                     necesidad=copy.deepcopy(necesidad))  # para volver al paso 1 con sus datos
+    if necesidad.get("compromiso_id"):
+        encuesta["compromiso_id"] = necesidad["compromiso_id"]  # seguimiento de un compromiso (v6)
+    else:
+        encuesta.pop("compromiso_id", None)
+    _asegurar_pregunta_fija(encuesta, necesidad)
     return traducciones.reiniciar(encuesta)
 
 
@@ -273,6 +316,8 @@ def publicar(encuesta_id: str):
         encuesta.setdefault("traducciones", {})
         encuesta.setdefault("estado_traduccion", "pendiente")  # se publica aunque siga pendiente (v4 P1)
         guardada = almacen.guardar_encuesta(encuesta)
+    if guardada.get("compromiso_id"):  # seguimiento de un compromiso: ya se puede medir (v6)
+        compromisos_datos.vincular_seguimiento(guardada["compromiso_id"], guardada["id"])
     if guardada.get("estado_traduccion") != "lista":
         traducciones.lanzar(guardada)  # por si la de aprobar falló o no llegó a lanzarse
     return guardada
@@ -307,7 +352,9 @@ def preguntar(encuesta_id: str, cuerpo: dict, idioma: str = "es"):
 
 @router.post("/encuestas/{encuesta_id}/simular")
 def simular(encuesta_id: str, opciones: dict | None = None):
-    """Solo con MODO_DEMO=1. Opciones: {"n": 40, "con_periodo_anterior": true, "semilla": null}."""
+    """Solo con MODO_DEMO=1. Opciones: {"n": 40, "con_periodo_anterior": true, "semilla": null,
+    "mejora": {"pregunta_fija": 1.2}}. Con "mejora", la pregunta "fija" de un seguimiento sube de media
+    esos puntos respecto al "antes" del compromiso (para enseñar el antes → después en la demo)."""
     if not modo_demo():
         raise HTTPException(403, "Solo disponible con MODO_DEMO=1 en el .env")
     encuesta = obtener(encuesta_id)
@@ -317,8 +364,13 @@ def simular(encuesta_id: str, opciones: dict | None = None):
     n = opciones.get("n", 40)
     if not isinstance(n, int) or not 1 <= n <= 500:
         raise HTTPException(422, "n debe ser un entero entre 1 y 500")
+    mejora = opciones.get("mejora")
+    if mejora is not None:
+        valor = mejora.get("pregunta_fija") if isinstance(mejora, dict) else None
+        if not isinstance(valor, (int, float)) or isinstance(valor, bool) or not 0 <= valor <= 4:
+            raise HTTPException(422, "mejora debe ser {\"pregunta_fija\": un número entre 0 y 4}")
     respuestas = simulacion.simular(encuesta, n, bool(opciones.get("con_periodo_anterior", True)),
-                                    opciones.get("semilla"))
+                                    opciones.get("semilla"), mejora)
     for respuesta in respuestas:
         almacen.anadir_respuesta(encuesta_id, respuesta)
     return {"simuladas": len(respuestas), "periodos": sorted({r["periodo"] for r in respuestas})}

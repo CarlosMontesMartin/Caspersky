@@ -99,3 +99,118 @@ def test_alertas_y_limites_en_catalan_e_ingles():
 def test_idioma_desconocido_en_castellano():
     m = metricas.calcular_metricas([r("manana", 4)] * 6, PLANTILLA, ENCUESTA, "pt")
     assert any("correlación" in x for x in m["limites"])
+
+
+# ---------- v6: supresión complementaria (no se puede deducir restando) ----------
+
+def _zonas(actual, encuesta=ENCUESTA, anterior=()):
+    colectivos = metricas._colectivos(encuesta)
+    part = metricas.calcular_participacion(actual, PLANTILLA, colectivos)
+    return metricas.calcular_zonas(actual, list(anterior), part, encuesta, [], {})
+
+
+def test_turno_pequeno_oculta_las_medias_de_todos_los_turnos():
+    """5 de noche y 1 de mañana: la media de planta (n=6) se ve, pero la de noche NO, porque
+    restándola de la de planta se deduciría la de la persona de mañana."""
+    actual = [r("noche", 2, id_=f"n{i}") for i in range(5)] + [r("manana", 5, id_="m0")]
+    z = _zonas(actual)[0]
+    assert z["media"] == 2.5 and z["turnos_ocultos"] is True
+    assert all(t["media"] is None for t in z["turnos"])
+    assert {t["turno"]: t["respuestas"] for t in z["turnos"]} == {"manana": 1, "noche": 5}  # recuentos visibles
+
+
+def test_turnos_todos_grandes_si_publican_su_media():
+    actual = [r("noche", 2) for _ in range(5)] + [r("manana", 4) for _ in range(5)]
+    z = _zonas(actual)[0]
+    assert z["turnos_ocultos"] is False
+    assert {t["turno"]: t["media"] for t in z["turnos"]} == {"manana": 4.0, "noche": 2.0}
+
+
+def test_turno_sin_respuestas_no_oculta_a_los_demas():
+    z = _zonas([r("manana", 4) for _ in range(6)])[0]
+    assert z["turnos_ocultos"] is False
+    assert next(t for t in z["turnos"] if t["turno"] == "manana")["media"] == 4.0
+
+
+def test_turno_pequeno_sin_fila_en_la_plantilla_tambien_cuenta():
+    """Respuestas de un turno que la plantilla no tiene: igualmente se deduciría restando."""
+    plantilla = [f for f in PLANTILLA if f["turno"] != "noche"]
+    actual = [r("manana", 4) for _ in range(6)] + [r("noche", 1) for _ in range(3)]
+    part = metricas.calcular_participacion(actual, plantilla, ["planta"])
+    z = metricas.calcular_zonas(actual, [], part, ENCUESTA, [], {})[0]
+    assert z["turnos_ocultos"] is True and all(t["media"] is None for t in z["turnos"])
+
+
+def test_distribuciones_excluyen_colectivos_con_menos_de_5():
+    resp = [r("manana", v, colectivo="planta") for v in (1, 2, 2, 5, 5, 5)] + \
+           [r("sin_turno", 1, colectivo="logistica") for _ in range(2)]
+    d = metricas.calcular_distribuciones(resp, MULTI)
+    assert d[0]["n"] == 6 and d[0]["conteos"] == [1, 2, 0, 0, 3]  # logística (n=2) no entra
+    assert metricas.respuestas_excluidas(resp) == 2
+    m = metricas.calcular_metricas(resp, PLANTILLA, MULTI, "es")
+    assert any("Se excluyen 2 respuestas" in x for x in m["limites"])
+    assert all(x["n"] == 6 for x in m["distribuciones"])
+
+
+def test_sin_grupos_pequenos_no_hay_limite_de_exclusion():
+    resp = [r("manana", 3, colectivo="planta") for _ in range(6)]
+    m = metricas.calcular_metricas(resp, PLANTILLA, MULTI, "es")
+    assert not any("excluyen" in x for x in m["limites"])
+
+
+def test_invariantes_con_datos_aleatorios():
+    """Para cualquier reparto: (1) con un turno de 1–4 no se publica ninguna media de turno de ese
+    colectivo; (2) la distribución global usa exactamente las respuestas de los colectivos que
+    publican su media (n global == suma de n publicados), así que no hay nada que restar."""
+    import random
+    azar = random.Random(11)
+    for _ in range(300):
+        resp = []
+        for colectivo, turnos in (("planta", ["manana", "tarde", "noche"]), ("logistica", ["sin_turno"])):
+            for turno in turnos:
+                resp += [r(turno, azar.randint(1, 5), colectivo=colectivo)
+                         for _ in range(azar.choice([0, 1, 2, 4, 5, 6, 9]))]
+        if not resp:
+            continue
+        part = metricas.calcular_participacion(resp, PLANTILLA, MULTI["colectivos"])
+        for z in metricas.calcular_zonas(resp, [], part, MULTI, [], {}):
+            pequeno = any(0 < t["respuestas"] < 5 for t in z["turnos"])
+            if pequeno:
+                assert z["turnos_ocultos"] and all(t["media"] is None for t in z["turnos"])
+            if z["respuestas"] < 5:
+                assert z["media"] is None
+        medias = metricas.calcular_medias(resp, MULTI)
+        for dist in metricas.calcular_distribuciones(resp, MULTI):
+            publicados = sum(m["n"] for m in medias if m["pregunta"] == dist["pregunta"])
+            assert dist["n"] == publicados
+
+
+def test_valoracion_corregida_por_plantilla():
+    """Oficina responde mucho y valora alto; planta responde poco y valora bajo."""
+    zonas = [{"colectivo": "planta", "respuestas": 6, "personas": 400, "media": 2.0},
+             {"colectivo": "oficina", "respuestas": 60, "personas": 100, "media": 4.0},
+             {"colectivo": "manager", "respuestas": 3, "personas": 40, "media": None}]
+    v, limite = metricas.calcular_valoracion(zonas, "es")
+    assert v["bruta"] == 3.82 and v["corregida"] == 2.4 and v["diferencia"] == -1.42
+    assert limite and "1,4 puntos por debajo" in limite
+    invertidas = [dict(zonas[0], media=4.0, personas=100), dict(zonas[1], media=2.0, personas=400)]
+    v2, limite_en = metricas.calcular_valoracion(invertidas, "en")
+    assert v2["diferencia"] == 0.22 and "0.2 points above" in limite_en
+
+
+def test_valoracion_sin_zonas_con_media():
+    assert metricas.calcular_valoracion([{"colectivo": "planta", "respuestas": 3, "personas": 10, "media": None}])[0] == \
+        {"bruta": None, "corregida": None, "diferencia": None}
+
+
+def test_valoracion_sin_sesgo_no_da_limite():
+    zonas = [{"colectivo": "planta", "respuestas": 10, "personas": 100, "media": 3.0},
+             {"colectivo": "oficina", "respuestas": 10, "personas": 100, "media": 3.0}]
+    v, limite = metricas.calcular_valoracion(zonas, "es")
+    assert v["diferencia"] == 0.0 and limite is None
+
+
+def test_por_canal_cuenta_sin_cruzar():
+    resp = [dict(r("manana", 3), canal="qr")] * 3 + [dict(r("manana", 3), canal="teams")] * 2
+    assert metricas.calcular_participacion_canal(resp) == [
+        {"canal": "qr", "respuestas": 3}, {"canal": "quiosco", "respuestas": 0}, {"canal": "teams", "respuestas": 2}]

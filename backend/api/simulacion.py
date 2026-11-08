@@ -55,11 +55,16 @@ def _elegir(rng: random.Random, pesos: dict):
     return rng.choices(list(pesos), weights=list(pesos.values()))[0]
 
 
-def _valor(rng: random.Random, pregunta: dict, cual: str):
+def _valor(rng: random.Random, pregunta: dict, cual: str, mejora: float | None = None,
+           antes: float | None = None):
     tipo = pregunta["tipo"]
     if tipo == "escala_1_5":
         medias = MEDIA_ESCALA["condiciones" if pregunta.get("dimension") == "condiciones" else "otras"]
-        return max(1, min(5, round(rng.gauss(medias[0] if cual == "actual" else medias[1], 0.9))))
+        centro = medias[0] if cual == "actual" else medias[1]
+        if mejora is not None and cual == "actual" and pregunta.get("fija") is True:
+            # Seguimiento de un compromiso: parte del "antes" medido y suma la mejora pedida
+            centro = (antes if antes is not None else centro) + mejora
+        return max(1, min(5, round(rng.gauss(centro, 0.9))))
     if tipo == "si_no":
         return "si" if rng.random() < (0.4 if cual == "actual" else 0.65) else "no"
     if tipo == "opcion" and pregunta.get("opciones"):
@@ -89,9 +94,23 @@ def _segmentos(encuesta: dict, n: int, rng: random.Random) -> list[str]:
     return lista
 
 
-def simular(encuesta: dict, n: int, con_periodo_anterior: bool = True, semilla: int | None = None) -> list[dict]:
-    """n respuestas del periodo actual (y n del anterior si se pide), listas para guardar."""
+def _antes_del_compromiso(encuesta: dict) -> float | None:
+    """El "antes" que se midió en el compromiso del que esta encuesta es seguimiento (si lo hay)."""
+    from backend.datos import almacen
+    compromiso = almacen.leer_compromiso(encuesta.get("compromiso_id") or "")
+    antes = ((compromiso or {}).get("indicador") or {}).get("antes")
+    return antes if isinstance(antes, (int, float)) else None
+
+
+def simular(encuesta: dict, n: int, con_periodo_anterior: bool = True, semilla: int | None = None,
+            mejora: dict | None = None) -> list[dict]:
+    """n respuestas del periodo actual (y n del anterior si se pide), listas para guardar.
+
+    mejora = {"pregunta_fija": 1.2}: en el periodo actual, las preguntas con "fija": true salen centradas en
+    (el "antes" del compromiso, o su media habitual) + 1,2 puntos. Sin "mejora", todo como siempre."""
     rng = random.Random(semilla)
+    puntos = mejora.get("pregunta_fija") if isinstance(mejora, dict) else None
+    antes = _antes_del_compromiso(encuesta) if puntos is not None else None
     hoy = date.today()
     periodos = [("anterior", _mes_anterior(hoy))] if con_periodo_anterior else []
     periodos.append(("actual", hoy))
@@ -112,7 +131,7 @@ def simular(encuesta: dict, n: int, con_periodo_anterior: bool = True, semilla: 
                 previa = valores.get(cond.get("pregunta")) if cond else None
                 if cond and isinstance(previa, int) and previa > cond.get("valor_max", 5):
                     continue  # pregunta condicional que no se muestra
-                v = _valor(rng, p, cual)
+                v = _valor(rng, p, cual, puntos, antes)
                 if v is not None:
                     valores[p["id"]] = v
 

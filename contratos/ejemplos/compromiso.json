@@ -1,0 +1,37 @@
+{
+  "id": "cmp_001",
+  "encuesta_id": "enc_000",
+  "tema": "descansos",
+  "colectivos": [
+    "planta"
+  ],
+  "dijisteis": "Tres de cada diez comentarios de planta dicen que no da tiempo a hacer la pausa completa (42 comentarios, octubre).",
+  "hicimos": "Desde el 10 de noviembre, el turno de noche tiene dos pausas de 15 minutos con relevo asegurado.",
+  "responsable": "Jefatura de planta y Prevención",
+  "fecha": "2026-11-10",
+  "estado": "comprometido",
+  "idioma_original": "es",
+  "traducciones": {
+    "ca": {
+      "dijisteis": "Tres de cada deu comentaris de planta diuen que no hi ha temps de fer la pausa sencera (42 comentaris, octubre).",
+      "hicimos": "Des del 10 de novembre, el torn de nit té dues pauses de 15 minuts amb relleu assegurat."
+    },
+    "en": {
+      "dijisteis": "Three in ten comments from the production plant say there is no time to take the full break (42 comments, October).",
+      "hicimos": "From 10 November, the night shift has two 15-minute breaks with cover guaranteed."
+    }
+  },
+  "indicador": {
+    "texto": "¿Te da tiempo a hacer la pausa completa?",
+    "tipo": "escala_1_5",
+    "dimension": "bienestar",
+    "pregunta_origen": "p2",
+    "colectivo": "planta",
+    "antes": 2.4,
+    "n_antes": 90,
+    "periodo_antes": "2026-10"
+  },
+  "seguimiento_id": null,
+  "despues": null,
+  "origen_borrador": "ia"
+}

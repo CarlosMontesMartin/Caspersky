@@ -17,7 +17,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 RAIZ = Path(__file__).resolve().parents[2]
 load_dotenv(RAIZ / ".env")  # BASE_URL, LLM_API_KEY…
 
-from backend.api import rutas_encuestas, rutas_publico, teams  # noqa: E402  (después de cargar .env)
+from backend.api import compromisos, rutas_encuestas, rutas_publico, teams  # noqa: E402  (después de cargar .env)
 from backend.datos import almacen  # noqa: E402
 
 FRONTEND = RAIZ / "frontend"
@@ -71,6 +71,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 app.include_router(rutas_encuestas.router)
 app.include_router(rutas_publico.router)
 app.include_router(teams.router)
+app.include_router(compromisos.router)
 
 
 @app.exception_handler(StarletteHTTPException)

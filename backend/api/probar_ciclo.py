@@ -217,6 +217,7 @@ def recorrer(c, res: Resultado, almacen=None, local: bool = False) -> None:
     recorrer_v3(c, res, pedir, almacen, local)
     recorrer_v4(c, res, pedir, eid, local)
     recorrer_v5(c, res, pedir, eid, almacen, local)
+    recorrer_v6(c, res, pedir, eid, almacen, local)
 
     res.seccion("13. Histórico enc_000 (escenario C)")
     estado, lista = pedir("get", "/encuestas")
@@ -729,6 +730,239 @@ def _comprobar_teams_local(res: Resultado, pedir, almacen, eid: str) -> None:
 def _escalas(c, eid, pedir):
     estado, enc = pedir("get", f"/encuestas/{eid}")
     return [p["id"] for p in (enc or {}).get("preguntas", []) if p["tipo"] == "escala_1_5"]
+
+
+def _publicar(pedir, necesidad: dict):
+    """Genera, aprueba y publica una encuesta. Devuelve la encuesta publicada o None."""
+    estado, enc = pedir("post", "/encuestas/generar", json=necesidad)
+    if estado != 200:
+        return None
+    pedir("post", f"/encuestas/{enc['id']}/aprobar")
+    estado, pub = pedir("post", f"/encuestas/{enc['id']}/publicar")
+    return pub if estado == 200 else None
+
+
+def _escala(enc: dict) -> str | None:
+    return next((p["id"] for p in enc.get("preguntas", []) if p["tipo"] == "escala_1_5"), None)
+
+
+def recorrer_v6(c, res: Resultado, pedir, eid: str, almacen=None, local: bool = False) -> None:
+    """v6 (UPC 2): anonimato a prueba de restas, compromisos, minimización, canal y valoración."""
+    # ---------------------------------------------------------------- 16
+    res.seccion("16. Anonimato: no se puede deducir restando (v6)")
+    planta = _publicar(pedir, dict(NECESIDAD_A))
+    if res.comprobar("Encuesta de planta publicada", planta is not None):
+        escala = _escala(planta)
+        for turno, n in (("noche", 5), ("manana", 1)):
+            for i in range(n):
+                pedir("post", f"/publico/encuestas/{planta['id']}/respuestas",
+                      json={"turno": turno, "canal": "qr", "valores": {escala: 1 + (i % 5) if turno == "noche" else 5}})
+        estado, a = pedir("get", f"/encuestas/{planta['id']}/analisis")
+        z = next((z for z in a.get("zonas", []) if z["colectivo"] == "planta"), {})
+        turnos = {t["turno"]: t for t in z.get("turnos", [])}
+        res.comprobar("5 de noche + 1 de mañana: la media de planta (n=6) se ve", z.get("media") is not None, str(z.get("media")))
+        res.comprobar("…la media del turno de noche NO se ve", turnos.get("noche", {}).get("media", 0) is None, str(turnos.get("noche")))
+        res.comprobar("…ni la del turno de mañana", turnos.get("manana", {}).get("media", 0) is None, str(turnos.get("manana")))
+        res.comprobar("zona.turnos_ocultos = true", z.get("turnos_ocultos") is True)
+        res.comprobar("Los recuentos de participación siguen visibles",
+                      turnos.get("noche", {}).get("respuestas") == 5 and turnos.get("manana", {}).get("respuestas") == 1)
+        res.comprobar("Planta con 6 respuestas: la valoración global no la incluye de más",
+                      a["valoracion"]["bruta"] == z.get("media") or a["valoracion"]["bruta"] is None, str(a.get("valoracion")))
+
+    multi = _publicar(pedir, dict(NECESIDAD_MULTI))
+    if res.comprobar("Encuesta de planta y logística publicada", multi is not None):
+        escala = _escala(multi)
+        for i in range(6):
+            pedir("post", f"/publico/encuestas/{multi['id']}/respuestas",
+                  json={"colectivo": "planta", "turno": "manana", "valores": {escala: 1 + i % 5}})
+        for i in range(2):
+            pedir("post", f"/publico/encuestas/{multi['id']}/respuestas",
+                  json={"colectivo": "logistica", "turno": "sin_turno", "valores": {escala: 5}})
+        estado, a = pedir("get", f"/encuestas/{multi['id']}/analisis")
+        res.comprobar("6 de planta + 2 de logística: distribuciones con n = 6 (logística no entra)",
+                      a["distribuciones"] and all(d["n"] == 6 for d in a["distribuciones"]),
+                      str([d["n"] for d in a.get("distribuciones", [])]))
+        res.comprobar("Aparece el límite «Se excluyen 2 respuestas…»",
+                      any("excluyen 2 respuestas" in x for x in a.get("limites", [])), str(a.get("limites")))
+        estado, a_ca = pedir("get", f"/encuestas/{multi['id']}/analisis?idioma=ca")
+        estado, a_en = pedir("get", f"/encuestas/{multi['id']}/analisis?idioma=en")
+        res.comprobar("El límite sale también en catalán y en inglés",
+                      any("S'exclouen 2" in x for x in a_ca["limites"]) and any("2 responses" in x for x in a_en["limites"]))
+        logistica = next(z for z in a["zonas"] if z["colectivo"] == "logistica")
+        res.comprobar("Logística (n=2): sin media ni temas, pero con su recuento",
+                      logistica["media"] is None and logistica["temas"] == [] and logistica["respuestas"] == 2)
+
+    # ---------------------------------------------------------------- 17
+    res.seccion("17. Compromisos «Dijisteis → Hemos hecho» (v6)")
+    destino = _publicar(pedir, dict(NECESIDAD_A))
+    if not res.comprobar("Encuesta de planta para el compromiso", destino is not None):
+        return
+    pedir("post", f"/encuestas/{destino['id']}/simular", json={"n": 40, "semilla": 11})
+    cid_encuesta = destino["id"]
+    estado, b = pedir("get", f"/encuestas/{cid_encuesta}/compromisos/borrador?accion=0&idioma=es")
+    if not res.comprobar("GET borrador (acción 0)", estado == 200, f"{estado} {b}"):
+        return
+    res.comprobar("El borrador trae «dijisteis» y «hicimos» sin comillas",
+                  bool(b["dijisteis"]) and bool(b["hicimos"]) and not any(q in b["dijisteis"] for q in '"“”«»'))
+    res.comprobar("…con colectivos, responsable, fecha ISO y origen",
+                  bool(b["colectivos"]) and bool(b["responsable"]) and len(b["fecha"]) == 10
+                  and b["origen_borrador"] in ("ia", "reglas"), str({k: b[k] for k in ("colectivos", "fecha", "origen_borrador")}))
+    res.comprobar("El indicador por defecto tiene «antes» (media más baja con n ≥ 5)",
+                  b["indicador"]["antes"] is not None and b["indicador"]["n_antes"] >= 5, str(b["indicador"]))
+    estado, _ = pedir("get", f"/encuestas/{cid_encuesta}/compromisos/borrador?accion=99")
+    res.comprobar("Acción que no existe → 404", estado == 404, f"devolvió {estado}")
+    estado, lista = pedir("get", f"/encuestas/{cid_encuesta}/compromisos")
+    res.comprobar("El borrador NO guarda nada", estado == 200 and lista == [], str(lista))
+    for idioma, marca in (("ca", "comentaris"), ("en", "comments")):
+        estado, bi = pedir("get", f"/encuestas/{cid_encuesta}/compromisos/borrador?accion=0&idioma={idioma}")
+        res.comprobar(f"Borrador sin IA también en {idioma}",
+                      estado == 200 and bi["idioma"] == idioma and bool(bi["dijisteis"]) and bool(bi["hicimos"]), f"{estado}")
+
+    firma = dict(b, hicimos="Desde el [fecha], dos pausas de 15 minutos con relevo asegurado en el turno de noche.",
+                 responsable="Jefatura de planta (Ramón García, 612345678)")
+    for nombre, cambio in (("sin «hicimos»", {"hicimos": ""}), ("sin «responsable»", {"responsable": "  "}),
+                           ("sin fecha válida", {"fecha": "mañana"}), ("«dijisteis» con comillas", {"dijisteis": 'Dicen "no hay tiempo"'}),
+                           ("con un sector que no es de la encuesta", {"colectivos": ["oficina"]}),
+                           ("con «hicimos» de más de 300 caracteres", {"hicimos": "x" * 301})):
+        estado, _ = pedir("post", f"/encuestas/{cid_encuesta}/compromisos", json=dict(firma, **cambio))
+        res.comprobar(f"POST {nombre} → 422", estado == 422, f"devolvió {estado}")
+    if local and almacen is not None:
+        comentarios = [r["comentario"] for r in almacen.leer_respuestas(cid_encuesta) if len((r.get("comentario") or "").split()) >= 8]
+        if comentarios:
+            estado, _ = pedir("post", f"/encuestas/{cid_encuesta}/compromisos", json=dict(firma, dijisteis=comentarios[0]))
+            res.comprobar("POST con un comentario literal → 422", estado == 422, f"devolvió {estado}")
+    falso = dict(firma, indicador=dict(b["indicador"], antes=1.0, n_antes=999))
+    estado, cm = pedir("post", f"/encuestas/{cid_encuesta}/compromisos", json=falso)
+    if not res.comprobar("POST válido (RRHH firma)", estado == 200 and cm.get("estado") == "comprometido", f"{estado} {cm}"):
+        return
+    cid = cm["id"]
+    res.comprobar("Guarda idioma_original y deja «despues» en null",
+                  cm["idioma_original"] == "es" and cm["despues"] is None and cm["seguimiento_id"] is None)
+    res.comprobar("[fecha] se sustituye por la fecha", "[fecha]" not in cm["hicimos"] and "/" in cm["hicimos"], cm["hicimos"])
+    res.comprobar("Anonimiza «responsable» (nombre y teléfono)",
+                  "Ramón" not in cm["responsable"] and "612345678" not in cm["responsable"], cm["responsable"])
+    res.comprobar("El «antes» se recalcula en el servidor (no se fía del cliente)",
+                  cm["indicador"]["antes"] == b["indicador"]["antes"] and cm["indicador"]["n_antes"] == b["indicador"]["n_antes"],
+                  str(cm["indicador"]))
+    if local:
+        from backend.api import compromisos as rutas_compromisos
+        rutas_compromisos.esperar()
+    estado, lista = pedir("get", f"/encuestas/{cid_encuesta}/compromisos?idioma=en")
+    res.comprobar("GET compromisos: aparece, con «despues» null y traducciones (objeto)",
+                  estado == 200 and len(lista) == 1 and lista[0]["despues"] is None and isinstance(lista[0]["traducciones"], dict), f"{estado}")
+    estado, _ = pedir("get", "/encuestas/enc_999/compromisos")
+    res.comprobar("Compromisos de una encuesta que no existe → 404", estado == 404, f"devolvió {estado}")
+
+    # lo que ve quien responde en OTRA encuesta del mismo sector
+    otra = _publicar(pedir, dict(NECESIDAD_A))
+    if res.comprobar("Otra encuesta de planta publicada", otra is not None):
+        estado, pu = pedir("get", f"/publico/encuestas/{otra['id']}?idioma=ca")
+        visibles = pu.get("compromisos") or []
+        res.comprobar("La encuesta pública de otra encuesta trae el compromiso",
+                      estado == 200 and len(visibles) >= 1 and visibles[0]["estado"] == "comprometido", f"{estado} {visibles}")
+        res.comprobar("…solo con {dijisteis, hicimos, fecha, estado} (sin responsable ni indicador)",
+                      all(set(v) == {"dijisteis", "hicimos", "fecha", "estado"} for v in visibles))
+        res.comprobar("…como mucho 2", len(visibles) <= 2)
+    estado, a = pedir("get", f"/encuestas/{cid_encuesta}/analisis")
+    zona = next((z for z in a.get("zonas", []) if z["colectivo"] == "planta"), {})
+    res.comprobar("El análisis añade «compromisos» a la zona (maqueta)",
+                  any(x["tema"] == b["tema"] and x["estado"] == "comprometido" for x in zona.get("compromisos", [])),
+                  str(zona.get("compromisos")))
+
+    # Teams: tarjeta del compromiso
+    estado, t = pedir("get", f"/compromisos/{cid}/teams/vista_previa?idioma=en")
+    textos_tarjeta = [x for x in (t or {}).get("body", []) if x.get("type") == "TextBlock"]
+    res.comprobar("Teams: vista previa del compromiso en inglés",
+                  estado == 200 and any(x["text"] == "You said" for x in textos_tarjeta) and any(x["text"] == "We did" for x in textos_tarjeta), f"{estado}")
+    res.comprobar("Teams: sin TextBlock vacío y sin botón hasta que haya seguimiento",
+                  all(str(x["text"]).strip() for x in textos_tarjeta) and not t.get("actions"))
+    estado, _ = pedir("post", f"/compromisos/{cid}/teams")
+    res.comprobar("Teams: POST del compromiso sin conectar → 503", estado == 503, f"devolvió {estado}")
+    estado, _ = pedir("get", "/compromisos/cmp_999/teams/vista_previa")
+    res.comprobar("Teams: compromiso que no existe → 404", estado == 404, f"devolvió {estado}")
+
+    # seguimiento con la pregunta fija
+    estado, nec = pedir("get", f"/compromisos/{cid}/seguimiento?idioma=es")
+    res.comprobar("GET seguimiento: Necesidad con compromiso_id y pregunta_fija",
+                  estado == 200 and nec.get("compromiso_id") == cid and bool((nec.get("pregunta_fija") or {}).get("texto"))
+                  and nec["colectivos"] == cm["colectivos"], f"{estado} {nec}")
+    estado, _ = pedir("post", "/encuestas/generar", json=dict(nec, pregunta_fija={"texto": "x", "tipo": "texto"}))
+    res.comprobar("pregunta_fija que no es de escala → 422", estado == 422, f"devolvió {estado}")
+    estado, seg = pedir("post", "/encuestas/generar", json=nec)
+    if not res.comprobar("Generar el seguimiento", estado == 200, f"{estado} {seg}"):
+        return
+    primera = seg["preguntas"][0]
+    res.comprobar("La encuesta guarda compromiso_id y la pregunta fija va PRIMERA (fija: true)",
+                  seg.get("compromiso_id") == cid and primera.get("fija") is True and primera["texto"] == nec["pregunta_fija"]["texto"],
+                  str(primera))
+    res.comprobar("La pregunta fija es de escala 1–5", primera["tipo"] == "escala_1_5")
+    estado, _ = pedir("post", f"/encuestas/{seg['id']}/aprobar")
+    res.comprobar("El seguimiento se puede aprobar (cumple las reglas)", estado == 200, f"devolvió {estado}")
+    pedir("post", f"/encuestas/{seg['id']}/publicar")
+    estado, lista = pedir("get", f"/encuestas/{cid_encuesta}/compromisos")
+    res.comprobar("Al publicar, el compromiso apunta al seguimiento", lista[0]["seguimiento_id"] == seg["id"], str(lista[0].get("seguimiento_id")))
+    estado, t = pedir("get", f"/compromisos/{cid}/teams/vista_previa?idioma=ca")
+    botones = [x for x in t.get("actions", []) if x.get("type") == "Action.OpenUrl"]
+    res.comprobar("Teams: ahora hay botón «Ha funcionat?» hacia el seguimiento",
+                  len(botones) == 1 and botones[0]["title"].startswith("Ha funcionat") and f"/responder/{seg['id']}" in botones[0]["url"]
+                  and "canal=teams" in botones[0]["url"], str(botones))
+
+    estado, _ = pedir("post", f"/encuestas/{seg['id']}/simular", json={"n": 20, "mejora": {"pregunta_fija": 9}})
+    res.comprobar("Simular con una mejora fuera de rango → 422", estado == 422, f"devolvió {estado}")
+    estado, sim = pedir("post", f"/encuestas/{seg['id']}/simular", json={"n": 20, "semilla": 5, "mejora": {"pregunta_fija": 1.2}})
+    res.comprobar("Simular el seguimiento con mejora", estado == 200 and sim["simuladas"] == 40, f"{estado} {sim}")
+    estado, lista = pedir("get", f"/encuestas/{cid_encuesta}/compromisos")
+    despues = lista[0]["despues"] or {}
+    antes = lista[0]["indicador"]["antes"]
+    res.comprobar("«despues» calculado: n ≥ 5, mejora respecto al antes y marcado como simulado",
+                  despues.get("n", 0) >= 5 and despues.get("media", 0) > antes and despues.get("simulado") is True,
+                  f"antes={antes} despues={despues}")
+    estado, a = pedir("get", f"/encuestas/{cid_encuesta}/analisis")
+    zona = next(z for z in a["zonas"] if z["colectivo"] == "planta")
+    res.comprobar("La zona de la maqueta lleva antes → después",
+                  any(x["antes"] == antes and x["despues"] == despues.get("media") for x in zona["compromisos"]), str(zona["compromisos"]))
+    estado, t = pedir("get", f"/compromisos/{cid}/teams/vista_previa?idioma=es")
+    res.comprobar("Teams: la tarjeta enseña antes → ahora y «No demuestra que la acción sea la causa»",
+                  any("→" in str(f["value"]) for b_ in t["body"] if b_.get("type") == "FactSet" for f in b_["facts"])
+                  and any("No demuestra" in x.get("text", "") for x in t["body"]))
+    estado, hecho = pedir("post", f"/compromisos/{cid}/hecho")
+    res.comprobar("POST hecho → estado «hecho»", estado == 200 and hecho["estado"] == "hecho", f"{estado}")
+    estado, _ = pedir("post", "/compromisos/cmp_999/hecho")
+    res.comprobar("Marcar hecho uno que no existe → 404", estado == 404, f"devolvió {estado}")
+    estado, pu = pedir("get", f"/publico/encuestas/{otra['id']}")
+    res.comprobar("Quien responde ve el compromiso ya «hecho»", any(v["estado"] == "hecho" for v in pu.get("compromisos", [])))
+
+    # ---------------------------------------------------------------- 18
+    res.seccion("18. Minimización, canal, valoración y anonimizar (v6)")
+    escala = _escala(otra)
+    estado, _ = pedir("post", f"/publico/encuestas/{otra['id']}/respuestas",
+                      json={"turno": "noche", "canal": "teams", "valores": {escala: 3}, "comentario": "My supervisor Mike never listens"})
+    res.comprobar("Respuesta desde Teams (canal=teams) aceptada", estado == 200, f"devolvió {estado}")
+    if local and almacen is not None:
+        ultima = almacen.leer_respuestas(otra["id"])[-1]
+        res.comprobar("Se guarda canal=teams", ultima["canal"] == "teams", ultima["canal"])
+        res.comprobar("Se guarda el mes, no el día (fecha = AAAA-MM-01)", ultima["fecha"].endswith("-01"), ultima["fecha"])
+        res.comprobar("Anonimiza en inglés: «My supervisor Mike…» sin Mike",
+                      "[nombre]" in ultima["comentario"] and "Mike" not in ultima["comentario"], ultima["comentario"])
+        res.comprobar("Las respuestas simuladas también guardan solo el mes",
+                      all(r["fecha"].endswith("-01") for r in almacen.leer_respuestas(cid_encuesta)))
+    estado, a = pedir("get", f"/encuestas/{otra['id']}/analisis")
+    por_canal = {x["canal"]: x["respuestas"] for x in a.get("por_canal", [])}
+    res.comprobar("El análisis cuenta la participación por canal (qr, quiosco, teams)",
+                  set(por_canal) >= {"qr", "quiosco", "teams"} and por_canal["teams"] >= 1, str(a.get("por_canal")))
+    res.comprobar("El análisis no menciona a «Mike»", "Mike" not in json.dumps(a, ensure_ascii=False))
+    v = a.get("valoracion") or {}
+    res.comprobar("valoracion = {bruta, corregida, diferencia}", set(v) == {"bruta", "corregida", "diferencia"}, str(v))
+    estado, lista_enc = pedir("get", "/encuestas")
+    if any(e["id"] == "enc_000" for e in lista_enc or []):
+        estado, a0 = pedir("get", "/encuestas/enc_000/analisis")
+        v0 = a0["valoracion"]
+        res.comprobar("enc_000: la media bruta y la corregida por plantilla son distintas",
+                      v0["bruta"] is not None and v0["bruta"] != v0["corregida"], str(v0))
+        res.comprobar("enc_000: sin respuestas de grupos pequeños en las distribuciones",
+                      all(d["n"] >= 5 for d in a0["distribuciones"]))
+    else:
+        res.omitir("Valoración corregida en enc_000", "no hay datos sintéticos (UPC 1)")
 
 
 def _comprobar_traduccion_local(res: Resultado, pedir, almacen) -> None:

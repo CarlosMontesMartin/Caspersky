@@ -2,6 +2,8 @@
 
 Lanzan HTTPException 422 con un mensaje claro.
 """
+import re
+
 from fastapi import HTTPException
 
 from backend import reglas
@@ -87,6 +89,17 @@ def validar_necesidad(necesidad: dict) -> None:
               f"no caben {reglas.TOTAL_MIN} preguntas por sector. Sube la duración o quita sectores.")
     if not isinstance(necesidad.get("temas_prohibidos", []), list):
         error("temas_prohibidos debe ser una lista")
+    fija = necesidad.get("pregunta_fija")
+    if fija is not None:  # seguimiento de un compromiso: la misma pregunta que se midió antes (v6)
+        if not isinstance(fija, dict) or not str(fija.get("texto") or "").strip() or len(str(fija["texto"])) > 300:
+            error("pregunta_fija debe ser {texto, tipo, dimension} con un texto de hasta 300 caracteres")
+        if fija.get("tipo", "escala_1_5") != "escala_1_5":
+            error("pregunta_fija solo puede ser de tipo escala_1_5")
+        if fija.get("dimension") not in (None, *DIMENSIONES):
+            error(f"Dimensión no válida en pregunta_fija: {fija.get('dimension')}")
+    compromiso = necesidad.get("compromiso_id")
+    if compromiso is not None and not (isinstance(compromiso, str) and re.fullmatch(r"[a-z0-9_]{1,40}", compromiso)):
+        error("compromiso_id no es válido")
 
 
 # ---------- encuesta ----------
@@ -103,6 +116,8 @@ def _validar_pregunta(p: dict, tipos_validos: set, donde: str) -> None:
         error(f"Dimensión no válida en {pid}: {p.get('dimension')}")
     if p.get("tipo") == "opcion" and not p.get("opciones"):
         error(f"La pregunta {pid} es de opción pero no tiene opciones")
+    if "fija" in p and not isinstance(p["fija"], bool):
+        error(f"fija debe ser true o false en la pregunta {pid}")
 
 
 def validar_preguntas(encuesta: dict) -> None:

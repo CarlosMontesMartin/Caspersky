@@ -109,7 +109,10 @@ def cargar_sinteticos() -> int:
     tipos = {p["id"]: p["tipo"] for p in (encuesta or {}).get("preguntas", [])}
     por_encuesta: dict[str, list[dict]] = {}
     for r in respuestas:
-        por_encuesta.setdefault(r["encuesta_id"], []).append(_anonimizar_textos(r, tipos))
+        r = _anonimizar_textos(r, tipos)
+        if r.get("periodo"):  # minimización (v6): solo el mes, no el día
+            r["fecha"] = f"{r['periodo']}-01"
+        por_encuesta.setdefault(r["encuesta_id"], []).append(r)
     with _bloqueo:
         for encuesta_id, lista in por_encuesta.items():
             _escribir(_ruta_obligatoria("respuestas", encuesta_id), lista)
@@ -167,6 +170,60 @@ def anadir_respuesta(encuesta_id: str, respuesta: dict) -> None:
 
 def leer_respuestas(encuesta_id: str) -> list[dict]:
     return _leer_json(_ruta("respuestas", encuesta_id), [])
+
+
+# ---------- compromisos ("Dijisteis → Hemos hecho", v6) ----------
+# Un solo archivo con la lista: almacen/compromisos.json. Todas las operaciones van bajo _bloqueo.
+
+def _ruta_compromisos() -> Path:
+    return BASE / "compromisos.json"
+
+
+def leer_compromisos() -> list[dict]:
+    return _leer_json(_ruta_compromisos(), [])
+
+
+def leer_compromiso(compromiso_id: str) -> dict | None:
+    return next((c for c in leer_compromisos() if c.get("id") == compromiso_id), None)
+
+
+def nuevo_id_compromiso() -> str:
+    """cmp_001, cmp_002… (se asigna dentro de anadir_compromiso, bajo el bloqueo)."""
+    with _bloqueo:
+        numeros = [int(c["id"][4:]) for c in leer_compromisos()
+                   if str(c.get("id", "")).startswith("cmp_") and str(c["id"])[4:].isdigit()]
+        return f"cmp_{max(numeros + [0]) + 1:03d}"
+
+
+def anadir_compromiso(datos: dict) -> dict:
+    """Guarda un compromiso nuevo con el siguiente id libre y lo devuelve."""
+    with _bloqueo:
+        compromiso = dict(datos, id=nuevo_id_compromiso())
+        _escribir(_ruta_compromisos(), leer_compromisos() + [compromiso])
+    return compromiso
+
+
+def guardar_compromiso(compromiso: dict) -> dict:
+    """Reemplaza el compromiso con ese id (o lo añade si no existe)."""
+    with _bloqueo:
+        lista = leer_compromisos()
+        for i, existente in enumerate(lista):
+            if existente.get("id") == compromiso["id"]:
+                lista[i] = compromiso
+                break
+        else:
+            lista.append(compromiso)
+        _escribir(_ruta_compromisos(), lista)
+    return compromiso
+
+
+def actualizar_compromiso(compromiso_id: str, cambios: dict) -> dict | None:
+    """Lee-cambia-guarda de forma atómica (así un hilo de traducción no pisa un "hecho"). None si no existe."""
+    with _bloqueo:
+        actual = leer_compromiso(compromiso_id)
+        if actual is None:
+            return None
+        return guardar_compromiso(dict(actual, **cambios))
 
 
 # ---------- contenido de UAB 2 ----------
