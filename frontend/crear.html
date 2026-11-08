@@ -51,6 +51,7 @@
             <div class="escenarios-lista" id="lista-escenarios"></div>
           </div>
 
+          <p class="aviso info oculto" id="nota-seguimiento" role="note"></p>
           <form id="form-necesidad" class="rejilla-2" novalidate>
             <div class="campo ancho">
               <label for="input-objetivo" data-i18n="crear.objetivo">Objetivo</label>
@@ -353,7 +354,28 @@
         temas_prohibidos: $('input-temas').value.split(',').map(x => x.trim()).filter(Boolean),
         // Idioma original de la encuesta (v5 §1): la IA la escribe en el idioma de la pantalla
         idioma: idiomaActual(),
+        // Seguimiento de un compromiso (v6): se conserva al generar y al regenerar
+        ...extrasNecesidad(),
       };
+    }
+
+    // ---------- Seguimiento de un compromiso (v6 §4.3): compromiso_id + pregunta_fija ----------
+    let seguimientoDe = null; // { compromiso_id, pregunta_fija }
+    function extrasNecesidad() {
+      const base = seguimientoDe || (encuesta?.necesidad?.compromiso_id || encuesta?.compromiso_id
+        ? { compromiso_id: encuesta.necesidad?.compromiso_id || encuesta.compromiso_id, pregunta_fija: encuesta.necesidad?.pregunta_fija || null }
+        : null);
+      if (!base?.compromiso_id) return {};
+      return { compromiso_id: base.compromiso_id, ...(base.pregunta_fija ? { pregunta_fija: base.pregunta_fija } : {}) };
+    }
+    function pintarNotaSeguimiento() {
+      const el = $('nota-seguimiento');
+      const extras = extrasNecesidad();
+      el.classList.toggle('oculto', !extras.compromiso_id);
+      if (!extras.compromiso_id) return;
+      el.textContent = extras.pregunta_fija?.texto
+        ? t('crear.nota_seguimiento', 'Encuesta de seguimiento de un compromiso: la primera pregunta será «{pregunta}» y no se podrá borrar, para comparar antes y después.', { pregunta: extras.pregunta_fija.texto })
+        : t('crear.nota_seguimiento_sin', 'Encuesta de seguimiento de un compromiso.');
     }
     const firma = n => JSON.stringify({ ...n, colectivo: undefined, idioma: undefined });
 
@@ -369,6 +391,7 @@
       $('input-contexto').value = enIdioma(n.contexto);
       $('input-temas').value = Array.isArray(n.temas_prohibidos) ? n.temas_prohibidos.join(', ') : '';
       pintarChips();
+      pintarNotaSeguimiento();
     }
 
     /** La Necesidad guardada en la encuesta (v3); con encuestas antiguas, lo que se puede deducir */
@@ -585,13 +608,107 @@
           ${opciones ? `<div class="pregunta-opciones">${opciones}</div>` : ''}
         </div>
         <span class="badge">${escapar(TIPOS_PREGUNTA[p.tipo] || p.tipo)}</span>
-        ${editable ? botonBorrar(p, lista)
+        ${editable ? `<span class="pregunta-acciones">${botonMover(p, lista, -1)}${botonMover(p, lista, 1)}${botonBorrar(p, lista)}</span>`
                    : comun ? `<span class="nota pregunta-comun">${escapar(t('crear.comun', 'Común'))}</span>` : '<span></span>'}`;
+      // Pregunta fija del seguimiento y condición, debajo del texto
+      const extra = li.children[1];
+      if (p.fija) {
+        extra.insertAdjacentHTML('beforeend', `<div class="pregunta-meta"><span class="badge badge-fija">${escapar(t('crear.pregunta_fija', 'Pregunta fija del compromiso'))}</span></div>`);
+      }
+      const control = controlCondicion(p, lista, editable);
+      if (control) extra.appendChild(control);
       if (editable) {
-        li.querySelector('input').addEventListener('input', e => { p.texto = e.target.value; marcarCambio(); });
+        const campo = li.querySelector('input');
+        campo.addEventListener('input', e => { p.texto = e.target.value; marcarCambio(); });
+        if (p.fija) { campo.readOnly = true; campo.title = t('crear.fija_no_editable', 'La pregunta fija no se cambia: así se puede comparar antes y después.'); }
         li.querySelector('button.btn-borrar').addEventListener('click', () => borrarPregunta(p, lista));
+        li.querySelectorAll('button[data-mover]').forEach(b =>
+          b.addEventListener('click', () => moverPregunta(p, lista, Number(b.dataset.mover))));
       }
       return li;
+    }
+
+    const listaDe = lista => (lista === 'comunes' ? encuesta.preguntas : encuesta.preguntas_por_colectivo[lista]);
+
+    /**
+     * Motivo por el que una pregunta no se puede mover (o null). Reglas:
+     * la fija va siempre primera; la de texto, siempre al final del núcleo;
+     * una pregunta con condición no puede quedar antes de la pregunta de la que depende.
+     */
+    function motivoNoMover(p, lista, dir) {
+      const arr = listaDe(lista);
+      const i = arr.indexOf(p), j = i + dir;
+      if (j < 0 || j >= arr.length) return t('crear.no_mover_borde', 'Ya está en el extremo.');
+      const otra = arr[j];
+      if (p.fija || otra.fija) return t('crear.no_mover_fija', 'La pregunta fija del compromiso va siempre la primera.');
+      if (p.tipo === 'texto' || otra.tipo === 'texto') return t('crear.no_mover_texto', 'La pregunta abierta va siempre al final.');
+      // Tras el cambio, la que estaba debajo queda encima: no puede depender de la otra
+      const quedaArriba = dir < 0 ? p : otra, quedaAbajo = dir < 0 ? otra : p;
+      if (quedaArriba.condicion?.pregunta === quedaAbajo.id) {
+        return t('crear.no_mover_condicion', 'Esta pregunta depende de la otra: tiene que ir después.');
+      }
+      return null;
+    }
+
+    function botonMover(p, lista, dir) {
+      const motivo = motivoNoMover(p, lista, dir);
+      const etiqueta = dir < 0 ? t('crear.subir', 'Subir pregunta') : t('crear.bajar', 'Bajar pregunta');
+      const boton = `<button type="button" class="btn-texto btn-mover" data-mover="${dir}" ${motivo ? 'disabled aria-disabled="true"' : ''}
+        aria-label="${escapar(etiqueta)}${motivo ? `: ${escapar(motivo)}` : ''}">${dir < 0 ? '↑' : '↓'}</button>`;
+      return motivo ? `<span class="borrar-bloqueado" title="${escapar(motivo)}">${boton}</span>` : `<span title="${escapar(etiqueta)}">${boton}</span>`;
+    }
+
+    function moverPregunta(p, lista, dir) {
+      if (motivoNoMover(p, lista, dir)) return;
+      const arr = listaDe(lista);
+      const i = arr.indexOf(p);
+      [arr[i], arr[i + dir]] = [arr[i + dir], arr[i]];
+      marcarCambio();
+      pintarRevision();
+      // El foco vuelve a un botón de mover de la pregunta movida
+      requestAnimationFrame(() => {
+        const fila = document.getElementById(`texto-${p.id}`)?.closest('li');
+        (fila?.querySelector(`button[data-mover="${dir}"]:not([disabled])`)
+          || fila?.querySelector('button[data-mover]:not([disabled])'))?.focus();
+      });
+    }
+
+    /**
+     * Condición (v6 P1-2): en las preguntas de texto, "Mostrar solo si en <escala> responde 1–2".
+     * Solo se puede depender de una pregunta de escala que vaya antes.
+     */
+    function controlCondicion(p, lista, editable) {
+      const arr = listaDe(lista);
+      const anteriores = (lista === 'comunes' ? [] : encuesta.preguntas).concat(arr.slice(0, arr.indexOf(p)))
+        .filter(x => x.tipo === 'escala_1_5' && x.id !== p.id);
+      const nombre = id => {
+        const q = [encuesta.preguntas, ...Object.values(encuesta.preguntas_por_colectivo || {})].flat().find(x => x.id === id);
+        const texto = q?.texto || id;
+        return texto.length > 60 ? `${texto.slice(0, 59)}…` : texto;
+      };
+      if (!editable || p.tipo !== 'texto' || !anteriores.length) {
+        if (!p.condicion) return null;
+        const nota = document.createElement('div');
+        nota.className = 'pregunta-meta nota';
+        nota.textContent = t('crear.condicion_resumen', 'Solo si en «{pregunta}» responde 1–{max}', { pregunta: nombre(p.condicion.pregunta), max: p.condicion.valor_max });
+        return nota;
+      }
+      const caja = document.createElement('div');
+      caja.className = 'pregunta-meta condicion';
+      const idSel = `condicion-${p.id}`;
+      const actual = p.condicion?.pregunta || '';
+      caja.innerHTML = `
+        <label for="${escapar(idSel)}">${escapar(t('crear.mostrar', 'Mostrar'))}</label>
+        <select id="${escapar(idSel)}" class="entrada entrada-pequena">
+          <option value="">${escapar(t('crear.siempre', 'siempre'))}</option>
+          ${anteriores.map(x => `<option value="${escapar(x.id)}" ${x.id === actual ? 'selected' : ''}>${escapar(t('crear.solo_si', 'solo si en «{pregunta}» responde 1–{max}', { pregunta: nombre(x.id), max: p.condicion?.pregunta === x.id ? p.condicion.valor_max : 2 }))}</option>`).join('')}
+        </select>`;
+      caja.querySelector('select').addEventListener('change', e => {
+        p.condicion = e.target.value ? { pregunta: e.target.value, valor_max: p.condicion?.valor_max || 2 } : null;
+        marcarCambio();
+        pintarRevision();
+      });
+      return caja;
     }
 
     // El servidor exige al menos una pregunta de escala 1–5 en el núcleo común (multisector)
@@ -650,6 +767,7 @@
      * Así nunca se llega a una encuesta que el servidor no deje aprobar.
      */
     function motivoNoBorrar(p, lista) {
+      if (p.fija) return t('crear.no_borrar_fija', 'Es la pregunta fija del compromiso: sirve para comparar antes y después.');
       if (!esMultisector()) {
         return encuesta.preguntas.length <= REGLAS.totalMin
           ? t('crear.no_borrar_total_uno', 'La encuesta necesita al menos {min} preguntas.', { min: REGLAS.totalMin })
@@ -687,6 +805,8 @@
       const arr = lista === 'comunes' ? encuesta.preguntas : encuesta.preguntas_por_colectivo[lista];
       const motivo = motivoNoBorrar(p, lista);
       if (motivo) { avisar(motivo, 'error'); return; }
+      [encuesta.preguntas, ...Object.values(encuesta.preguntas_por_colectivo || {})].flat()
+        .forEach(x => { if (x.condicion?.pregunta === p.id) x.condicion = null; });
       const restante = arr.filter(x => x.id !== p.id);
       if (lista === 'comunes') encuesta.preguntas = restante;
       else encuesta.preguntas_por_colectivo[lista] = restante;
@@ -1012,7 +1132,12 @@
         const prefill = sessionStorage.getItem('necesidad_prefill');
         if (prefill) {
           sessionStorage.removeItem('necesidad_prefill');
-          rellenarNecesidad(JSON.parse(prefill));
+          const necesidadPrefill = JSON.parse(prefill);
+          if (necesidadPrefill.compromiso_id) {
+            seguimientoDe = { compromiso_id: necesidadPrefill.compromiso_id, pregunta_fija: necesidadPrefill.pregunta_fija || null };
+          }
+          rellenarNecesidad(necesidadPrefill);
+          pintarNotaSeguimiento();
           avisar(t('crear.prefill', 'Formulario rellenado con la encuesta propuesta. Revísalo y genera la propuesta.'));
         }
       } catch (e) {

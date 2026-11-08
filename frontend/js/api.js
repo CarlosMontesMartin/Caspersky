@@ -973,6 +973,114 @@ export function formatearEstado(estado) {
   return ETIQUETAS_ESTADOS[estado] || nombre("estado", estado);
 }
 
+// ============================================================================
+// Compromisos "Dijisteis → Hemos hecho" (contratos v6 §4.2, contratos/ejemplos/compromiso.json)
+// La IA redacta el borrador; una persona de RRHH lo firma. Solo se guarda al firmar.
+// ============================================================================
+
+function _compromisosEjemplo() {
+  const almacen = _obtenerAlmacen();
+  almacen.compromisos = almacen.compromisos || [];
+  return almacen;
+}
+
+/** GET /encuestas/{id}/compromisos/borrador?accion=i → { tema, colectivos, dijisteis, hicimos, responsable, fecha, indicador } (no guarda nada) */
+export async function borradorCompromiso(id, i) {
+  if (USAR_EJEMPLOS) {
+    const recs = await obtenerRecomendaciones(id);
+    const accion = recs.acciones?.[i] || {};
+    const fecha = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
+    return {
+      tema: accion.tema || "descansos",
+      colectivos: accion.colectivos || ["planta"],
+      dijisteis: "Tres de cada diez comentarios de planta dicen que no da tiempo a hacer la pausa completa (42 comentarios, octubre).",
+      hicimos: "Desde el [fecha], el turno de noche tiene dos pausas de 15 minutos con relevo asegurado.",
+      responsable: accion.responsable || "Jefatura de planta y Prevención",
+      fecha,
+      indicador: { texto: "¿Te da tiempo a hacer la pausa completa?", tipo: "escala_1_5", dimension: "bienestar",
+                   pregunta_origen: "p2", colectivo: "planta", antes: 2.4, n_antes: 90, periodo_antes: "2026-10" },
+      origen: "reglas",
+    };
+  }
+  return peticion(`/encuestas/${encodeURIComponent(id)}/compromisos/borrador?accion=${encodeURIComponent(i)}`);
+}
+
+/** POST /encuestas/{id}/compromisos → el compromiso guardado (estado "comprometido"). 422 si falta algo */
+export async function crearCompromiso(id, datos) {
+  if (USAR_EJEMPLOS) {
+    const almacen = _compromisosEjemplo();
+    const c = {
+      id: `cmp_${String(almacen.compromisos.length + 1).padStart(3, "0")}`,
+      encuesta_id: id, estado: "comprometido", idioma_original: "es", traducciones: {},
+      seguimiento_id: null, despues: null, origen_borrador: "reglas", ...JSON.parse(JSON.stringify(datos)),
+    };
+    almacen.compromisos.push(c);
+    _guardarAlmacen(almacen);
+    return c;
+  }
+  return peticion(`/encuestas/${encodeURIComponent(id)}/compromisos`, { method: "POST", body: datos });
+}
+
+/** GET /encuestas/{id}/compromisos → lista, con textos en el idioma de la pantalla y "despues" calculado */
+export async function listarCompromisos(id) {
+  if (USAR_EJEMPLOS) {
+    return JSON.parse(JSON.stringify(_compromisosEjemplo().compromisos.filter(c => c.encuesta_id === id)));
+  }
+  return peticion(`/encuestas/${encodeURIComponent(id)}/compromisos`);
+}
+
+/** POST /compromisos/{cid}/hecho → el compromiso con estado "hecho" */
+export async function marcarHecho(cid) {
+  if (USAR_EJEMPLOS) {
+    const almacen = _compromisosEjemplo();
+    const c = almacen.compromisos.find(x => x.id === cid);
+    if (!c) throw new Error(`El compromiso ${cid} no existe`);
+    c.estado = "hecho";
+    _guardarAlmacen(almacen);
+    return JSON.parse(JSON.stringify(c));
+  }
+  return peticion(`/compromisos/${encodeURIComponent(cid)}/hecho`, { method: "POST" });
+}
+
+/** GET /compromisos/{cid}/seguimiento → Necesidad lista para crear.html (con compromiso_id y pregunta_fija) */
+export async function necesidadSeguimiento(cid) {
+  if (USAR_EJEMPLOS) {
+    const c = _compromisosEjemplo().compromisos.find(x => x.id === cid);
+    return {
+      objetivo: `Comprobar si ha funcionado: ${c?.hicimos || ""}`,
+      colectivos: c?.colectivos || ["planta"], contexto: c?.dijisteis || "",
+      duracion_max_seg: 60, temas_prohibidos: [], compromiso_id: cid,
+      pregunta_fija: c?.indicador ? { texto: c.indicador.texto, tipo: c.indicador.tipo, dimension: c.indicador.dimension } : null,
+    };
+  }
+  return peticion(`/compromisos/${encodeURIComponent(cid)}/seguimiento`);
+}
+
+/** GET /compromisos/{cid}/teams/vista_previa → tarjeta adaptativa (la construye el backend) */
+export async function vistaPreviaTeamsCompromiso(cid) {
+  if (USAR_EJEMPLOS) {
+    const c = _compromisosEjemplo().compromisos.find(x => x.id === cid) || {};
+    return {
+      type: "AdaptiveCard", version: "1.5",
+      body: [
+        { type: "TextBlock", text: "Dijisteis", weight: "Bolder" }, { type: "TextBlock", text: c.dijisteis || "", wrap: true },
+        { type: "TextBlock", text: "Hemos hecho", weight: "Bolder" }, { type: "TextBlock", text: c.hicimos || "", wrap: true },
+        { type: "FactSet", facts: [{ title: "Responsable", value: c.responsable || "" }, { title: "Fecha", value: c.fecha || "" }] },
+      ],
+      actions: [],
+    };
+  }
+  return peticion(`/compromisos/${encodeURIComponent(cid)}/teams/vista_previa`);
+}
+
+/** POST /compromisos/{cid}/teams → { enviado: true }. 503 sin Teams, 502 si Teams falla */
+export async function enviarTeamsCompromiso(cid) {
+  if (USAR_EJEMPLOS) {
+    const e = new Error("Teams no está configurado"); e.status = 503; throw e;
+  }
+  return peticion(`/compromisos/${encodeURIComponent(cid)}/teams`, { method: "POST" });
+}
+
 // Vinculación al objeto global window para uso tanto de módulos ES6 como scripts clásicos
 if (typeof window !== "undefined") {
   window.api = {

@@ -87,6 +87,7 @@
                 <div class="kpi-etiqueta" data-i18n="dash.kpi_valoracion">Valoración media</div>
                 <div class="kpi-valor" id="kpi-valoracion">—</div>
                 <div class="kpi-nota" id="kpi-valoracion-nota"></div>
+                <div class="kpi-nota kpi-corregida oculto" id="kpi-valoracion-corregida" tabindex="0"></div>
               </div>
             </div>
 
@@ -131,6 +132,15 @@
                 </div>
                 <button type="button" class="btn btn-principal" id="btn-seguimiento" data-i18n="dash.crear_seguimiento">Crear encuesta de seguimiento</button>
               </div>
+            </section>
+
+            <!-- 5b. Compromisos "Dijisteis → Hemos hecho" (v6) -->
+            <section class="tarjeta oculto" id="seccion-compromisos" aria-labelledby="titulo-compromisos">
+              <div class="tarjeta-cabecera">
+                <h3 id="titulo-compromisos" data-i18n="comp.titulo">Compromisos</h3>
+                <span class="nota" data-i18n="comp.explicacion">Lo que la plantilla verá al responder la próxima encuesta</span>
+              </div>
+              <div class="compromisos" id="lista-compromisos"></div>
             </section>
 
             <!-- 6. Límites -->
@@ -233,9 +243,49 @@
     </div>
   </dialog>
 
+  <!-- Comprometer una acción (v6): la IA propone el texto; una persona lo firma -->
+  <dialog class="dialogo dialogo-compromiso" id="dialogo-compromiso" aria-labelledby="titulo-compromiso">
+    <form method="dialog" id="form-compromiso" novalidate>
+      <div class="tarjeta-cabecera">
+        <h3 id="titulo-compromiso" data-i18n="comp.comprometer">Comprometer</h3>
+        <span class="badge" id="compromiso-origen"></span>
+      </div>
+      <p class="aviso info" data-i18n="comp.firma_humana">La IA propone el texto; tú lo firmas.</p>
+      <div id="compromiso-cargando" class="cargando" data-i18n="comp.preparando">La IA está preparando el borrador…</div>
+      <div id="compromiso-campos" class="oculto">
+        <div class="campo">
+          <span class="etiqueta-campo" data-i18n="comp.dijisteis">Lo que nos dijisteis</span>
+          <p class="cita-agregada" id="compromiso-dijisteis"></p>
+          <span class="ayuda" data-i18n="comp.dijisteis_ayuda">Es un dato agregado: no se puede editar.</span>
+        </div>
+        <div class="campo">
+          <label for="compromiso-hicimos"><span data-i18n="comp.hemos_hecho">Lo que hemos hecho</span> <span class="obligatorio" aria-hidden="true">*</span></label>
+          <textarea id="compromiso-hicimos" class="entrada" rows="3" maxlength="300" required aria-required="true"></textarea>
+        </div>
+        <div class="fila-campos">
+          <div class="campo">
+            <label for="compromiso-responsable"><span data-i18n="comp.responsable">Responsable</span> <span class="obligatorio" aria-hidden="true">*</span></label>
+            <input type="text" id="compromiso-responsable" class="entrada" maxlength="300" required aria-required="true">
+          </div>
+          <div class="campo">
+            <label for="compromiso-fecha" data-i18n="comp.fecha">Fecha</label>
+            <input type="date" id="compromiso-fecha" class="entrada">
+          </div>
+        </div>
+        <p class="nota" id="compromiso-indicador"></p>
+      </div>
+      <p class="texto-error oculto" id="compromiso-error" role="alert"></p>
+      <div class="pie-acciones">
+        <button type="button" class="btn btn-secundario" id="btn-cancelar-compromiso" data-i18n="comun.cancelar">Cancelar</button>
+        <button type="submit" class="btn btn-principal" id="btn-firmar-compromiso" data-i18n="comp.firmar">Firmar y guardar</button>
+      </div>
+    </form>
+  </dialog>
+
   <script type="module" src="/js/layout.js"></script>
   <script type="module">
     import {
+      borradorCompromiso, crearCompromiso, listarCompromisos, marcarHecho, necesidadSeguimiento,
       obtenerAnalisis, obtenerRecomendaciones, obtenerEncuesta, obtenerSalud, simularRespuestas, preguntarDatos,
       formatearColectivo, formatearTema, formatearTurno, formatearEstado, formatearPct, formatearMedia,
       colectivosDe, ORDEN_COLECTIVOS, obtenerSugerencias
@@ -319,15 +369,18 @@
       cargandoAhora = true;
       const animar = primeraCarga;
       try {
-        const [a, r] = await Promise.all([obtenerAnalisis(encuestaId), obtenerRecomendaciones(encuestaId)]);
+        const [a, r, c] = await Promise.all([
+          obtenerAnalisis(encuestaId), obtenerRecomendaciones(encuestaId), cargarCompromisos(),
+        ]);
         analisis = a;
         recs = r;
+        compromisos = c;
         actualizarMapaPreguntas();
         ocultarError();
         pintarBadgesSectores();
         pintarResumen(animar);
         cargarSugerencias();
-        if (vista3d?.actualizar) vista3d.actualizar(analisis);
+        if (vista3d?.actualizar) vista3d.actualizar(analisisParaMaqueta());
         horaActualizado = hora();
         pintarHoraActualizado();
         primeraCarga = false;
@@ -429,8 +482,12 @@
       // v2: media de las zonas ponderada por respuestas; si no, la de las medias por pregunta
       if (analisis.zonas?.length) {
         const actual = mediaPonderada(analisis.zonas.map(z => ({ media: z.media, n: z.respuestas })));
-        const anterior = mediaPonderada(analisis.zonas.map(z => ({ media: z.media_anterior, n: z.respuestas })));
-        return { actual, anterior };
+        // La media anterior se pondera con las respuestas del periodo anterior si el servidor las da
+        const anterior = mediaPonderada(analisis.zonas.map(z => ({ media: z.media_anterior, n: z.n_anterior ?? z.respuestas_anterior ?? z.respuestas })));
+        // Corregida por plantilla (v6): cada zona pesa por las personas que tiene, no por quién ha respondido más
+        const corregida = analisis.valoracion?.corregida
+          ?? mediaPonderada(analisis.zonas.map(z => ({ media: z.media, n: z.personas })));
+        return { actual: analisis.valoracion?.bruta ?? actual, anterior, corregida };
       }
       return { actual: mediaPonderada(analisis.medias), anterior: mediaPonderada(analisis.medias_anterior) };
     }
@@ -463,6 +520,16 @@
         $('kpi-valoracion-nota').innerHTML = `<span class="${clase}">${flecha} ${formatearMedia(Math.abs(dif))}</span> ${escapar(tr('dash.frente_a', 'frente a {periodo}', { periodo: nombrePeriodo(analisis.periodo_anterior) }))}`;
       } else {
         $('kpi-valoracion-nota').textContent = analisis.periodo_anterior ? '' : tr('dash.sin_anterior', 'Sin periodo anterior para comparar');
+      }
+      // "Corregida por plantilla: 3,1 (bruta 3,4)", con la explicación del sesgo en el título
+      const caja = $('kpi-valoracion-corregida');
+      const hay = v.actual !== null && v.corregida != null;
+      caja.classList.toggle('oculto', !hay);
+      if (hay) {
+        caja.textContent = tr('dash.corregida', 'Corregida por plantilla: {corregida} (bruta {bruta})', { corregida: formatearMedia(v.corregida), bruta: formatearMedia(v.actual) });
+        const ayuda = tr('dash.corregida_ayuda', 'La media bruta pesa más los sectores que más responden. La corregida pesa cada sector por las personas que tiene, para que no mande quien más contesta.');
+        caja.title = ayuda;
+        caja.setAttribute('aria-label', `${caja.textContent}. ${ayuda}`);
       }
     }
 
@@ -861,9 +928,12 @@
       const acciones = recs?.acciones || [];
 
       $('lista-recomendaciones').innerHTML = acciones.length
-        ? acciones.map(ac => `
+        ? acciones.map((ac, i) => `
             <article class="tarjeta recomendacion">
-              <div><span class="badge">${escapar(tr('dash.propuesta', 'Propuesta'))}</span></div>
+              <div class="recomendacion-cabecera">
+                <span class="badge">${escapar(tr('dash.propuesta', 'Propuesta'))}</span>
+                ${botonComprometer(ac, i)}
+              </div>
               <h4>${escapar(legible(ac.titulo))}</h4>
               <p class="motivo">${escapar(legible(ac.motivo))}</p>
               ${ac.responsable || ac.plazo || ac.indicador ? `
@@ -878,6 +948,9 @@
         $('lista-recomendaciones').insertAdjacentHTML('beforeend',
           `<p class="nota" style="grid-column: 1 / -1;">${escapar(textoProvisional())}</p>`);
       }
+      $('lista-recomendaciones').querySelectorAll('[data-comprometer]').forEach(b =>
+        b.addEventListener('click', () => abrirComprometer(Number(b.dataset.comprometer))));
+      pintarCompromisos();
 
       seguimiento = recs?.seguimiento || null;
       $('bloque-seguimiento').classList.toggle('oculto', !seguimiento);
@@ -891,6 +964,222 @@
       if (!seguimiento) return;
       sessionStorage.setItem('necesidad_prefill', JSON.stringify(seguimiento));
       window.location.href = '/crear.html';
+    });
+
+    // ---------------- 5b. Compromisos "Dijisteis → Hemos hecho" (v6) ----------------
+    let compromisos = [];
+    let hayCompromisos = true; // false si el servidor aún no tiene las rutas de compromisos
+
+    async function cargarCompromisos() {
+      if (!hayCompromisos) return [];
+      try {
+        return await listarCompromisos(encuestaId);
+      } catch (err) {
+        if (err.status === 404 || err.status === 405) hayCompromisos = false; // servidor sin v6
+        return compromisos;
+      }
+    }
+
+    const mismoTema = (c, ac) => c.tema && c.tema === ac.tema &&
+      (!ac.colectivos?.length || ac.colectivos.some(x => (c.colectivos || []).includes(x)));
+
+    function botonComprometer(ac, i) {
+      if (!hayCompromisos) return '';
+      if (compromisos.some(c => mismoTema(c, ac))) {
+        return `<span class="badge badge-comprometido">${escapar(tr('comp.comprometido', 'Comprometido'))}</span>`;
+      }
+      return `<button type="button" class="btn btn-secundario btn-pequeno" data-comprometer="${i}">${escapar(tr('comp.comprometer', 'Comprometer'))}</button>`;
+    }
+
+    /** "Antes 2,4 → ahora 3,6 · n = 41 · No demuestra…" (solo si los dos lados tienen n ≥ 5) */
+    function textoMedicion(c) {
+      const ind = c.indicador || {};
+      const pregunta = ind.texto ? `«${ind.texto}»` : '';
+      if (c.despues && ind.antes != null && c.despues.n >= 5) {
+        return {
+          principal: tr('comp.antes_ahora', 'Antes {antes} → ahora {despues} · n = {n}', {
+            antes: formatearMedia(ind.antes), despues: formatearMedia(c.despues.media), n: entero(c.despues.n),
+          }),
+          detalle: `${pregunta} · ${tr('comp.no_causa', 'No demuestra que la acción sea la causa.')}`,
+          mejora: c.despues.media > ind.antes,
+        };
+      }
+      if (c.seguimiento_id) {
+        return { principal: tr('comp.midiendo', 'Midiendo… (hacen falta al menos 5 respuestas)'), detalle: pregunta };
+      }
+      const ahora = ind.antes != null
+        ? tr('comp.ahora_n', 'ahora {antes} (n = {n})', { antes: formatearMedia(ind.antes), n: entero(ind.n_antes) })
+        : tr('comp.sin_dato', 'aún sin dato (n < 5)');
+      return { principal: tr('comp.medimos_con', 'Lo mediremos con: {pregunta}', { pregunta: pregunta || '—' }), detalle: ahora };
+    }
+
+    let firmaCompromisos = '';
+    function pintarCompromisos() {
+      const seccion = $('seccion-compromisos');
+      seccion.classList.toggle('oculto', !hayCompromisos || !compromisos.length);
+      if (!compromisos.length) return;
+      // La recarga automática no repinta si nada ha cambiado (así no se pierden los mensajes)
+      const firma = JSON.stringify(compromisos);
+      if (firma === firmaCompromisos && $('lista-compromisos').children.length) return;
+      firmaCompromisos = firma;
+      $('lista-compromisos').innerHTML = compromisos.map(c => {
+        const m = textoMedicion(c);
+        const hecho = c.estado === 'hecho';
+        const sectores = (c.colectivos || []).map(formatearColectivo).join(', ');
+        return `
+          <article class="compromiso ${hecho ? 'compromiso-hecho' : ''}" data-id="${escapar(c.id)}">
+            <div class="compromiso-cabecera">
+              <span class="badge ${hecho ? 'badge-hecho' : 'badge-comprometido'}">${escapar(hecho ? tr('comp.estado_hecho', 'Hecho') : tr('comp.comprometido', 'Comprometido'))}</span>
+              <strong>${escapar(formatearTema(c.tema))}</strong>
+              ${sectores ? `<span class="nota">${escapar(sectores)}</span>` : ''}
+            </div>
+            <div class="compromiso-textos">
+              <div><span class="etiqueta">${escapar(tr('comp.dijisteis', 'Lo que nos dijisteis'))}</span><p>${escapar(c.dijisteis || '')}</p></div>
+              <div><span class="etiqueta">${escapar(tr('comp.hemos_hecho', 'Lo que hemos hecho'))}</span><p>${escapar(c.hicimos || '')}</p></div>
+            </div>
+            <dl class="ficha">
+              <dt>${escapar(tr('comp.responsable', 'Responsable'))}</dt><dd>${escapar(c.responsable || '—')}</dd>
+              <dt>${escapar(tr('comp.fecha', 'Fecha'))}</dt><dd>${escapar(fechaLegible(c.fecha))}</dd>
+            </dl>
+            <div class="medicion ${m.mejora ? 'medicion-mejora' : ''}">
+              <strong>${escapar(m.principal)}</strong>
+              ${m.detalle ? `<span class="nota">${escapar(m.detalle)}</span>` : ''}
+            </div>
+            <div class="compromiso-acciones">
+              ${c.seguimiento_id
+                ? `<a class="btn btn-secundario btn-pequeno" href="/dashboard.html?id=${encodeURIComponent(c.seguimiento_id)}">${escapar(tr('comp.ver_seguimiento', 'Ver el seguimiento'))}</a>`
+                : `<button type="button" class="btn btn-secundario btn-pequeno" data-accion="seguimiento">${escapar(tr('comp.crear_seguimiento', 'Crear encuesta de seguimiento'))}</button>`}
+              <button type="button" class="btn btn-secundario btn-pequeno" data-accion="teams">${escapar(tr('crear.publicar_teams', 'Publicar en Teams'))}</button>
+              ${hecho ? '' : `<button type="button" class="btn btn-secundario btn-pequeno" data-accion="hecho">${escapar(tr('comp.marcar_hecho', 'Marcar como hecho'))}</button>`}
+              <span class="nota" data-texto-accion aria-live="polite"></span>
+            </div>
+          </article>`;
+      }).join('');
+      $('lista-compromisos').querySelectorAll('.compromiso').forEach(art => {
+        const c = compromisos.find(x => x.id === art.dataset.id);
+        const texto = art.querySelector('[data-texto-accion]');
+        art.querySelectorAll('[data-accion]').forEach(b => b.addEventListener('click', async () => {
+          texto.textContent = '';
+          texto.classList.remove('texto-error');
+          try {
+            if (b.dataset.accion === 'seguimiento') {
+              b.disabled = true;
+              const necesidad = await necesidadSeguimiento(c.id);
+              sessionStorage.setItem('necesidad_prefill', JSON.stringify(necesidad));
+              window.location.href = '/crear.html';
+            } else if (b.dataset.accion === 'teams') {
+              const r = await accionTeams(c.id, 'compromiso', b);
+              texto.textContent = r.mensaje || '';
+              texto.classList.toggle('texto-error', !r.ok);
+            } else if (b.dataset.accion === 'hecho') {
+              b.disabled = true;
+              const nuevo = await marcarHecho(c.id);
+              Object.assign(c, nuevo);
+              pintarCompromisos();
+            }
+          } catch (err) {
+            b.disabled = false;
+            texto.textContent = err.message;
+            texto.classList.add('texto-error');
+          }
+        }));
+      });
+    }
+
+    /**
+     * Análisis para la maqueta con zonas[].compromisos. Si el servidor ya lo trae (v6 UPC 2), se usa;
+     * si no, se monta con la lista de compromisos: { tema, estado, antes, despues }.
+     */
+    function analisisParaMaqueta() {
+      if (!analisis) return analisis;
+      const zonas = (analisis.zonas || []).map(z => {
+        if (Array.isArray(z.compromisos)) return z;
+        const propios = compromisos.filter(c => (c.colectivos || []).includes(z.colectivo));
+        return { ...z, compromisos: propios.map(c => ({
+          tema: c.tema, estado: c.estado, antes: c.indicador?.antes ?? null,
+          despues: c.despues && c.despues.n >= 5 ? c.despues.media : null,
+        })) };
+      });
+      return { ...analisis, zonas };
+    }
+
+    function fechaLegible(fecha) {
+      if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return fecha || '—';
+      const [a, m, d] = fecha.split('-').map(Number);
+      return new Intl.DateTimeFormat(document.documentElement.lang || 'es', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(a, m - 1, d));
+    }
+
+    // Diálogo "Comprometer"
+    let borrador = null;
+    function errorCompromiso(texto) {
+      $('compromiso-error').textContent = texto || '';
+      $('compromiso-error').classList.toggle('oculto', !texto);
+    }
+
+    async function abrirComprometer(i) {
+      borrador = null;
+      errorCompromiso('');
+      $('compromiso-campos').classList.add('oculto');
+      $('compromiso-cargando').classList.remove('oculto');
+      $('btn-firmar-compromiso').disabled = true;
+      $('compromiso-origen').textContent = '';
+      $('dialogo-compromiso').showModal();
+      try {
+        borrador = await borradorCompromiso(encuestaId, i);
+      } catch (err) {
+        $('compromiso-cargando').classList.add('oculto');
+        errorCompromiso(`${tr('comp.error_borrador', 'No se pudo preparar el borrador')}: ${err.message}`);
+        return;
+      }
+      $('compromiso-dijisteis').textContent = borrador.dijisteis || '';
+      $('compromiso-hicimos').value = borrador.hicimos || '';
+      $('compromiso-responsable').value = borrador.responsable || '';
+      $('compromiso-fecha').value = /^\d{4}-\d{2}-\d{2}$/.test(borrador.fecha || '') ? borrador.fecha : '';
+      etiquetaOrigen($('compromiso-origen'), borrador.origen === 'ia' ? 'ia' : (borrador.origen ? 'reglas' : null));
+      const ind = borrador.indicador;
+      $('compromiso-indicador').textContent = ind?.texto
+        ? `${tr('comp.medimos_con', 'Lo mediremos con: {pregunta}', { pregunta: `«${ind.texto}»` })} · ${ind.antes != null
+          ? tr('comp.ahora_n', 'ahora {antes} (n = {n})', { antes: formatearMedia(ind.antes), n: entero(ind.n_antes) })
+          : tr('comp.sin_dato', 'aún sin dato (n < 5)')}`
+        : '';
+      $('compromiso-cargando').classList.add('oculto');
+      $('compromiso-campos').classList.remove('oculto');
+      $('btn-firmar-compromiso').disabled = false;
+      $('compromiso-hicimos').focus();
+    }
+
+    $('btn-cancelar-compromiso').addEventListener('click', () => $('dialogo-compromiso').close());
+    ['compromiso-hicimos', 'compromiso-responsable', 'compromiso-fecha'].forEach(id =>
+      $(id).addEventListener('input', () => errorCompromiso('')));
+    $('form-compromiso').addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!borrador) return;
+      const fecha = $('compromiso-fecha').value;
+      // "[fecha]" del borrador → la fecha elegida
+      let hicimos = $('compromiso-hicimos').value.trim();
+      if (fecha) hicimos = hicimos.replace(/\[fecha\]/g, fechaLegible(fecha));
+      const responsable = $('compromiso-responsable').value.trim();
+      if (!hicimos) { errorCompromiso(tr('comp.falta_hicimos', 'Escribe qué habéis hecho.')); $('compromiso-hicimos').focus(); return; }
+      if (/\[fecha\]/.test(hicimos)) { errorCompromiso(tr('comp.falta_fecha', 'Pon la fecha o quita «[fecha]» del texto.')); $('compromiso-fecha').focus(); return; }
+      if (!responsable) { errorCompromiso(tr('comp.falta_responsable', 'Indica quién es responsable.')); $('compromiso-responsable').focus(); return; }
+      const b = $('btn-firmar-compromiso');
+      b.disabled = true;
+      errorCompromiso('');
+      try {
+        const nuevo = await crearCompromiso(encuestaId, {
+          tema: borrador.tema, colectivos: borrador.colectivos, dijisteis: borrador.dijisteis,
+          hicimos, responsable, fecha: fecha || borrador.fecha, indicador: borrador.indicador,
+        });
+        compromisos = [...compromisos.filter(c => c.id !== nuevo.id), nuevo];
+        $('dialogo-compromiso').close();
+        pintarRecomendaciones();
+        if (vista3d?.actualizar && analisis) vista3d.actualizar(analisisParaMaqueta());
+        $('seccion-compromisos').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (err) {
+        errorCompromiso(err.message); // 422 del backend: su mensaje
+      } finally {
+        b.disabled = false;
+      }
     });
 
     // ---------------- 7. Límites ----------------
@@ -917,7 +1206,7 @@
         const { iniciarVista3D } = await import('/js/vista3d.js');
         const contenedor = $('contenedor-3d');
         // Contrato v2 (sección 3.7): iniciarVista3D(contenedor, analisis, opciones)
-        vista3d = iniciarVista3D(contenedor, analisis, {
+        vista3d = iniciarVista3D(contenedor, analisisParaMaqueta(), {
           mapaPreguntas,
           capa,
           noche,

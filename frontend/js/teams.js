@@ -8,7 +8,8 @@
  *  - 502: el mensaje del backend (Teams respondió con error o no se pudo contactar).
  */
 import {
-  obtenerIntegraciones, vistaPreviaTeams, enviarTeamsPublicar, enviarTeamsResumen
+  obtenerIntegraciones, vistaPreviaTeams, enviarTeamsPublicar, enviarTeamsResumen,
+  vistaPreviaTeamsCompromiso, enviarTeamsCompromiso
 } from '/js/api.js';
 import { escapar } from '/js/ui.js';
 import { t } from '/js/idioma.js';
@@ -28,7 +29,10 @@ export async function integracionesDisponibles() {
 }
 
 /** Avisos fijos del backend, en el idioma de la pantalla */
-function textoAviso(aviso) {
+function textoAviso(aviso, codigo) {
+  // v6 P2: si el backend manda aviso_codigo, se usa; si no, se reconoce el texto
+  // Claves teams.aviso_<código>: teams.aviso_localhost y teams.aviso_url_no_valida
+  if (codigo) return t(`teams.aviso_${codigo}`, aviso || codigo);
   if (!aviso) return '';
   if (/^BASE_URL es localhost/i.test(aviso)) return t('teams.aviso_localhost', 'BASE_URL es localhost: los botones de Teams solo funcionarán en este ordenador');
   if (/TEAMS_WEBHOOK_URL no v[aá]lida/i.test(aviso)) return t('teams.aviso_url', 'TEAMS_WEBHOOK_URL no válida');
@@ -77,7 +81,7 @@ function dibujarTarjeta(tarjeta) {
 }
 
 /** Ventana con la vista previa con aspecto de mensaje de Teams */
-function abrirVistaPrevia(tarjeta, notas = []) {
+export function abrirVistaPrevia(tarjeta, notas = []) {
   let dialogo = document.getElementById('dialogo-teams');
   if (!dialogo) {
     dialogo = document.createElement('dialog');
@@ -109,19 +113,20 @@ function abrirVistaPrevia(tarjeta, notas = []) {
 
 /**
  * Acción del botón de Teams.
- * tipo: "publicar" (encuesta) o "resumen" (análisis).
+ * tipo: "publicar" (encuesta), "resumen" (análisis) o "compromiso" (v6: el id es el del compromiso).
  * Devuelve { ok, mensaje } para mostrarlo junto al botón.
  */
 export async function accionTeams(encuestaId, tipo, boton) {
   const textoOriginal = boton?.textContent;
   if (boton) { boton.disabled = true; boton.textContent = t('teams.preparando', 'Preparando…'); }
   try {
-    const { teams, aviso } = await integracionesDisponibles();
-    const avisoTexto = textoAviso(aviso);
+    const { teams, aviso, aviso_codigo: avisoCodigo } = await integracionesDisponibles();
+    const avisoTexto = textoAviso(aviso, avisoCodigo);
     if (teams) {
       if (boton) boton.textContent = t('teams.enviando', 'Enviando…');
       try {
         if (tipo === 'resumen') await enviarTeamsResumen(encuestaId);
+        else if (tipo === 'compromiso') await enviarTeamsCompromiso(encuestaId);
         else await enviarTeamsPublicar(encuestaId);
         const enviado = t('teams.enviado', 'Enviado al canal de Teams');
         return { ok: true, mensaje: avisoTexto ? `${enviado} · ${avisoTexto}` : enviado };
@@ -130,7 +135,9 @@ export async function accionTeams(encuestaId, tipo, boton) {
         if (err.status !== 503) return { ok: false, mensaje: err.message || t('teams.error_enviar', 'No se pudo enviar a Teams') };
       }
     }
-    const tarjeta = await vistaPreviaTeams(encuestaId, tipo);
+    const tarjeta = tipo === 'compromiso'
+      ? await vistaPreviaTeamsCompromiso(encuestaId)
+      : await vistaPreviaTeams(encuestaId, tipo);
     abrirVistaPrevia(tarjeta, [
       { texto: t('teams.no_configurado', 'Teams no está configurado en este equipo. Así se vería el mensaje en el canal.') },
       avisoTexto ? { texto: avisoTexto, tipo: 'aviso-amarillo' } : null,

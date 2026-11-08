@@ -14,6 +14,8 @@
  *   onNuevasRespuestas(colectivo, n)  → han llegado n respuestas nuevas de ese sector.
  *                                       Si se pasa, el aviso lo pinta quien llama (no hay dos avisos).
  *   urlCrear: "crear.html"   modeloUrl: "/public/fabrica.fbx"
+ * Compromisos (v6): analisis.zonas[].compromisos = [{ tema, estado, antes, despues }] → banderín
+ * sobre el edificio (ámbar: comprometido · verde: la medida ha mejorado) y línea en el panel.
  * Además emite en document "vista3d:ver-en-analisis" (detail = { colectivo }) y, si el modelo
  * no carga, "vista3d-error" en el contenedor (como antes).
  */
@@ -151,6 +153,7 @@ export function iniciarVista3D(contenedor, analisis, opciones = {}) {
   let disposed = false;
   let temporizadorAviso = null;
   const pulsos = [];
+  const banderas = {}; // colectivo → { grupo, tela, firma, animInicio }
 
   // Estado de cada zona (copia propia: no se toca el ZONAS del módulo)
   const zonas = {};
@@ -375,7 +378,59 @@ export function iniciarVista3D(contenedor, analisis, opciones = {}) {
         zona.overlay.el.classList.toggle('marcador-activo', seleccionada === zona.key);
       }
     }
+    pintarBanderas();
     if (seleccionada) mostrarPanel(seleccionada);
+  }
+
+  // --- Banderines de compromisos (v6) ---
+  const COLOR_BANDERA = { comprometido: 0xD97706, mejora: 0x15803D };
+  const mejoro = (c) => c.antes != null && c.despues != null && c.despues > c.antes;
+  function pintarBanderas() {
+    for (const zona of Object.values(zonas)) {
+      if (!zona.grupo) continue; // el modelo aún no ha cargado
+      const lista = zonaDatos(zona.key)?.compromisos || [];
+      const actual = banderas[zona.key];
+      if (!lista.length) {
+        if (actual) { scene.remove(actual.grupo); delete banderas[zona.key]; }
+        continue;
+      }
+      const verde = lista.some(mejoro);
+      const firma = JSON.stringify(lista.map((c) => [c.tema, c.estado, c.despues]));
+      if (!actual) {
+        const alto = tamMaqueta * 0.09;
+        const grupo = new THREE.Group();
+        const mastil = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.02, alto * 0.02, alto, 8),
+                                      new THREE.MeshStandardMaterial({ color: 0x3F3F46, roughness: 0.6 }));
+        mastil.position.y = alto / 2;
+        const tela = new THREE.Mesh(new THREE.PlaneGeometry(alto * 0.5, alto * 0.32),
+                                    new THREE.MeshStandardMaterial({ color: COLOR_BANDERA.comprometido, side: THREE.DoubleSide,
+                                                                     emissive: COLOR_BANDERA.comprometido, emissiveIntensity: 0.35 }));
+        tela.position.set(alto * 0.25, alto * 0.82, 0);
+        grupo.add(mastil, tela);
+        grupo.position.set(zona.pos.x + tamMaqueta * 0.03, zona.pos.y + tamMaqueta * 0.04, zona.pos.z);
+        grupo.userData.colectivo = zona.key;
+        scene.add(grupo);
+        banderas[zona.key] = { grupo, tela, firma: null, animInicio: null };
+      }
+      const b = banderas[zona.key];
+      const color = verde ? COLOR_BANDERA.mejora : COLOR_BANDERA.comprometido;
+      b.tela.material.color.setHex(color);
+      b.tela.material.emissive.setHex(color);
+      // Animación corta si ha cambiado (nuevo compromiso o nuevo "después")
+      if (b.firma !== null && b.firma !== firma) b.animInicio = performance.now();
+      b.firma = firma;
+    }
+  }
+
+  function animarBanderas(ahora) {
+    for (const b of Object.values(banderas)) {
+      // Ondea siempre un poco; al cambiar, da un salto de 1,2 s
+      b.tela.rotation.y = Math.sin(ahora / 600) * 0.25;
+      if (b.animInicio == null) { b.grupo.scale.setScalar(1); continue; }
+      const k = (ahora - b.animInicio) / 1200;
+      if (k >= 1) { b.animInicio = null; b.grupo.scale.setScalar(1); continue; }
+      b.grupo.scale.setScalar(1 + 0.6 * Math.sin(Math.PI * k));
+    }
   }
 
   // --- Panel de zona ---
@@ -404,6 +459,7 @@ export function iniciarVista3D(contenedor, analisis, opciones = {}) {
                                           : `${t('maqueta.valoracion', 'Valoración: {media} / 5', { media: formatearMedia(zona.media) })}${variacion}` }),
       el('h4', { texto: t('maqueta.temas', 'Temas principales') }), temas,
       el('h4', { texto: t('maqueta.alertas', 'Alertas') }), alertas,
+      ...lineasCompromiso(zona),
       el('div', { style: { display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' } }, [
         el('button', { type: 'button', className: 'btn', texto: t('maqueta.crear', 'Crear encuesta para este sector'), onclick: () => {
           sessionStorage.setItem('necesidad_prefill', JSON.stringify(necesidadParaZona(zona, nombre)));
@@ -416,6 +472,21 @@ export function iniciarVista3D(contenedor, analisis, opciones = {}) {
       ]),
     );
     panel.style.display = 'block';
+  }
+
+  function lineasCompromiso(zona) {
+    const lista = zona.compromisos || [];
+    if (!lista.length) return [];
+    return [
+      el('h4', { texto: t('maqueta.compromisos', 'Compromisos') }),
+      el('ul', {}, lista.map((c) => {
+        const tema = NOMBRE_TEMA[c.tema] || c.tema;
+        const texto = c.antes != null && c.despues != null
+          ? t('maqueta.compromiso_medido', 'Compromiso: {tema} · antes {antes} → ahora {despues}', { tema, antes: formatearMedia(c.antes), despues: formatearMedia(c.despues) })
+          : t('maqueta.compromiso_midiendo', 'Compromiso: {tema} · midiendo…', { tema });
+        return el('li', { texto: `${texto}${c.estado === 'hecho' ? ' ✓' : ''}` });
+      })),
+    ];
   }
 
   // --- Clic sobre los edificios ---
@@ -507,6 +578,7 @@ export function iniciarVista3D(contenedor, analisis, opciones = {}) {
     animFrameId = requestAnimationFrame(animate);
     controls.update();
     animarPulsos(ahora ?? performance.now());
+    animarBanderas(ahora ?? performance.now());
     if (modoNoche && redBlink.visible) redBlink.intensity = 1.5 + Math.sin(clock.getElapsedTime() * 2.5) * 1.5;
     renderer.render(scene, camera);
     actualizarOverlays();
