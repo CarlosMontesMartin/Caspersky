@@ -54,6 +54,19 @@
     body.quiosco .escala .opcion-resp { min-height: 96px; }
     body.quiosco .escala .cara { display: block; }
     body.quiosco .resp-pie .btn { height: 56px; min-width: 160px; font-size: var(--t-lg); }
+
+    /* Selector de idioma ES · CA · EN (contratos v3, 6.2) */
+    .resp-cabecera { display: flex; justify-content: space-between; align-items: center; gap: var(--e3); margin-bottom: var(--e5); }
+    .resp-cabecera .resp-marca { margin-bottom: 0; }
+    .idiomas { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--e1); }
+    .idioma-btn {
+      min-width: 40px; height: 40px; padding: 0 var(--e2);
+      border: 1px solid var(--borde); border-radius: var(--radio); background: var(--superficie);
+      font-size: var(--t-sm); font-weight: var(--peso-fuerte); cursor: pointer;
+    }
+    .idioma-btn:hover { border-color: var(--texto-3); }
+    .idioma-btn[aria-pressed="true"] { background: var(--texto); border-color: var(--texto); color: #FFFFFF; }
+    body.quiosco .idioma-btn { min-width: 60px; height: 52px; font-size: var(--t-md); }
   </style>
 </head>
 <body>
@@ -67,6 +80,7 @@
       obtenerEncuestaPublica, enviarRespuesta, formatearTurno, formatearColectivo, colectivosDe, preguntasDe
     } from '/js/api.js';
     import { escapar } from '/js/ui.js';
+    import { IDIOMAS, ETIQUETAS_IDIOMA, cargarIdioma, idiomaInicial, t } from '/js/i18n.js';
 
     const app = document.getElementById('app');
     const encuestaId = decodeURIComponent(window.location.pathname.split('/').filter(Boolean).pop() || '');
@@ -82,6 +96,56 @@
     let estado = null; // { colectivo, turno, valores, indice }
     let sectores = [];  // sectores de la encuesta
     let sectorFijo = null; // si el QR ya indica el sector, no se pregunta
+    let idioma = 'es';
+    let pantalla = 'inicio'; // inicio | pregunta | final | error: para repintar al cambiar de idioma
+    let opcionesOriginales = {}; // id de pregunta -> opciones en castellano (lo que se envía)
+
+    // ---------- Idioma ----------
+    // Traducción con respaldo: si falta la clave, el formateador de api.js
+    const tr = (clave, respaldo) => { const v = t(clave); return v === clave ? respaldo : v; };
+    const nombreSector = c => tr(`colectivo.${c}`, formatearColectivo(c));
+    const nombreTurno = tu => tr(`turno.${tu}`, formatearTurno(tu));
+
+    function cabecera() {
+      return `
+        <div class="resp-cabecera">
+          <div class="resp-marca">Damm</div>
+          <div class="idiomas" role="group" aria-label="${escapar(t('idioma.selector'))}">
+            ${IDIOMAS.map(c => `<button type="button" class="idioma-btn" data-idioma="${c}" aria-pressed="${idioma === c}" lang="${c === 'zh' ? 'zh-Hans' : c}">${ETIQUETAS_IDIOMA[c] || c.toUpperCase()}</button>`).join('')}
+          </div>
+        </div>`;
+    }
+
+    // Opciones en castellano por id: en "opcion" se muestra la traducción y se envía el original
+    function guardarOpcionesOriginales(enc) {
+      opcionesOriginales = {};
+      const todas = [...(enc.preguntas || []), ...Object.values(enc.preguntas_por_colectivo || {}).flat()];
+      todas.forEach(p => { if (p.tipo === 'opcion') opcionesOriginales[p.id] = p.opciones || []; });
+    }
+    const valorOpcion = (p, i) => (opcionesOriginales[p.id] || [])[i] ?? (p.opciones || [])[i];
+
+    function aplicarEncuesta(enc) {
+      encuesta = enc;
+      transparencia = prepararTransparencia(enc.transparencia);
+    }
+
+    async function cambiarIdioma(codigo) {
+      if (codigo === idioma || !IDIOMAS.includes(codigo)) return;
+      idioma = await cargarIdioma(codigo);
+      try {
+        aplicarEncuesta(await obtenerEncuestaPublica(encuestaId, idioma));
+      } catch { /* sin traducción: se mantienen los textos actuales */ }
+      // Se conservan sector, turno, respuestas y pregunta actual
+      if (pantalla === 'pregunta') pantallaPregunta();
+      else if (pantalla === 'final') pantallaFinal(false);
+      else if (pantalla === 'error') pantallaError();
+      else pantallaInicio();
+    }
+
+    app.addEventListener('click', e => {
+      const boton = e.target.closest('[data-idioma]');
+      if (boton) cambiarIdioma(boton.dataset.idioma);
+    });
 
     // ---------- Texto de transparencia ----------
     // El servidor envía contenido/transparencia.md. Si es el documento completo,
@@ -108,7 +172,7 @@
     function prepararTransparencia(texto) {
       const md = String(texto || '').replace(/\r/g, '');
       // Formato actual: sección "## Castellano" con dos frases y una lista de garantías
-      const castellano = md.match(/^##\s*Castellano[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m);
+      const castellano = md.match(/^##\s*(?:Castellano|Català|Catala|English|Português|Portugues|中文)[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m);
       if (castellano) {
         const lineas = castellano[1].split('\n').map(l => l.trim()).filter(Boolean);
         const frases = lineas.filter(l => !l.startsWith('- ') && !l.startsWith('>')).map(limpiar).filter(Boolean);
@@ -164,41 +228,42 @@
     }
 
     function pantallaInicio() {
+      pantalla = 'inicio';
       const preguntarSector = sectores.length > 1 && !sectorFijo;
       const turnos = turnosDelSector();
       if (turnos.length === 1) estado.turno = turnos[0];
       else if (!turnos.includes(estado.turno)) estado.turno = null;
       const listo = !!estado.colectivo && !!estado.turno;
       const n = estado.colectivo ? preguntasSector().length : null;
-      const t = transparencia;
+      const tp = transparencia; // (no se llama "t": es la función de traducción)
       app.innerHTML = `
-        <div class="resp-marca">Damm</div>
+        ${cabecera()}
         <h1>${escapar(encuesta.titulo)}</h1>
         <p class="intro">${escapar(encuesta.intro || '')}</p>
         <div class="transparencia">
-          ${t.corta.map(l => `<p>${escapar(l)}</p>`).join('')}
-          ${t.completa ? `<button type="button" class="mas" id="btn-mas" aria-expanded="false">Más información</button>
-            <div class="completa oculto" id="texto-completo">${t.completa}</div>` : ''}
+          ${tp.corta.map(l => `<p>${escapar(l)}</p>`).join('')}
+          ${tp.completa ? `<button type="button" class="mas" id="btn-mas" aria-expanded="false">${escapar(t('responder.mas_info'))}</button>
+            <div class="completa oculto" id="texto-completo">${tp.completa}</div>` : ''}
         </div>
         ${preguntarSector ? `
-          <p class="enunciado" id="titulo-sector">¿Dónde trabajas?</p>
+          <p class="enunciado" id="titulo-sector">${escapar(t('responder.donde_trabajas'))}</p>
           <div class="opciones-resp sectores-resp" role="group" aria-labelledby="titulo-sector">
-            ${sectores.map(c => `<button type="button" class="opcion-resp" data-sector="${escapar(c)}" aria-pressed="${estado.colectivo === c}">${escapar(formatearColectivo(c))}</button>`).join('')}
+            ${sectores.map(c => `<button type="button" class="opcion-resp" data-sector="${escapar(c)}" aria-pressed="${estado.colectivo === c}">${escapar(nombreSector(c))}</button>`).join('')}
           </div>` : ''}
         ${turnos.length > 1 ? `
-          <p class="enunciado" id="titulo-turno" style="${preguntarSector ? 'margin-top: var(--e5);' : ''}">¿En qué turno trabajas?</p>
+          <p class="enunciado" id="titulo-turno" style="${preguntarSector ? 'margin-top: var(--e5);' : ''}">${escapar(t('responder.que_turno'))}</p>
           <div class="opciones-resp" role="group" aria-labelledby="titulo-turno">
-            ${turnos.map(tu => `<button type="button" class="opcion-resp" data-turno="${escapar(tu)}" aria-pressed="${estado.turno === tu}">${escapar(formatearTurno(tu))}</button>`).join('')}
+            ${turnos.map(tu => `<button type="button" class="opcion-resp" data-turno="${escapar(tu)}" aria-pressed="${estado.turno === tu}">${escapar(nombreTurno(tu))}</button>`).join('')}
           </div>` : ''}
         <div class="resp-pie">
-          <span class="nota">${n ? `${n} preguntas · ` : ''}menos de ${Math.max(1, Math.ceil((encuesta.tiempo_estimado_seg || 60) / 60))} min</span>
-          <button type="button" class="btn btn-principal" id="btn-empezar" ${listo ? '' : 'disabled'}>Empezar</button>
+          <span class="nota">${n ? t('responder.n_preguntas', { n }) : ''}${t('responder.duracion', { min: Math.max(1, Math.ceil((encuesta.tiempo_estimado_seg || 60) / 60)) })}</span>
+          <button type="button" class="btn btn-principal" id="btn-empezar" ${listo ? '' : 'disabled'}>${escapar(t('responder.empezar'))}</button>
         </div>`;
 
       document.getElementById('btn-mas')?.addEventListener('click', e => {
         const abierto = e.target.getAttribute('aria-expanded') === 'true';
         e.target.setAttribute('aria-expanded', String(!abierto));
-        e.target.textContent = abierto ? 'Más información' : 'Menos información';
+        e.target.textContent = abierto ? t('responder.mas_info') : t('responder.menos_info');
         document.getElementById('texto-completo').classList.toggle('oculto', abierto);
       });
       app.querySelectorAll('[data-sector]').forEach(b => b.addEventListener('click', () => {
@@ -231,29 +296,30 @@
       const v = estado.valores[p.id];
       if (p.tipo === 'escala_1_5') {
         return `
-          <div class="escala" role="group" aria-label="Valoración de 1 a 5">
-            ${[1, 2, 3, 4, 5].map(n => `<button type="button" class="opcion-resp" data-valor="${n}" aria-pressed="${v === n}" aria-label="${n} de 5">${CARAS[n - 1]}<span>${n}</span></button>`).join('')}
+          <div class="escala" role="group" aria-label="${escapar(t('escala.grupo'))}">
+            ${[1, 2, 3, 4, 5].map(n => `<button type="button" class="opcion-resp" data-valor="${n}" aria-pressed="${v === n}" aria-label="${escapar(t('escala.n_de_5', { n, texto: t(`escala.${n}`) }))}" title="${escapar(t(`escala.${n}`))}">${CARAS[n - 1]}<span>${n}</span></button>`).join('')}
           </div>
-          <div class="escala-extremos"><span>Muy mal</span><span>Muy bien</span></div>`;
+          <div class="escala-extremos"><span>${escapar(t('escala.1'))}</span><span>${escapar(t('escala.5'))}</span></div>`;
       }
       if (p.tipo === 'si_no') {
         return `<div class="sino" role="group">
-          <button type="button" class="opcion-resp" data-valor="si" aria-pressed="${v === 'si'}">Sí</button>
-          <button type="button" class="opcion-resp" data-valor="no" aria-pressed="${v === 'no'}">No</button>
+          <button type="button" class="opcion-resp" data-valor="si" aria-pressed="${v === 'si'}">${escapar(t('responder.si'))}</button>
+          <button type="button" class="opcion-resp" data-valor="no" aria-pressed="${v === 'no'}">${escapar(t('responder.no'))}</button>
         </div>`;
       }
       if (p.tipo === 'opcion') {
         return `<div class="opciones-resp" role="group">
-          ${(p.opciones || []).map(o => `<button type="button" class="opcion-resp" data-valor="${escapar(o)}" aria-pressed="${v === o}">${escapar(o)}</button>`).join('')}
+          ${(p.opciones || []).map((o, i) => `<button type="button" class="opcion-resp" data-valor="${escapar(valorOpcion(p, i))}" aria-pressed="${v === valorOpcion(p, i)}">${escapar(o)}</button>`).join('')}
         </div>`;
       }
       return `
-        <label class="sr-only" for="texto-libre">Tu respuesta</label>
-        <textarea id="texto-libre" class="area" rows="5" maxlength="1000" placeholder="Opcional">${escapar(v || '')}</textarea>
-        <p class="nota" style="margin-top: var(--e2);">No escribas nombres ni datos personales.</p>`;
+        <label class="sr-only" for="texto-libre">${escapar(t('responder.tu_respuesta'))}</label>
+        <textarea id="texto-libre" class="area" rows="5" maxlength="1000" placeholder="${escapar(t('responder.opcional'))}">${escapar(v || '')}</textarea>
+        <p class="nota" style="margin-top: var(--e2);">${escapar(t('responder.sin_datos'))}</p>`;
     }
 
     function pantallaPregunta() {
+      pantalla = 'pregunta';
       const lista = visibles();
       estado.indice = Math.min(estado.indice, lista.length - 1);
       const p = lista[estado.indice];
@@ -263,19 +329,19 @@
       const todasListas = lista.filter(obligatoria).every(contestada);
 
       app.innerHTML = `
-        <div class="resp-marca">Damm</div>
+        ${cabecera()}
         <div class="progreso">
-          <div class="progreso-texto">Pregunta ${estado.indice + 1} de ${lista.length}</div>
+          <div class="progreso-texto">${escapar(t('responder.pregunta_n', { n: estado.indice + 1, total: lista.length }))}</div>
           <div class="progreso-pista"><div class="progreso-relleno" style="width: ${pct}%"></div></div>
         </div>
         <p class="enunciado" id="enunciado">${escapar(p.texto)}</p>
         <div aria-labelledby="enunciado">${controlPregunta(p)}</div>
         <div id="error-envio" class="aviso error oculto" role="alert" style="margin-top: var(--e4);"></div>
         <div class="resp-pie">
-          <button type="button" class="btn btn-secundario" id="btn-atras">Atrás</button>
+          <button type="button" class="btn btn-secundario" id="btn-atras">${escapar(t('responder.atras'))}</button>
           ${ultima
-            ? `<button type="button" class="btn btn-principal" id="btn-enviar" ${todasListas ? '' : 'disabled'}>Enviar</button>`
-            : `<button type="button" class="btn btn-principal" id="btn-siguiente" ${puedeSeguir ? '' : 'disabled'}>Siguiente</button>`}
+            ? `<button type="button" class="btn btn-principal" id="btn-enviar" ${todasListas ? '' : 'disabled'}>${escapar(t('responder.enviar'))}</button>`
+            : `<button type="button" class="btn btn-principal" id="btn-siguiente" ${puedeSeguir ? '' : 'disabled'}>${escapar(t('responder.siguiente'))}</button>`}
         </div>`;
 
       app.querySelectorAll('[data-valor]').forEach(b => b.addEventListener('click', () => {
@@ -302,7 +368,7 @@
     async function enviar() {
       const boton = document.getElementById('btn-enviar');
       boton.disabled = true;
-      boton.textContent = 'Enviando…';
+      boton.textContent = t('responder.enviando');
       // Solo las preguntas que se han mostrado; el texto libre lo guarda el servidor como comentario
       const valores = {};
       visibles().forEach(p => {
@@ -312,26 +378,41 @@
         valores[p.id] = typeof v === 'string' ? v.trim() : v;
       });
       try {
-        await enviarRespuesta(encuestaId, { colectivo: estado.colectivo, turno: estado.turno, canal, valores });
+        const entrada = { colectivo: estado.colectivo, turno: estado.turno, canal, valores };
+        // El contrato v3 acepta es, ca y en. Portugués y chino solo se envían si el servidor ya los ofrece.
+        if (['es', 'ca', 'en'].includes(idioma) || (encuesta.idiomas_disponibles || []).includes(idioma)) entrada.idioma = idioma;
+        await enviarRespuesta(encuestaId, entrada);
         pantallaFinal();
       } catch (err) {
         const caja = document.getElementById('error-envio');
-        caja.textContent = `No se pudo enviar: ${err.message}`;
+        caja.textContent = t('responder.error_envio', { error: err.message });
         caja.classList.remove('oculto');
         boton.disabled = false;
-        boton.textContent = 'Enviar';
+        boton.textContent = t('responder.enviar');
       }
     }
 
-    function pantallaFinal() {
+    function pantallaFinal(programarReinicio = true) {
+      pantalla = 'final';
       app.innerHTML = `
-        <div class="resp-marca">Damm</div>
+        ${cabecera()}
         <div class="final">
-          <h1>Gracias</h1>
-          <p class="texto-2">Tu respuesta se ha registrado de forma anónima.</p>
-          ${esQuiosco ? '<p class="nota" style="margin-top: var(--e4);">La pantalla se reiniciará en unos segundos.</p>' : ''}
+          <h1>${escapar(t('responder.gracias'))}</h1>
+          <p class="texto-2">${escapar(t('responder.gracias_texto'))}</p>
+          ${esQuiosco ? `<p class="nota" style="margin-top: var(--e4);">${escapar(t('responder.reinicio'))}</p>` : ''}
         </div>`;
-      if (esQuiosco) setTimeout(reiniciar, 5000);
+      // En quiosco se reinicia manteniendo el idioma elegido
+      if (esQuiosco && programarReinicio) setTimeout(reiniciar, 5000);
+    }
+
+    function pantallaError() {
+      pantalla = 'error';
+      app.innerHTML = `
+        ${cabecera()}
+        <div class="final">
+          <h1>${escapar(t('responder.no_disponible'))}</h1>
+          <p class="texto-2">${escapar(t('responder.no_disponible_texto'))}</p>
+        </div>`;
     }
 
     function reiniciar() {
@@ -341,19 +422,22 @@
     }
 
     async function iniciar() {
+      idioma = await cargarIdioma(idiomaInicial());
       try {
-        encuesta = await obtenerEncuestaPublica(encuestaId);
+        // La versión en castellano da las opciones originales que se envían
+        const original = await obtenerEncuestaPublica(encuestaId, 'es');
+        guardarOpcionesOriginales(original);
+        let enc = original;
+        if (idioma !== 'es') {
+          try { enc = await obtenerEncuestaPublica(encuestaId, idioma); } catch { /* se queda en castellano */ }
+        }
+        aplicarEncuesta(enc);
         sectores = colectivosDe(encuesta);
         sectorFijo = sectores.includes(colectivoUrl) ? colectivoUrl : null;
-        transparencia = prepararTransparencia(encuesta.transparencia);
         reiniciar();
       } catch (err) {
-        app.innerHTML = `
-          <div class="resp-marca">Damm</div>
-          <div class="final">
-            <h1>Encuesta no disponible</h1>
-            <p class="texto-2">Esta encuesta no existe o ya no está abierta.</p>
-          </div>`;
+        console.error('No se pudo cargar la encuesta:', err);
+        pantallaError();
       }
     }
 
