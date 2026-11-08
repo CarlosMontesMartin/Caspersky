@@ -1320,7 +1320,15 @@
         b.disabled = true;
         b.textContent = tr('dash.simulando', 'Simulando…');
         try {
-          const res = await simularRespuestas(encuestaId, { n: 150 });
+          // Demo de compromisos (v6): si esta encuesta es un seguimiento, su pregunta fija mejora
+          const esSeguimiento = !!(encuesta?.compromiso_id || encuesta?.necesidad?.compromiso_id
+            || [encuesta?.preguntas || [], ...Object.values(encuesta?.preguntas_por_colectivo || {})].flat().some(q => q.fija));
+          const res = await simularRespuestas(encuestaId, esSeguimiento ? { n: 150, mejora: { pregunta_fija: 1.2 } } : { n: 150 });
+          // …y los seguimientos ya publicados de sus compromisos reciben respuestas con mejora,
+          // para que el "antes → después" y el banderín de la maqueta cambien en la misma pantalla
+          await Promise.all(compromisos.filter(c => c.seguimiento_id).map(c =>
+            simularRespuestas(c.seguimiento_id, { n: 40, con_periodo_anterior: false, mejora: { pregunta_fija: 1.2 } })
+              .catch(() => null))); // seguimiento aún sin publicar: no pasa nada
           try { sessionStorage.removeItem('encuestas_activas'); } catch { /* nada */ }
           await cargarDatos();
           b.textContent = tr('dash.anadidas', '{n} respuestas añadidas', { n: entero(res.simuladas) });

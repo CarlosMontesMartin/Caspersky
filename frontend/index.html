@@ -65,7 +65,7 @@
       return `
         <tr class="clicable" data-url="${url}">
           <td style="padding-left: var(--e5);">
-            <a href="${url}" class="titulo-fila">${escapar(enc.titulo || 'Sin título')}</a>
+            <a href="${url}" class="titulo-fila">${escapar(enc.titulo || t('comun.sin_titulo', 'Sin título'))}</a>
             <span class="sub">${escapar(enc.id)}</span>
           </td>
           <td>${escapar(formatearColectivo(enc.colectivo))}</td>
@@ -101,7 +101,7 @@
       if (tr) window.location.href = tr.dataset.url;
     });
 
-    alCambiarIdioma(() => cargar());
+    document.title = `${t('menu.mis_encuestas', 'Mis encuestas')} · Damm ${t('marca.producto', 'Escucha activa')}`;
     cargar();
   </script>
 </body>

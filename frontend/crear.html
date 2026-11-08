@@ -628,7 +628,7 @@
       return li;
     }
 
-    const listaDe = lista => (lista === 'comunes' ? encuesta.preguntas : encuesta.preguntas_por_colectivo[lista]);
+    const listaDe = lista => (lista === 'comunes' || !lista ? encuesta.preguntas : (encuesta.preguntas_por_colectivo?.[lista] || []));
 
     /**
      * Motivo por el que una pregunta no se puede mover (o null). Reglas:
@@ -867,7 +867,7 @@
       } else {
         const c = pestanaActual;
         explicacion.textContent = t('crear.explica_sector', 'Así verá la encuesta {sector}: primero las comunes y después sus preguntas propias.', { sector: formatearColectivo(c).toLowerCase() });
-        encuesta.preguntas.forEach((p, i) => lista.appendChild(filaPregunta(p, i + 1, { editable: false, comun: true })));
+        encuesta.preguntas.forEach((p, i) => lista.appendChild(filaPregunta(p, i + 1, { editable: false, comun: true, lista: 'comunes' })));
         (encuesta.preguntas_por_colectivo[c] || []).forEach((p, i) =>
           lista.appendChild(filaPregunta(p, encuesta.preguntas.length + i + 1, { editable, lista: c })));
         pintarDuracion(c);
