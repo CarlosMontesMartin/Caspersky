@@ -14,71 +14,19 @@ from typing import Any
 from . import segundo_plano
 from .analizar import TEMAS, clasificacion_en_curso
 from .llm import hay_llm, llamar_llm_json
+from . import textos_respaldo as textos
 
 COLECTIVOS = ["planta", "logistica", "comercial", "oficina", "manager"]
-NOMBRE_COLECTIVO = {"planta": "planta", "logistica": "logística", "comercial": "comercial",
-                    "oficina": "oficina", "manager": "managers"}
-NOMBRE_TURNO = {"manana": "de mañana", "tarde": "de tarde", "noche": "de noche"}
 DURACION_SEGUIMIENTO = 60
 TEMAS_PROHIBIDOS_SEGUIMIENTO = ["salario"]
 _PROMPTS = Path(__file__).resolve().parent / "prompts"
 
-# Acciones fijas por tema orientadas a procesos y organización
-ACCION_POR_TEMA: dict[str, tuple[str, str]] = {
-    "descansos": ("Revisar con los equipos la duración y el momento de las pausas",
-                  "Saber qué cambios en las pausas ayudarían a descansar mejor"),
-    "turnos": ("Abrir un espacio para recoger propuestas sobre el sistema de turnos",
-               "Entender qué dificultades concretas genera el nuevo sistema de turnos"),
-    "carga_trabajo": ("Analizar los picos de trabajo y reforzar los momentos críticos",
-                      "Detectar en qué momentos la carga de trabajo es más difícil de asumir"),
-    "comunicacion": ("Comunicar los cambios por un canal oficial y con antelación",
-                     "Saber por qué canal y con cuánta antelación quieren recibir los cambios"),
-    "liderazgo": ("Reforzar las reuniones breves de equipo con los responsables",
-                  "Conocer qué esperan los equipos de sus responsables en el día a día"),
-    "herramientas": ("Priorizar la reparación y renovación de las herramientas más citadas",
-                     "Identificar qué herramientas o equipos dificultan más el trabajo"),
-    "formacion": ("Publicar una oferta de formación ligada a los nuevos procesos",
-                  "Saber qué formación necesitan los equipos para su día a día"),
-    "reconocimiento": ("Incorporar el reconocimiento en las reuniones de equipo",
-                       "Entender cómo les gustaría que se reconociera su trabajo"),
-    "seguridad": ("Revisar con prevención los puntos de riesgo señalados",
-                  "Identificar las situaciones de riesgo que más preocupan"),
-    "ambiente": ("Impulsar actividades que refuercen la colaboración entre equipos",
-                 "Conocer qué mejoraría la relación entre compañeros"),
-    "conciliacion": ("Estudiar medidas de flexibilidad compatibles con cada puesto",
-                     "Saber qué medidas de flexibilidad serían más útiles"),
-    "otros": ("Revisar las incidencias de instalaciones y servicios señaladas",
-              "Detectar qué servicios o instalaciones conviene mejorar primero"),
-}
-NOMBRE_TEMA = {
-    "descansos": "descansos", "turnos": "turnos", "carga_trabajo": "carga de trabajo",
-    "comunicacion": "comunicación", "liderazgo": "liderazgo", "herramientas": "herramientas",
-    "formacion": "formación", "reconocimiento": "reconocimiento", "seguridad": "seguridad",
-    "ambiente": "ambiente", "conciliacion": "conciliación", "otros": "otros temas",
-}
-TEXTO_TENDENCIA = {"nuevo": "aparece como tema nuevo", "sube": "gana peso respecto al periodo anterior",
-                   "estable": "se mantiene estable", "baja": "pierde peso"}
+# Los textos (es, ca, en) están en textos_respaldo.py
+ACCION_POR_TEMA = textos.ACCION_POR_TEMA["es"]
 
 
-# Quién lo lleva y en cuánto tiempo, por tema
-RESPONSABLE_PLAZO: dict[str, tuple[str, str]] = {
-    "descansos": ("Jefes de turno y RRHH", "2 semanas"),
-    "turnos": ("Dirección de planta y RRHH", "1 mes"),
-    "carga_trabajo": ("Responsables de área", "1 mes"),
-    "comunicacion": ("RRHH y Comunicación interna", "1 semana"),
-    "liderazgo": ("Responsables de equipo", "1 mes"),
-    "herramientas": ("Mantenimiento e IT", "1 mes"),
-    "formacion": ("RRHH (Desarrollo)", "2 meses"),
-    "reconocimiento": ("Responsables de equipo", "1 mes"),
-    "seguridad": ("Prevención de riesgos", "1 semana"),
-    "ambiente": ("Responsables de equipo y RRHH", "1 mes"),
-    "conciliacion": ("RRHH", "2 meses"),
-    "otros": ("Servicios generales", "1 mes"),
-}
-
-
-def _pct(valor: float | None) -> str:
-    return "—" if valor is None else f"{valor * 100:.0f} %"
+def _pct(valor: float | None, idioma: str = "es") -> str:
+    return textos.pct(valor, idioma)
 
 
 def _temas_prioritarios(analisis: dict[str, Any]) -> list[dict[str, Any]]:
@@ -102,50 +50,53 @@ def _colectivo_seguimiento(analisis: dict[str, Any], encuesta: dict[str, Any]) -
     return seg["colectivo"] if seg and seg.get("colectivo") in COLECTIVOS else "planta"
 
 
-def _accion_tema(tema: dict[str, Any]) -> dict[str, str]:
-    nombre = tema["tema"]
-    responsable, plazo = RESPONSABLE_PLAZO[nombre]
+def _accion_tema(tema: dict[str, Any], idioma: str = "es") -> dict[str, str]:
+    clave = tema["tema"]
+    nombre = textos.nombre("tema", clave, idioma)
     pct = tema.get("pct")
-    cifra = (f"{tema.get('n', 0)} comentarios, {_pct(pct)} del total"
-             + (f"; antes {_pct(tema.get('pct_anterior'))}" if tema.get("pct_anterior") is not None
-                else ""))
-    objetivo = f"por debajo del {_pct(pct)}" if pct else "en descenso"
+    cifra = (textos.frase("cifra", idioma, n=tema.get("n", 0), pct=_pct(pct, idioma))
+             + (textos.frase("cifra_antes", idioma, pct=_pct(tema.get("pct_anterior"), idioma))
+                if tema.get("pct_anterior") is not None else ""))
+    objetivo = (textos.frase("por_debajo", idioma, pct=_pct(pct, idioma)) if pct
+                else textos.frase("en_descenso", idioma))
+    tendencia = textos.TEXTO_TENDENCIA[idioma].get(tema.get("tendencia"), "")
     return {
-        "titulo": ACCION_POR_TEMA[nombre][0],
-        "motivo": (f"El tema {NOMBRE_TEMA[nombre]} {TEXTO_TENDENCIA.get(tema.get('tendencia'), '')} "
-                   f"({cifra}). Propuesta para valorar por RRHH."),
-        "tema": nombre,
-        "responsable": responsable,
-        "plazo": plazo,
-        "indicador": f"Peso de {NOMBRE_TEMA[nombre]} en los comentarios {objetivo} en el seguimiento",
+        "titulo": textos.ACCION_POR_TEMA[idioma][clave][0],
+        "motivo": textos.frase("motivo_tema", idioma, tema=nombre, tendencia=tendencia, cifra=cifra),
+        "tema": clave,
+        "responsable": textos.RESPONSABLE[idioma][clave],
+        "plazo": textos.plazo(clave, idioma),
+        "indicador": textos.frase("indicador_tema", idioma, tema=nombre, objetivo=objetivo),
     }
 
 
-def _accion_participacion(seg: dict[str, Any], tema_principal: str) -> dict[str, str]:
-    grupo = NOMBRE_COLECTIVO.get(seg.get("colectivo"), seg.get("colectivo", ""))
-    turno = NOMBRE_TURNO.get(seg.get("turno"), "")
-    quien = f"{grupo} {turno}".strip()
+def _accion_participacion(seg: dict[str, Any], tema_principal: str,
+                          idioma: str = "es") -> dict[str, str]:
+    quien = textos.quien(seg.get("colectivo", ""), seg.get("turno"), idioma)
     return {
-        "titulo": f"Reforzar la participación de {quien} con QR y quiosco en el centro",
-        "motivo": (f"Solo ha respondido un {round(float(seg.get('tasa', 0)) * 100)} % de {quien} "
-                   f"({seg.get('respuestas', 0)} de {seg.get('personas', 0)}): sus resultados pueden "
-                   f"no estar representados. Propuesta para valorar por RRHH."),
+        "titulo": textos.frase("titulo_participacion", idioma, quien=quien),
+        "motivo": textos.frase("motivo_participacion", idioma, quien=quien,
+                               pct=_pct(float(seg.get("tasa", 0)), idioma),
+                               r=seg.get("respuestas", 0), p=seg.get("personas", 0)),
         "tema": tema_principal,
-        "responsable": "RRHH y jefes de turno",
-        "plazo": "2 semanas",
-        "indicador": f"Participación de {quien} de al menos el 20 %",
+        "responsable": textos.RESPONSABLE[idioma]["participacion"],
+        "plazo": textos.plazo("participacion", idioma),
+        "indicador": textos.frase("indicador_participacion", idioma, quien=quien),
     }
 
 
-def _seguimiento(tema: str | None, colectivo: str, analisis: dict[str, Any]) -> dict[str, Any]:
+def _seguimiento(tema: str | None, colectivo: str, analisis: dict[str, Any],
+                 idioma: str = "es") -> dict[str, Any]:
     periodo = analisis.get("periodo_actual")
     if tema:
-        objetivo = ACCION_POR_TEMA.get(tema, ACCION_POR_TEMA["otros"])[1]
-        contexto = (f"Seguimiento del análisis{' de ' + periodo if periodo else ''}: "
-                    f"el tema {NOMBRE_TEMA.get(tema, tema)} destaca en los comentarios.")
+        acciones = textos.ACCION_POR_TEMA[idioma]
+        objetivo = acciones.get(tema, acciones["otros"])[1]
+        contexto = textos.frase("contexto_seguimiento", idioma,
+                                periodo=textos.frase("periodo", idioma, periodo=periodo) if periodo else "",
+                                tema=textos.nombre("tema", tema, idioma))
     else:
-        objetivo = "Conocer cómo se sienten las personas en su día a día"
-        contexto = "Seguimiento: todavía hay pocos comentarios para identificar temas."
+        objetivo = textos.frase("objetivo_sin_temas", idioma)
+        contexto = textos.frase("contexto_sin_temas", idioma)
     return {
         "objetivo": objetivo,
         "colectivos": [colectivo],
@@ -164,45 +115,72 @@ def _participacion_global(analisis: dict[str, Any]) -> float | None:
     return sum(f.get("respuestas", 0) for f in filas) / personas if personas else None
 
 
-def _lectura_reglas(analisis: dict[str, Any], temas: list[dict[str, Any]]) -> str:
+def _texto_alerta(alerta: dict[str, Any], analisis: dict[str, Any], idioma: str) -> str:
+    """Las alertas llegan redactadas en analisis["idioma"]; si es otro, se rehace con sus datos."""
+    if analisis.get("idioma", "es") == idioma:
+        return str(alerta.get("mensaje", "")).rstrip(".") + "."
+    if alerta.get("tipo") == "representatividad":
+        fila = next((f for f in analisis.get("participacion") or []
+                     if f.get("colectivo") == alerta.get("colectivo")
+                     and f.get("turno") == alerta.get("turno")), None)
+        if fila:
+            frase = textos.frase("motivo_participacion", idioma,
+                                 quien=textos.quien(fila.get("colectivo", ""), fila.get("turno"), idioma),
+                                 pct=_pct(float(fila.get("tasa", 0)), idioma),
+                                 r=fila.get("respuestas", 0), p=fila.get("personas", 0))
+            return frase.split(":")[0] + "."
+    return ""
+
+
+def _lectura_reglas(analisis: dict[str, Any], temas: list[dict[str, Any]],
+                    idioma: str = "es") -> str:
     frases = []
     n = analisis.get("n_respuestas")
     if n:
         global_ = _participacion_global(analisis)
-        frases.append(f"Han respondido {n} personas"
-                      + (f", un {_pct(global_)} de la plantilla consultada." if global_ else "."))
-    alertas = analisis.get("alertas") or []
-    if alertas:
-        frases.append(str(alertas[0].get("mensaje", "")).rstrip(".") + ".")
+        frases.append(textos.frase("lectura_respuestas", idioma, n=n)
+                      + (textos.frase("lectura_global", idioma, pct=_pct(global_, idioma))
+                         if global_ else "."))
+    for alerta in (analisis.get("alertas") or [])[:1]:
+        texto = _texto_alerta(alerta, analisis, idioma)
+        if texto.strip("."):
+            frases.append(texto)
     destacados = [t for t in temas if t.get("tendencia") in ("nuevo", "sube")][:2]
     if destacados:
-        partes = [f"{NOMBRE_TEMA[t['tema']]} ({_pct(t.get('pct'))} de los comentarios"
-                  + (", tema nuevo)" if t.get("tendencia") == "nuevo" else
-                     f", antes {_pct(t.get('pct_anterior'))})") for t in destacados]
-        frases.append("Ganan peso " + " y ".join(partes) + ".")
-    return " ".join(frases) or "Todavía no hay datos suficientes para una lectura de resultados."
+        partes = []
+        for t in destacados:
+            extra = (textos.frase("lectura_nuevo", idioma) if t.get("tendencia") == "nuevo"
+                     else textos.frase("lectura_antes", idioma, pct=_pct(t.get("pct_anterior"), idioma)))
+            partes.append(textos.frase("lectura_tema", idioma, tema=textos.nombre("tema", t["tema"], idioma),
+                                       pct=_pct(t.get("pct"), idioma), extra=extra))
+        frases.append(textos.frase("lectura_destacados", idioma,
+                                   temas=textos.frase("y", idioma).join(partes)))
+    return " ".join(frases) or textos.frase("sin_datos", idioma)
 
 
-def _recomendar_respaldo(analisis: dict[str, Any], encuesta: dict[str, Any]) -> dict[str, Any]:
+def _recomendar_respaldo(analisis: dict[str, Any], encuesta: dict[str, Any],
+                         idioma: str = "es") -> dict[str, Any]:
     temas = _temas_prioritarios(analisis)
     tema_principal = temas[0]["tema"] if temas else None
-    acciones = [_accion_tema(t) for t in temas[:2]]
+    acciones = [_accion_tema(t, idioma) for t in temas[:2]]
     seg = _segmento_menos_representado(analisis)
     if seg:
-        acciones.append(_accion_participacion(seg, tema_principal or "otros"))
+        acciones.append(_accion_participacion(seg, tema_principal or "otros", idioma))
     elif len(temas) > 2:
-        acciones.append(_accion_tema(temas[2]))
+        acciones.append(_accion_tema(temas[2], idioma))
     if not acciones:
-        acciones = [{"titulo": "Recoger más respuestas antes de decidir",
-                     "motivo": "Todavía no hay datos suficientes para proponer acciones.",
-                     "tema": "otros", "responsable": "RRHH", "plazo": "2 semanas",
-                     "indicador": "Al menos 5 respuestas por segmento"}]
+        acciones = [{"titulo": textos.frase("titulo_mas_respuestas", idioma),
+                     "motivo": textos.frase("motivo_mas_respuestas", idioma),
+                     "tema": "otros", "responsable": textos.RESPONSABLE[idioma]["conciliacion"],
+                     "plazo": textos.plazo("participacion", idioma),
+                     "indicador": textos.frase("indicador_mas_respuestas", idioma)}]
     return {
         "origen": "reglas",
-        "lectura": _lectura_reglas(analisis, temas),
+        "idioma": idioma,
+        "lectura": _lectura_reglas(analisis, temas, idioma),
         "acciones": acciones[:3],
         "seguimiento": _seguimiento(tema_principal, _colectivo_seguimiento(analisis, encuesta),
-                                    analisis),
+                                    analisis, idioma),
     }
 
 
@@ -266,28 +244,36 @@ def _validar_modelo(respuesta: Any, base: dict[str, Any]) -> dict[str, Any] | No
                 objetivo=propuesta["objetivo"].strip(), colectivos=colectivos,
                 colectivo=colectivos[0] if len(colectivos) == 1 else "varios",
                 contexto=(propuesta.get("contexto") or seguimiento["contexto"]).strip()[:300])
-    return {"origen": "ia", "lectura": respuesta["lectura"].strip(), "acciones": acciones,
-            "seguimiento": seguimiento}
+    return {"origen": "ia", "idioma": base.get("idioma", "es"), "lectura": respuesta["lectura"].strip(),
+            "acciones": acciones, "seguimiento": seguimiento}
 
 
-def _recomendar_con_ia(datos: dict[str, Any], base: dict[str, Any]) -> dict[str, Any] | None:
-    prompt = (_PROMPTS / "recomendar_completo.md").read_text(encoding="utf-8")
+def _recomendar_con_ia(datos: dict[str, Any], base: dict[str, Any], idioma: str) -> dict[str, Any] | None:
+    prompt = ((_PROMPTS / "recomendar_completo.md").read_text(encoding="utf-8")
+              + textos.instruccion_idioma(idioma))
     respuesta = llamar_llm_json(prompt, json.dumps(datos, ensure_ascii=False),
                                 segundo_plano.TIMEOUT_SEG)
     return _validar_modelo(respuesta, base)
 
 
-def recomendar(analisis: dict[str, Any], encuesta: dict[str, Any]) -> dict[str, Any]:
+def recomendar(analisis: dict[str, Any], encuesta: dict[str, Any], idioma: str = "es") -> dict[str, Any]:
     """Devuelve lectura ejecutiva, 2-3 acciones con responsable, plazo e indicador y seguimiento.
 
-    Al momento, la versión por reglas (origen reglas). Con modelo, lanza en segundo plano la
-    versión del modelo y la devuelve (origen ia) en cuanto está lista y es válida.
+    Todo redactado en `idioma` (es, ca o en): el de la pantalla de RRHH.
+    origen ia (del modelo), pendiente (el modelo trabaja; se devuelve la versión por reglas, que
+    la pantalla no muestra) o reglas (no hay modelo o ha fallado).
     """
+    idioma = textos.idioma_valido(idioma)
     analisis = analisis or {}
-    base = _recomendar_respaldo(analisis, encuesta or {})
-    # Mientras se clasifican los comentarios los temas cambian: se espera a que terminen
-    if not hay_llm() or not analisis.get("temas") or clasificacion_en_curso():
+    base = _recomendar_respaldo(analisis, encuesta or {}, idioma)
+    if not hay_llm() or not (analisis.get("n_respuestas") or analisis.get("temas")):
         return base
+    # Mientras se clasifican los comentarios los temas cambian: se espera a que terminen
+    if clasificacion_en_curso():
+        return {**base, "origen": "pendiente"}
     datos = datos_agregados(analisis)
-    clave = ("recomendar", json.dumps(datos, ensure_ascii=False, sort_keys=True))
-    return segundo_plano.obtener(clave, lambda: _recomendar_con_ia(datos, base)) or base
+    clave = ("recomendar", idioma, json.dumps(datos, ensure_ascii=False, sort_keys=True))
+    estado, valor = segundo_plano.consultar(clave, lambda: _recomendar_con_ia(datos, base, idioma))
+    if estado == "pendiente":
+        return {**base, "origen": "pendiente"}
+    return valor or base

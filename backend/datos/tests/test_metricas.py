@@ -83,3 +83,19 @@ def test_calcular_metricas_campos_v2():
     assert m["medias_anterior"][0]["media"] == 4.0
     assert m["preguntas"][0]["ambito"] == "comun"
     assert {a["tipo"] for a in m["alertas"]} == {"representatividad", "caida"}
+
+
+def test_alertas_y_limites_en_catalan_e_ingles():
+    resp = [r("manana", 4, "2026-09")] * 6 + [r("manana", 2, "2026-10")] * 6 + [r("noche", 2, "2026-10")] * 2
+    ca = metricas.calcular_metricas(resp, PLANTILLA, ENCUESTA, "ca")
+    en = metricas.calcular_metricas(resp, PLANTILLA, ENCUESTA, "en")
+    representatividad = next(a for a in ca["alertas"] if a["tipo"] == "representatividad" and a["turno"] == "noche")
+    assert "ha respost" in representatividad["mensaje"] and representatividad["tasa"] == 0.02
+    caida = next(a for a in en["alertas"] if a["tipo"] == "caida")
+    assert "drops from 4.0 to 2.0" in caida["mensaje"] and caida["antes"] == 4.0 and caida["despues"] == 2.0
+    assert any("correlació" in x for x in ca["limites"]) and any("causation" in x for x in en["limites"])
+
+
+def test_idioma_desconocido_en_castellano():
+    m = metricas.calcular_metricas([r("manana", 4)] * 6, PLANTILLA, ENCUESTA, "pt")
+    assert any("correlación" in x for x in m["limites"])

@@ -5,7 +5,7 @@ Reglas:
 2. Si mencionas un segmento no representativo (participación baja o menos de 5 respuestas), avisa de que el dato es poco fiable.
 3. No confundas correlación con causa: describe lo que coincide, sin afirmar por qué ocurre si los datos no lo dicen.
 4. Nunca identifiques ni intentes identificar a nadie, ni sugieras decisiones sobre personas concretas.
-5. Máximo 120 palabras, en castellano, claro y profesional.
+5. Máximo 120 palabras, claro y profesional. Responde en el idioma que se indica al final (es el de la pregunta); las cifras y los textos de "cifras", también en ese idioma.
 6. "confianza": "alta" si los datos son suficientes y representativos, "media" si hay limitaciones, "baja" si apenas hay datos.
 
 Responde ÚNICAMENTE con JSON, sin texto adicional:

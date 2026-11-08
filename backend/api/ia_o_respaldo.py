@@ -5,16 +5,24 @@ módulo no está o falla, se usa un respaldo sencillo para que el ciclo
 funcione igual. En el repo completo se usa siempre la de UPC 1, que ya trae
 su propio modo sin IA: estos respaldos son solo la última red.
 """
+import inspect
 import re
 
+from backend import textos
 from backend.api.validacion import ORDEN_COLECTIVOS, colectivos_de, etiqueta_colectivo
-
-NOMBRE = {"planta": "planta", "logistica": "logística", "comercial": "comercial",
-          "oficina": "oficina", "manager": "managers"}
 
 
 def _aviso(funcion: str, error: Exception) -> None:
     print(f"[ia] {funcion} usa respaldo: {error!r}")
+
+
+def _con_idioma(funcion, *args, idioma: str = "es"):
+    """Llama a una función de UPC 1 pasándole idioma= solo si ya lo acepta (v4.md P0-2 de UPC 1)."""
+    try:
+        acepta = "idioma" in inspect.signature(funcion).parameters
+    except (TypeError, ValueError):
+        acepta = False
+    return funcion(*args, idioma=idioma) if acepta else funcion(*args)
 
 
 # ---------- estado ----------
@@ -89,10 +97,10 @@ def generar_encuesta(necesidad: dict, reglas: str) -> dict:
 
 # ---------- analizar ----------
 
-def analizar_comentarios(actual: list, anterior: list) -> list:
+def analizar_comentarios(actual: list, anterior: list, idioma: str = "es") -> list:
     try:
         from backend.ia.analizar import analizar_comentarios as real
-        return real(actual, anterior)
+        return _con_idioma(real, actual, anterior, idioma=idioma)
     except Exception as error:
         _aviso("analizar_comentarios", error)
     return []
@@ -155,65 +163,111 @@ def _recomendar_respaldo(analisis: dict, encuesta: dict) -> dict:
                             "duracion_max_seg": 60, "temas_prohibidos": ["salario"]}}
 
 
-def lectura_respaldo(analisis: dict) -> str:
-    """2–3 frases con cifras, sin IA."""
-    frases = [f"{analisis.get('n_respuestas', 0)} respuestas en {analisis.get('periodo_actual') or 'el periodo'}"
-              + (f", con una participación global del {round(analisis.get('participacion_global', 0) * 100)} %."
-                 if analisis.get("participacion_global") else ".")]
+LECTURA = {
+    "es": {"respuestas": "{n} respuestas en el periodo {periodo}", "global": ", con una participación global del {pct} %",
+           "peor": "La valoración más baja es la de {sector}: {media} sobre 5{cambio}.",
+           "cambio": " ({var} respecto al periodo anterior)",
+           "no_repr": "Hay {n} segmentos poco representados: sus datos deben leerse con cautela."},
+    "ca": {"respuestas": "{n} respostes al període {periodo}", "global": ", amb una participació global del {pct} %",
+           "peor": "La valoració més baixa és la de {sector}: {media} sobre 5{cambio}.",
+           "cambio": " ({var} respecte al període anterior)",
+           "no_repr": "Hi ha {n} segments poc representats: les seves dades s'han de llegir amb cautela."},
+    "en": {"respuestas": "{n} responses in period {periodo}", "global": ", with an overall participation of {pct}%",
+           "peor": "The lowest rating is in {sector}: {media} out of 5{cambio}.",
+           "cambio": " ({var} vs. the previous period)",
+           "no_repr": "{n} segments are under-represented: read their data with caution."},
+}
+
+
+def lectura_respaldo(analisis: dict, idioma: str = "es") -> str:
+    """2–3 frases con cifras, sin IA, en `idioma`."""
+    L = LECTURA[textos.idioma_valido(idioma)]
+    frases = [L["respuestas"].format(n=analisis.get("n_respuestas", 0), periodo=analisis.get("periodo_actual") or "—")
+              + (L["global"].format(pct=round(analisis.get("participacion_global", 0) * 100))
+                 if analisis.get("participacion_global") else "") + "."]
     zonas = [z for z in analisis.get("zonas", []) if z.get("media") is not None]
     if zonas:
         peor = min(zonas, key=lambda z: z["media"])
-        cambio = f" ({peor['variacion']:+.1f} respecto al periodo anterior)".replace(".", ",") if peor.get("variacion") is not None else ""
-        frases.append(f"La valoración más baja es la de {NOMBRE.get(peor['colectivo'], peor['colectivo'])}: "
-                      f"{peor['media']:.1f}".replace(".", ",") + f" sobre 5{cambio}.")
+        cambio = (L["cambio"].format(var=("+" if peor["variacion"] > 0 else "") + textos.numero(peor["variacion"], idioma))
+                  if peor.get("variacion") is not None else "")
+        frases.append(L["peor"].format(sector=textos.nombre("colectivo", peor["colectivo"], idioma).lower(),
+                                       media=textos.numero(peor["media"], idioma), cambio=cambio))
     no_repr = [a for a in analisis.get("alertas", []) if a.get("tipo") == "representatividad"]
     if no_repr:
-        frases.append(f"Hay {len(no_repr)} segmentos poco representados: sus datos deben leerse con cautela.")
+        frases.append(L["no_repr"].format(n=len(no_repr)))
     return " ".join(frases)
 
 
-def recomendar(analisis: dict, encuesta: dict) -> dict:
+def recomendar(analisis: dict, encuesta: dict, idioma: str = "es") -> dict:
     try:
         from backend.ia.recomendar import recomendar as real
-        resultado = real(analisis, encuesta)
+        resultado = _con_idioma(real, analisis, encuesta, idioma=idioma)
     except Exception as error:
         _aviso("recomendar", error)
         resultado = _recomendar_respaldo(analisis, encuesta)
     resultado.setdefault("origen", "reglas")
     if not resultado.get("lectura"):
-        resultado["lectura"] = lectura_respaldo(analisis)
+        resultado["lectura"] = lectura_respaldo(analisis, idioma)
     return resultado
 
 
 # ---------- pregunta a tus datos ----------
 
-IDENTIFICAR = re.compile(r"\b(qui[eé]n(es)?|nombres?|dni|nie|correos?|e-?mail|tel[eé]fonos?|"
-                         r"qu[eé] ha dicho|identific\w*|despedi\w*|sancion\w*)\b", re.IGNORECASE)
-MENSAJE_PRIVACIDAD = ("Esta herramienta solo trabaja con resultados agregados de grupos de 5 personas o más. "
-                      "No puede identificar a nadie ni decir qué ha respondido una persona concreta.")
+IDENTIFICAR = re.compile(r"\b(qui[eé]n(es)?|qui|who|whom|nombres?|noms?|names?|dni|nie|correos?|e-?mail|"
+                         r"tel[eé]fonos?|phone|qu[eé] ha dicho|identific\w*|identify\w*|despedi\w*|acomiadar|"
+                         r"fire|sancion\w*|sancionar)\b", re.IGNORECASE)
+MENSAJES_PRIVACIDAD = {
+    "es": "Esta herramienta solo trabaja con resultados agregados de grupos de 5 personas o más. "
+          "No puede identificar a nadie ni decir qué ha respondido una persona concreta.",
+    "ca": "Aquesta eina només treballa amb resultats agregats de grups de 5 persones o més. "
+          "No pot identificar ningú ni dir què ha respost una persona concreta.",
+    "en": "This tool only works with aggregated results from groups of 5 people or more. "
+          "It cannot identify anyone or say what a specific person answered.",
+}
+MENSAJE_PRIVACIDAD = MENSAJES_PRIVACIDAD["es"]
+SIN_IA = {
+    "es": ("Ahora mismo el servicio de IA no está disponible, así que no puedo responder en lenguaje natural. "
+           "Estas son las cifras principales del análisis.", "respuestas en el periodo actual"),
+    "ca": ("Ara mateix el servei d'IA no està disponible, així que no puc respondre en llenguatge natural. "
+           "Aquestes són les xifres principals de l'anàlisi.", "respostes al període actual"),
+    "en": ("The AI service is not available right now, so I cannot answer in natural language. "
+           "These are the main figures of the analysis.", "responses in the current period"),
+}
 
 
-def _preguntar_respaldo(pregunta: str, analisis: dict) -> dict:
+def _idioma_de(pregunta: str, idioma: str) -> str:
+    """Detección muy simple del idioma de la pregunta; si no está claro, el de la pantalla."""
+    p = f" {(pregunta or '').lower()} "
+    if any(w in p for w in (" what ", " which ", " who ", " how ", " why ", " the ", " is ", " are ")):
+        return "en"
+    if any(w in p for w in (" què ", " quin ", " quina ", " qui ", " com ", " per què ", " més ", " són ")):
+        return "ca"
+    if any(w in p for w in (" qué ", " cuál ", " quién ", " cómo ", " por qué ", " más ", " son ")):
+        return "es"
+    return textos.idioma_valido(idioma)
+
+
+def _preguntar_respaldo(pregunta: str, analisis: dict, idioma: str = "es") -> dict:
+    idioma = _idioma_de(pregunta, idioma)
     if IDENTIFICAR.search(pregunta or ""):
-        return {"respuesta": MENSAJE_PRIVACIDAD, "cifras": [], "confianza": "alta", "origen": "reglas"}
-    cifras = [f"{analisis.get('n_respuestas', 0)} respuestas en el periodo actual"]
+        return {"respuesta": MENSAJES_PRIVACIDAD[idioma], "cifras": [], "confianza": "alta", "origen": "reglas"}
+    texto, etiqueta = SIN_IA[idioma]
+    cifras = [f"{analisis.get('n_respuestas', 0)} {etiqueta}"]
     for z in analisis.get("zonas", []):
         if z.get("media") is not None:
-            cifras.append(f"{NOMBRE.get(z['colectivo'], z['colectivo'])}: {z['media']:.1f}".replace(".", ",") + " / 5")
-    return {"respuesta": "Ahora mismo el servicio de IA no está disponible, así que no puedo responder en lenguaje "
-                         "natural. Estas son las cifras principales del análisis.",
-            "cifras": cifras[:5], "confianza": "baja", "origen": "reglas"}
+            cifras.append(f"{textos.nombre('colectivo', z['colectivo'], idioma)}: {textos.numero(z['media'], idioma)} / 5")
+    return {"respuesta": texto, "cifras": cifras[:5], "confianza": "baja", "origen": "reglas"}
 
 
-def preguntar(pregunta: str, analisis: dict, recomendaciones: dict) -> dict:
+def preguntar(pregunta: str, analisis: dict, recomendaciones: dict, idioma: str = "es") -> dict:
     if IDENTIFICAR.search(pregunta or ""):  # privacidad primero, también si UPC 1 falla
-        return _preguntar_respaldo(pregunta, analisis)
+        return _preguntar_respaldo(pregunta, analisis, idioma)
     try:
         from backend.ia.informe import preguntar as real
-        return real(pregunta, analisis, recomendaciones)
+        return _con_idioma(real, pregunta, analisis, recomendaciones, idioma=idioma)
     except Exception as error:
         _aviso("preguntar", error)
-    return _preguntar_respaldo(pregunta, analisis)
+    return _preguntar_respaldo(pregunta, analisis, idioma)
 
 
 # ---------- comentarios simulados ----------
@@ -226,3 +280,24 @@ def banco_contextual(encuesta: dict, temas: list) -> dict:
         _aviso("banco_contextual", error)
     return {}
 
+
+
+# ---------- v3: sugerencias y traducciones ----------
+
+def sugerir_preguntas(analisis: dict, idioma: str = "es") -> dict:
+    """{"preguntas": [3 textos], "origen": "ia|pendiente|ninguno"}. Sin IA: lista vacía, sin textos fijos."""
+    try:
+        from backend.ia.informe import sugerir_preguntas as real
+        resultado = _con_idioma(real, analisis, idioma=idioma) or {}
+        preguntas = [p for p in resultado.get("preguntas", []) if isinstance(p, str) and p.strip()]
+        origen = resultado.get("origen") if resultado.get("origen") in ("ia", "pendiente", "ninguno") else "ninguno"
+        return {"preguntas": preguntas[:3] if origen == "ia" else [], "origen": origen}
+    except Exception as error:
+        _aviso("sugerir_preguntas", error)
+    return {"preguntas": [], "origen": "ninguno"}
+
+
+def traducir_encuesta(encuesta: dict, idiomas: list) -> dict:
+    """{"ca": {...}, "en": {...}} (formato de `traducciones`). Lanza la excepción si UPC 1 falla."""
+    from backend.ia.traducir import traducir_encuesta as real
+    return real(encuesta, idiomas) or {}

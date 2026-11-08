@@ -5,14 +5,14 @@ UMBRAL_MINIMO respuestas muestra medias, distribuciones ni temas.
 """
 from collections import Counter
 
+from backend import textos
+from backend.reglas import COLECTIVOS
+
 UMBRAL_MINIMO = 5
 TASA_REPRESENTATIVA = 0.20
 UMBRAL_CAIDA = 0.5
 
-ORDEN_COLECTIVOS = ["planta", "logistica", "comercial", "oficina", "manager"]
-NOMBRE_COLECTIVO = {"planta": "planta", "logistica": "logística", "comercial": "comercial",
-                    "oficina": "oficina", "manager": "managers"}
-NOMBRE_TURNO = {"manana": "mañana", "tarde": "tarde", "noche": "noche"}
+ORDEN_COLECTIVOS = list(COLECTIVOS)
 TEMAS_SIN_ZONA = {None, "", "otros", "ninguno"}
 
 
@@ -38,21 +38,6 @@ def _todas_las_preguntas(encuesta: dict) -> list[tuple[dict, str]]:
 
 def _escalas(encuesta: dict) -> list[dict]:
     return [p for p, _ in _todas_las_preguntas(encuesta) if p.get("tipo") == "escala_1_5"]
-
-
-def _num(x: float, decimales: int = 1) -> str:
-    return f"{x:.{decimales}f}".replace(".", ",")
-
-
-def _segmento(colectivo: str, turno: str) -> str:
-    nombre = NOMBRE_COLECTIVO.get(colectivo, colectivo)
-    if turno in NOMBRE_TURNO:
-        return f"el turno de {NOMBRE_TURNO[turno]} de {nombre}"
-    return nombre
-
-
-def _mayuscula(texto: str) -> str:
-    return texto[:1].upper() + texto[1:]
 
 
 def _media_escalas(respuestas: list, encuesta: dict) -> float | None:
@@ -132,26 +117,31 @@ def calcular_distribuciones(respuestas: list, encuesta: dict) -> list:
 # ---------- alertas ----------
 
 def calcular_alertas(participacion: list, medias_actual: list, medias_anterior: list,
-                     encuesta: dict | None = None) -> list:
-    textos = {p["id"]: p.get("texto", p["id"]) for p, _ in _todas_las_preguntas(encuesta or {})}
+                     encuesta: dict | None = None, idioma: str = "es") -> list:
+    """Alertas con campos estructurados (tipo, colectivo, turno, pregunta, tasa, antes, despues)
+    y el mensaje ya escrito en `idioma`."""
+    textos_pregunta = {p["id"]: p.get("texto", p["id"]) for p, _ in _todas_las_preguntas(encuesta or {})}
     alertas = []
     for fila in participacion:
         if not fila["representativo"]:
-            pct = round(fila["tasa"] * 100)
             alertas.append({
                 "tipo": "representatividad", "colectivo": fila["colectivo"], "turno": fila["turno"],
-                "mensaje": f"{_mayuscula(_segmento(fila['colectivo'], fila['turno']))} solo ha respondido un "
-                           f"{pct} % ({fila['respuestas']} de {fila['personas']}): los resultados pueden no "
-                           f"representarle."})
+                "tasa": fila["tasa"],
+                "mensaje": textos.frase("alerta.representatividad", idioma,
+                                        segmento=textos.segmento(fila["colectivo"], fila["turno"], idioma),
+                                        pct=round(fila["tasa"] * 100), n=fila["respuestas"],
+                                        personas=fila["personas"])})
     anteriores = {(m["pregunta"], m["colectivo"]): m["media"] for m in medias_anterior}
     for m in medias_actual:
         antes = anteriores.get((m["pregunta"], m["colectivo"]))
         if antes is not None and antes - m["media"] >= UMBRAL_CAIDA:
-            texto = textos.get(m["pregunta"], m["pregunta"])
             alertas.append({
                 "tipo": "caida", "colectivo": m["colectivo"], "pregunta": m["pregunta"],
-                "mensaje": f"«{texto}» baja de {_num(antes)} a {_num(m['media'])} en "
-                           f"{NOMBRE_COLECTIVO.get(m['colectivo'], m['colectivo'])} respecto al periodo anterior."})
+                "antes": antes, "despues": m["media"],
+                "mensaje": textos.frase("alerta.caida", idioma,
+                                        pregunta=textos_pregunta.get(m["pregunta"], m["pregunta"]),
+                                        antes=textos.numero(antes, idioma), despues=textos.numero(m["media"], idioma),
+                                        colectivo=textos.nombre("colectivo", m["colectivo"], idioma).lower())})
     return alertas
 
 
@@ -196,7 +186,8 @@ def calcular_zonas(actual: list, anterior: list, participacion: list, encuesta: 
 
 # ---------- todo junto ----------
 
-def calcular_metricas(respuestas: list, plantilla: list, encuesta: dict) -> dict:
+def calcular_metricas(respuestas: list, plantilla: list, encuesta: dict, idioma: str = "es") -> dict:
+    """`encuesta` puede venir ya con los textos traducidos (los ids no cambian)."""
     actual, anterior, p_actual, p_anterior = separar_periodos(respuestas)
     colectivos = _colectivos(encuesta)
     participacion = calcular_participacion(actual, plantilla, colectivos)
@@ -208,19 +199,19 @@ def calcular_metricas(respuestas: list, plantilla: list, encuesta: dict) -> dict
     limites = []
     for fila in participacion:
         if fila["respuestas"] < UMBRAL_MINIMO:
-            limites.append(f"Muestra pequeña en {_segmento(fila['colectivo'], fila['turno'])} "
-                           f"(n={fila['respuestas']}): no se muestran sus medias ni temas.")
+            limites.append(textos.frase("limite.muestra", idioma, n=fila["respuestas"],
+                                        segmento=textos.segmento(fila["colectivo"], fila["turno"], idioma)))
     if not plantilla:
-        limites.append("Sin plantilla de personas: no se puede calcular la representatividad.")
+        limites.append(textos.frase("limite.sin_plantilla", idioma))
     if any(r.get("tema_real") for r in actual):
-        limites.append("Incluye respuestas simuladas para la demostración.")
-    limites.append(f"Segmentos con menos de {UMBRAL_MINIMO} respuestas ocultos.")
-    limites.append("Una correlación no demuestra una causa.")
+        limites.append(textos.frase("limite.simuladas", idioma))
+    limites.append(textos.frase("limite.umbral", idioma, umbral=UMBRAL_MINIMO))
+    limites.append(textos.frase("limite.correlacion", idioma))
 
     return {
         "n_respuestas": len(actual), "periodo_actual": p_actual, "periodo_anterior": p_anterior,
         "participacion": participacion, "medias": medias,
-        "alertas": calcular_alertas(participacion, medias, medias_anterior, encuesta),
+        "alertas": calcular_alertas(participacion, medias, medias_anterior, encuesta, idioma),
         "limites": limites,
         "n_anterior": len(anterior),
         "n_simuladas": sum(1 for r in actual if r.get("tema_real")),

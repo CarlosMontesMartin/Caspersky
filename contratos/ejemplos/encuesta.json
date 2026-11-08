@@ -85,5 +85,124 @@
         "condicion": null
       }
     ]
-  }
+  },
+  "necesidad": {
+    "objetivo": "Saber cómo afecta el nuevo sistema de turnos y si llega bien la información",
+    "colectivos": [
+      "planta",
+      "logistica"
+    ],
+    "contexto": "Cambio de turnos desde octubre",
+    "duracion_max_seg": 120,
+    "temas_prohibidos": [
+      "salario"
+    ]
+  },
+  "traducciones": {
+    "ca": {
+      "titulo": "Nous torns: com ho estàs vivint?",
+      "intro": "Menys de 2 minuts. És anònima: només veiem resultats de grups de 5 persones o més.",
+      "preguntas": [
+        {
+          "id": "c1",
+          "texto": "Com valores el nou sistema de torns?",
+          "opciones": []
+        },
+        {
+          "id": "c2",
+          "texto": "Sents que t'han explicat bé el canvi?",
+          "opciones": []
+        },
+        {
+          "id": "c3",
+          "texto": "Què canviaries?",
+          "opciones": []
+        }
+      ],
+      "preguntas_por_colectivo": {
+        "planta": [
+          {
+            "id": "planta_p1",
+            "texto": "Tens temps de fer la pausa sencera al teu torn?",
+            "opciones": []
+          },
+          {
+            "id": "planta_p2",
+            "texto": "Què et costa més del nou quadrant?",
+            "opciones": [
+              "Les pauses",
+              "Conciliar amb la vida personal",
+              "Saber el torn amb antelació",
+              "Una altra cosa"
+            ]
+          }
+        ],
+        "logistica": [
+          {
+            "id": "logistica_p1",
+            "texto": "Et arriba a temps el quadrant de rutes?",
+            "opciones": []
+          },
+          {
+            "id": "logistica_p2",
+            "texto": "T'avisen amb temps dels canvis al moll?",
+            "opciones": []
+          }
+        ]
+      }
+    },
+    "en": {
+      "titulo": "New shifts: how is it going for you?",
+      "intro": "Under 2 minutes. It is anonymous: we only see results for groups of 5 people or more.",
+      "preguntas": [
+        {
+          "id": "c1",
+          "texto": "How do you rate the new shift system?",
+          "opciones": []
+        },
+        {
+          "id": "c2",
+          "texto": "Do you feel the change was explained well to you?",
+          "opciones": []
+        },
+        {
+          "id": "c3",
+          "texto": "What would you change?",
+          "opciones": []
+        }
+      ],
+      "preguntas_por_colectivo": {
+        "planta": [
+          {
+            "id": "planta_p1",
+            "texto": "Do you have time to take your full break on your shift?",
+            "opciones": []
+          },
+          {
+            "id": "planta_p2",
+            "texto": "What is hardest about the new rota?",
+            "opciones": [
+              "Breaks",
+              "Balancing my personal life",
+              "Knowing my shift in advance",
+              "Something else"
+            ]
+          }
+        ],
+        "logistica": [
+          {
+            "id": "logistica_p1",
+            "texto": "Do you get the route schedule on time?",
+            "opciones": []
+          },
+          {
+            "id": "logistica_p2",
+            "texto": "Are you told about dock changes in good time?",
+            "opciones": []
+          }
+        ]
+      }
+    }
+  },
+  "estado_traduccion": "lista"
 }

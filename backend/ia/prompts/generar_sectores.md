@@ -18,16 +18,24 @@ Reglas que no se negocian:
 - Cada pregunta lleva una "dimension": bienestar, liderazgo, desarrollo, cultura, entorno o condiciones.
 - La intro, en 1–2 frases, dice para qué sirve la encuesta y que es anónima y solo se ven resultados agregados.
 
-Responde ÚNICAMENTE con JSON, sin texto adicional, con este formato exacto (incluye solo los colectivos pedidos):
+El núcleo SIEMPRE empieza con una pregunta escala_1_5 (la primera, "c1"), que es la que permite comparar los sectores.
+
+Responde ÚNICAMENTE con JSON, sin texto adicional. Ejemplo completo para planta y logística (incluye solo los colectivos pedidos):
 {
-  "titulo": "…",
-  "intro": "…",
+  "titulo": "Turnos y coordinación",
+  "intro": "Queremos saber cómo te afecta el nuevo sistema de turnos para mejorarlo. Es anónima: solo se ven resultados agregados.",
   "preguntas": [
-    {"texto": "…", "tipo": "escala_1_5", "opciones": [], "dimension": "condiciones"},
-    {"texto": "…", "tipo": "texto", "opciones": [], "dimension": "condiciones"}
+    {"id": "c1", "texto": "¿Cómo valoras el nuevo sistema de turnos?", "tipo": "escala_1_5", "opciones": [], "dimension": "condiciones"},
+    {"id": "c2", "texto": "¿Qué cambiarías?", "tipo": "texto", "opciones": [], "dimension": "condiciones"}
   ],
   "preguntas_por_colectivo": {
-    "planta": [{"texto": "…", "tipo": "si_no", "opciones": [], "dimension": "bienestar"}],
-    "logistica": [{"texto": "…", "tipo": "escala_1_5", "opciones": [], "dimension": "condiciones"}]
+    "planta": [
+      {"id": "planta_p1", "texto": "¿Te da tiempo a hacer la pausa completa en tu turno?", "tipo": "si_no", "opciones": [], "dimension": "bienestar"},
+      {"id": "planta_p2", "texto": "¿Recibes el cuadrante con antelación suficiente?", "tipo": "escala_1_5", "opciones": [], "dimension": "condiciones"}
+    ],
+    "logistica": [
+      {"id": "logistica_p1", "texto": "¿El relevo te da tiempo a pasar la información?", "tipo": "si_no", "opciones": [], "dimension": "condiciones"},
+      {"id": "logistica_p2", "texto": "¿Qué te dificulta más la coordinación en el muelle?", "tipo": "opcion", "opciones": ["Horarios de carga", "Información del relevo", "Falta de personal", "Nada en especial"], "dimension": "entorno"}
+    ]
   }
 }

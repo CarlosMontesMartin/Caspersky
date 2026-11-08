@@ -200,6 +200,62 @@ def probar_encuesta_mala() -> bool:
     return ok
 
 
+def prueba_robustez(n: int = 400, semilla: int = 1) -> list:
+    """400 salidas del modelo inventadas: todas deben pasar validacion.validar_preguntas."""
+    import copy
+    import random
+
+    from fastapi import HTTPException
+
+    from backend.api.validacion import validar_preguntas
+    from backend.reglas import duracion_minima
+
+    sectores_posibles = ["planta", "logistica", "comercial", "oficina", "manager"]
+    tipos = ["escala_1_5", "escala", "opcion", "si_no", "texto", "numero", None]
+
+    def pregunta_rara(i):
+        p = {"id": random.choice([f"x{i}", None, "c1"]), "tipo": random.choice(tipos),
+             "texto": random.choice(["¿Cómo valoras el cambio de turnos?", "", "¿Qué cambiarías?",
+                                     "Hablemos del salario"])}
+        if random.random() < .5:
+            p["opciones"] = random.choice([[], ["Sí", "No"], None, "a,b"])
+        if random.random() < .7:
+            p["dimension"] = random.choice(["condiciones", "bienestar", "foo", None])
+        return p
+
+    random.seed(semilla)
+    fallos = []
+    for _ in range(n):
+        sectores = random.sample(sectores_posibles, random.randint(1, 5))
+        duracion = random.choice([duracion_minima(len(sectores)), 90, 120, 300])
+        necesidad = {"objetivo": "Saber cómo afecta el nuevo sistema de turnos", "colectivos": sectores,
+                     "contexto": "x", "duracion_max_seg": duracion, "temas_prohibidos": ["salario"]}
+        salida_modelo = {
+            "titulo": random.choice(["T", None, ""]), "intro": "i",
+            "preguntas": [pregunta_rara(i) for i in range(random.randint(0, 6))],
+            "preguntas_por_colectivo": {c: [pregunta_rara(j) for j in range(random.randint(0, 4))]
+                                        for c in random.sample(sectores_posibles, random.randint(0, 5))}}
+        try:
+            validar_preguntas(validar_encuesta(copy.deepcopy(salida_modelo), necesidad))
+        except HTTPException as error:
+            fallos.append(error.detail)
+    return fallos
+
+
+def probar_robustez() -> bool:
+    print(f"\n{'=' * 70}\n  Caso 5: robustez (400 salidas del modelo inventadas × 3 semillas)\n{'=' * 70}")
+    fallos = [f for semilla in (1, 2, 3) for f in prueba_robustez(400, semilla)]
+    print(f"  Fallos de validación: {len(fallos)} de 1200" + (f" · primero: {fallos[0]}" if fallos else ""))
+    try:
+        validar_encuesta({"preguntas": []}, {"objetivo": "x", "colectivos": ["planta", "logistica"],
+                                             "duracion_max_seg": 30, "temas_prohibidos": []})
+        print("  30 s con 2 sectores: se ha generado una encuesta (ERROR)")
+        return False
+    except ValueError as error:
+        print(f"  30 s con 2 sectores → error claro: {error}")
+    return not fallos
+
+
 def main() -> int:
     """Ejecuta el conjunto completo de pruebas de generación."""
     print("=" * 70)
@@ -208,6 +264,7 @@ def main() -> int:
 
     ok_casos = probar_tres_necesidades()
     ok_mala = probar_encuesta_mala()
+    ok_mala = probar_robustez() and ok_mala
 
     print("\n" + "=" * 70)
     if ok_casos and ok_mala:

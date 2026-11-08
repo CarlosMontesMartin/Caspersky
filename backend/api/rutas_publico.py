@@ -4,6 +4,7 @@ from datetime import date
 
 from fastapi import APIRouter, HTTPException
 
+from backend.api import traducciones
 from backend.api.validacion import (colectivos_de, preguntas_de, turnos_de,
                                     turnos_por_colectivo, validar_respuesta_entrada)
 from backend.datos import almacen
@@ -41,8 +42,14 @@ def construir_respuesta(encuesta: dict, entrada: dict, *, colectivo: str | None 
     `comentario`. La usan la ruta pública y la simulación: mismo camino para todo.
     """
     colectivo = colectivo or colectivo_de_entrada(encuesta, entrada)
+    idioma = entrada.get("idioma", "es")
+    if idioma not in traducciones.IDIOMAS:
+        raise HTTPException(422, f"idioma debe ser uno de {traducciones.IDIOMAS}")
+    preguntas = preguntas_de(encuesta, colectivo)
+    if isinstance(entrada.get("valores"), dict):  # opción traducida → la original en castellano
+        entrada = dict(entrada, valores=traducciones.valores_originales(entrada["valores"], encuesta, preguntas))
     validar_respuesta_entrada(entrada, encuesta, colectivo)
-    tipos = {p["id"]: p["tipo"] for p in preguntas_de(encuesta, colectivo)}
+    tipos = {p["id"]: p["tipo"] for p in preguntas}
 
     valores, textos = {}, []
     for clave, valor in entrada.get("valores", {}).items():
@@ -67,6 +74,7 @@ def construir_respuesta(encuesta: dict, entrada: dict, *, colectivo: str | None 
         "centro_tipo": CENTRO_TIPO.get(colectivo, "oficina"),
         "turno": entrada["turno"],
         "canal": entrada.get("canal", "qr"),
+        "idioma": idioma,
         "valores": valores,
         "comentario": anonimizar(" / ".join(textos)),
     }
@@ -76,13 +84,16 @@ def construir_respuesta(encuesta: dict, entrada: dict, *, colectivo: str | None 
 
 
 @router.get("/encuestas/{encuesta_id}")
-def ver_publica(encuesta_id: str):
-    e = obtener_publicada(encuesta_id)
-    colectivos = colectivos_de(e)
+def ver_publica(encuesta_id: str, idioma: str = "es"):
+    original = obtener_publicada(encuesta_id)
+    idioma = traducciones.idioma_valido(idioma)
+    e = traducciones.aplicar(original, idioma)
+    colectivos = colectivos_de(original)
     return {"id": e["id"], "titulo": e.get("titulo", ""), "intro": e.get("intro", ""),
             "colectivo": e.get("colectivo", ""), "colectivos": colectivos,
             "tiempo_estimado_seg": e.get("tiempo_estimado_seg", 0),
-            "transparencia": almacen.leer_transparencia(),
+            "idioma": idioma, "idiomas_disponibles": traducciones.idiomas_disponibles(original),
+            "transparencia": almacen.leer_transparencia(idioma),
             "preguntas": e["preguntas"], "preguntas_por_colectivo": e.get("preguntas_por_colectivo") or {},
             "turnos": turnos_de(colectivos[0]) if colectivos else ["sin_turno"],
             "turnos_por_colectivo": turnos_por_colectivo(colectivos)}

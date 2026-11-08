@@ -33,6 +33,19 @@ def obtener(clave: Hashable, funcion: Callable[[], Any]) -> Any:
     return None
 
 
+def consultar(clave: Hashable, funcion: Callable[[], Any]) -> tuple[str, Any]:
+    """Devuelve ("listo", resultado) o ("pendiente", None); si no estaba lanzada, la lanza.
+
+    Un resultado None con estado listo significa que la tarea falló o no dio nada válido.
+    """
+    with _bloqueo:
+        if clave in _resultados:
+            return "listo", _resultados[clave]
+    obtener(clave, funcion)
+    with _bloqueo:
+        return ("listo", _resultados[clave]) if clave in _resultados else ("pendiente", None)
+
+
 def _ejecutar(clave: Hashable, funcion: Callable[[], Any]) -> None:
     try:
         valor = funcion()

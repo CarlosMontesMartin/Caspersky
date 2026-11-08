@@ -40,8 +40,12 @@ def _contexto(encuesta: dict[str, Any]) -> str:
             "Preguntas:\n" + "\n".join(f"- {p.get('texto', '')}" for p in preguntas))
 
 
-def banco_contextual(encuesta: dict[str, Any], temas: list[str]) -> dict[str, list[str]]:
+def banco_contextual(encuesta: dict[str, Any], temas: list[str],
+                     idioma: str = "es") -> dict[str, list[str]]:
     """Devuelve {tema: [frases]} escritas para esta encuesta, o {} sin modelo o si falla.
+
+    `idioma` se acepta por uniformidad pero se ignora: los comentarios simulados imitan a la
+    plantilla y se escriben siempre en castellano (con algo de catalán), sea cual sea la pantalla.
 
     Una llamada por encuesta (con caché por id). Solo quedan las frases sin datos personales
     que las palabras clave clasifican en su mismo tema.

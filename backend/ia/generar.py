@@ -14,6 +14,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from backend import reglas
+
 from .llm import hay_llm, llamar_llm_json
 
 ORDEN_COLECTIVOS = ["planta", "logistica", "comercial", "oficina", "manager"]
@@ -43,9 +45,6 @@ TIMEOUT_GENERAR_SECTORES_SEG = 30
 # Tiempo máximo por colectivo (contenido/reglas_colectivos.md, sección 3)
 TIEMPO_MAX_COLECTIVO = {"planta": 90, "logistica": 60, "comercial": 120, "oficina": 180,
                         "manager": 120}
-SEG_PREGUNTA, SEG_TEXTO = 15, 30
-MAX_NUCLEO = 3
-MAX_PROPIAS = 3
 
 log = logging.getLogger(__name__)
 
@@ -267,7 +266,7 @@ def _limpiar_pregunta(p: Any, terminos_prohibidos: set[str]) -> dict[str, Any] |
 
 
 def _tiempo(preguntas: list[dict[str, Any]]) -> int:
-    return sum(SEG_TEXTO if p["tipo"] == "texto" else SEG_PREGUNTA for p in preguntas)
+    return reglas.segundos(preguntas)
 
 
 def _numerar(preguntas: list[dict[str, Any]], prefijo: str) -> list[dict[str, Any]]:
@@ -276,8 +275,30 @@ def _numerar(preguntas: list[dict[str, Any]], prefijo: str) -> list[dict[str, An
             for i, p in enumerate(preguntas, start=1)]
 
 
-def _limite_tiempo(colectivo: str, duracion_max: int) -> int:
-    return min(duracion_max, TIEMPO_MAX_COLECTIVO.get(colectivo, duracion_max))
+def _limite_tiempo(colectivo: str, duracion_max: int, n_sectores: int = 1) -> int:
+    # El tope del colectivo nunca baja de la duración mínima, para que siempre quepan 3 preguntas
+    tope = max(TIEMPO_MAX_COLECTIVO.get(colectivo, duracion_max), reglas.duracion_minima(n_sectores))
+    return min(duracion_max, tope)
+
+
+def _orden_recorte(preguntas: list[dict[str, Any]]) -> list[int]:
+    """Índices en el orden en que se pueden quitar: si_no u opción, escalas sobrantes y texto.
+
+    La última escala_1_5 no aparece nunca: no se puede quitar.
+    """
+    escalas = [i for i, p in enumerate(preguntas) if p["tipo"] == "escala_1_5"]
+    otras = [i for i, p in enumerate(preguntas) if p["tipo"] in ("si_no", "opcion")]
+    textos = [i for i, p in enumerate(preguntas) if p["tipo"] == "texto"]
+    return otras[::-1] + escalas[1:][::-1] + textos
+
+
+def _con_escala(preguntas: list[dict[str, Any]], escala: dict[str, Any]) -> list[dict[str, Any]]:
+    # Al menos una escala_1_5, al principio si hay que añadirla; como mucho un texto, al final
+    abiertas = [p for p in preguntas if p["tipo"] == "texto"][-1:]
+    cerradas = [p for p in preguntas if p["tipo"] != "texto"]
+    if not any(p["tipo"] == "escala_1_5" for p in cerradas):
+        cerradas.insert(0, dict(escala))
+    return cerradas + abiertas
 
 
 def _textos_generales(encuesta: dict[str, Any], respaldo: dict[str, Any],
@@ -290,6 +311,15 @@ def _textos_generales(encuesta: dict[str, Any], respaldo: dict[str, Any],
     return titulo.strip(), intro.strip()
 
 
+def comprobar_duracion(necesidad: dict[str, Any]) -> None:
+    """Lanza ValueError si la duración no llega al mínimo de reglas.py para sus sectores."""
+    n = len(colectivos_de(necesidad))
+    duracion = int(necesidad.get("duracion_max_seg", 120))
+    if duracion < reglas.duracion_minima(n):
+        raise ValueError(f"La duración máxima debe ser de al menos {reglas.duracion_minima(n)} s "
+                         f"con {n} {'sector' if n == 1 else 'sectores'}")
+
+
 def validar_encuesta(encuesta: dict[str, Any], necesidad: dict[str, Any]) -> dict[str, Any]:
     """Ajusta una encuesta a las reglas del contrato: tipos, tiempos, temas prohibidos e ids.
 
@@ -297,6 +327,7 @@ def validar_encuesta(encuesta: dict[str, Any], necesidad: dict[str, Any]) -> dic
     propias de cada sector (planta_p1...), con 3 a 6 preguntas y el tiempo de cada colectivo.
     """
     colectivos = colectivos_de(necesidad)
+    comprobar_duracion(necesidad)
     if len(colectivos) == 1:
         resultado = _validar_un_colectivo(encuesta, necesidad, colectivos[0])
     else:
@@ -308,37 +339,36 @@ def validar_encuesta(encuesta: dict[str, Any], necesidad: dict[str, Any]) -> dic
 def _validar_un_colectivo(encuesta: dict[str, Any], necesidad: dict[str, Any],
                           colectivo: str) -> dict[str, Any]:
     objetivo = necesidad.get("objetivo", "clima laboral")
-    duracion_max = _limite_tiempo(colectivo, int(necesidad.get("duracion_max_seg", 120)))
+    limite = _limite_tiempo(colectivo, int(necesidad.get("duracion_max_seg", 120)))
     terminos = _construir_terminos_prohibidos(necesidad.get("temas_prohibidos", []))
     respaldo = _plantilla_respaldo_colectivo(colectivo, objetivo, necesidad.get("contexto", ""))
     titulo, intro = _textos_generales(encuesta, respaldo, terminos)
+    de_respaldo = [_limpiar_pregunta(p, set()) for p in respaldo["preguntas"]]
+    escala = next(p for p in de_respaldo if p["tipo"] == "escala_1_5")
 
-    limpias = [q for q in (_limpiar_pregunta(p, terminos) for p in encuesta.get("preguntas") or [])
-               if q]
-    # Máximo una pregunta abierta y ubicada al final
-    textos = [p for p in limpias if p["tipo"] == "texto"]
-    preguntas = [p for p in limpias if p["tipo"] != "texto"] + textos[-1:]
-
-    while preguntas and _tiempo(preguntas) > duracion_max:
-        preguntas.pop()
-    maximo = min(6, MAX_PREGUNTAS.get(colectivo, 6))
-    if len(preguntas) > maximo:
-        preguntas = (preguntas[:maximo - 1] + [preguntas[-1]] if preguntas[-1]["tipo"] == "texto"
-                     else preguntas[:maximo])
-
-    if len(preguntas) < 3:
-        for p in respaldo["preguntas"]:
-            if len(preguntas) >= 3:
-                break
-            if (_texto_contiene_prohibido(p["texto"], terminos)
-                    or any(q["texto"] == p["texto"] for q in preguntas)
-                    or (p["tipo"] == "texto" and any(q["tipo"] == "texto" for q in preguntas))):
-                continue
-            preguntas.append(_limpiar_pregunta(p, set()))
-        preguntas = ([p for p in preguntas if p["tipo"] != "texto"]
-                     + [p for p in preguntas if p["tipo"] == "texto"][:1])
-    while len(preguntas) > 3 and _tiempo(preguntas) > duracion_max:
-        preguntas.pop()
+    preguntas = _con_escala([q for q in (_limpiar_pregunta(p, terminos)
+                                         for p in encuesta.get("preguntas") or []) if q], escala)
+    maximo = min(reglas.TOTAL_MAX, MAX_PREGUNTAS.get(colectivo, reglas.TOTAL_MAX))
+    # Recorte por número y por tiempo sin quitar nunca la última escala
+    while len(preguntas) > maximo or _tiempo(preguntas) > limite:
+        orden = _orden_recorte(preguntas)
+        if not orden:
+            break
+        preguntas.pop(orden[0])
+    # Completar hasta el mínimo con preguntas cerradas del respaldo, si caben
+    for p in de_respaldo:
+        if len(preguntas) >= reglas.TOTAL_MIN:
+            break
+        if (p["tipo"] != "texto" and not _texto_contiene_prohibido(p["texto"], terminos)
+                and all(_normalizar_texto(p["texto"]) != _normalizar_texto(q["texto"]) for q in preguntas)):
+            preguntas.insert(len([q for q in preguntas if q["tipo"] != "texto"]), dict(p))
+            while _tiempo(preguntas) > limite and _orden_recorte(preguntas):
+                indice = _orden_recorte(preguntas)[-1] if preguntas[-1]["tipo"] == "texto" \
+                    else _orden_recorte(preguntas)[0]
+                preguntas.pop(indice)
+    if len(preguntas) < reglas.TOTAL_MIN or _tiempo(preguntas) > limite:
+        raise ValueError(f"Con {necesidad.get('duracion_max_seg')} s no caben {reglas.TOTAL_MIN} "
+                         f"preguntas para {colectivo}: aumenta la duración máxima")
 
     preguntas = _numerar(preguntas, "p")
     tiempo = _tiempo(preguntas)
@@ -370,63 +400,64 @@ def _respaldo_sectores(necesidad: dict[str, Any], colectivos: list[str]) -> dict
     }
 
 
+def _propias_candidatas(propuestas: Any, respaldo: list[dict[str, Any]], nucleo: list[dict],
+                        terminos: set[str]) -> list[dict[str, Any]]:
+    """Preguntas propias válidas de un sector: primero las del modelo, después las del respaldo."""
+    textos_nucleo = {_normalizar_texto(p["texto"]) for p in nucleo}
+    elegidas: list[dict[str, Any]] = []
+    for p in (propuestas if isinstance(propuestas, list) else []) + respaldo:
+        q = _limpiar_pregunta(p, terminos)
+        # Las propias nunca son de texto ni repiten el núcleo ni otra propia
+        if (q and q["tipo"] != "texto" and _normalizar_texto(q["texto"]) not in textos_nucleo
+                and all(_normalizar_texto(q["texto"]) != _normalizar_texto(x["texto"]) for x in elegidas)):
+            elegidas.append(q)
+    return elegidas
+
+
+def _cuantas_propias(nucleo: list[dict], candidatas: list[dict], limite: int, colectivo: str) -> int:
+    """Cuántas propias caben (0 si no se puede cumplir el mínimo con este núcleo)."""
+    maximo_total = min(reglas.TOTAL_MAX, MAX_PREGUNTAS.get(colectivo, reglas.TOTAL_MAX))
+    tope = min(reglas.PROPIAS_MAX, maximo_total - len(nucleo), len(candidatas))
+    minimo = max(reglas.PROPIAS_MIN, reglas.TOTAL_MIN - len(nucleo))
+    for k in range(tope, minimo - 1, -1):
+        if _tiempo(nucleo + candidatas[:k]) <= limite:
+            return k
+    return 0
+
+
 def _validar_sectores(encuesta: dict[str, Any], necesidad: dict[str, Any],
                       colectivos: list[str]) -> dict[str, Any]:
     duracion = int(necesidad.get("duracion_max_seg", 120))
     terminos = _construir_terminos_prohibidos(necesidad.get("temas_prohibidos", []))
     respaldo = _respaldo_sectores(necesidad, colectivos)
     titulo, intro = _textos_generales(encuesta, respaldo, terminos)
-    limites = {c: _limite_tiempo(c, duracion) for c in colectivos}
+    limites = {c: _limite_tiempo(c, duracion, len(colectivos)) for c in colectivos}
+    escala = _limpiar_pregunta(respaldo["preguntas"][0], set())
 
-    # Núcleo: 1-3 preguntas, al menos una escala, como mucho un texto y al final
-    nucleo = [q for q in (_limpiar_pregunta(p, terminos) for p in encuesta.get("preguntas") or [])
-              if q]
-    abiertas = [p for p in nucleo if p["tipo"] == "texto"][:1]
-    nucleo = [p for p in nucleo if p["tipo"] != "texto"][:MAX_NUCLEO - len(abiertas)] + abiertas
-    if not any(p["tipo"] == "escala_1_5" for p in nucleo):
-        nucleo.insert(0, dict(respaldo["preguntas"][0]))
-        nucleo = [p for p in nucleo if p["tipo"] != "texto"][:MAX_NUCLEO - len(abiertas)] + abiertas
-    # El núcleo debe dejar sitio a una pregunta propia en el colectivo con menos tiempo
-    ajustado = min(limites.values())
-    while len(nucleo) > 1 and _tiempo(nucleo) + SEG_PREGUNTA > ajustado:
-        sin_texto = [i for i, p in enumerate(nucleo) if p["tipo"] != "texto"]
-        nucleo.pop(sin_texto[-1] if len(sin_texto) > 1 else len(nucleo) - 1)
-    textos_nucleo = {_normalizar_texto(p["texto"]) for p in nucleo}
+    # Núcleo: 1-3 preguntas, siempre con una escala_1_5, como mucho un texto y al final
+    nucleo = _con_escala([q for q in (_limpiar_pregunta(p, terminos)
+                                      for p in encuesta.get("preguntas") or []) if q], escala)
+    while len(nucleo) > reglas.NUCLEO_MAX:
+        nucleo.pop(_orden_recorte(nucleo)[0])
 
-    propuestas = encuesta.get("preguntas_por_colectivo") or {}
-    por_colectivo: dict[str, list[dict[str, Any]]] = {}
-    tiempos: dict[str, int] = {}
-    for c in colectivos:
-        propias: list[dict[str, Any]] = []
+    propuestas = encuesta.get("preguntas_por_colectivo")
+    propuestas = propuestas if isinstance(propuestas, dict) else {}
+    while True:
+        candidatas = {c: _propias_candidatas(propuestas.get(c), respaldo["preguntas_por_colectivo"][c],
+                                             nucleo, terminos) for c in colectivos}
+        cuantas = {c: _cuantas_propias(nucleo, candidatas[c], limites[c], c) for c in colectivos}
+        if all(cuantas.values()):
+            break
+        # Algún sector no cabe: se reduce el núcleo (nunca la última escala)
+        orden = _orden_recorte(nucleo)
+        if not orden:
+            sector = next(c for c in colectivos if not cuantas[c])
+            raise ValueError(f"Con {duracion} s no caben {reglas.TOTAL_MIN} preguntas para {sector}: "
+                             "aumenta la duración máxima")
+        nucleo.pop(orden[0])
 
-        def anadir(lista):
-            for p in lista:
-                q = _limpiar_pregunta(p, terminos)
-                # Las propias nunca son de texto ni repiten el núcleo
-                if (q and q["tipo"] != "texto"
-                        and _normalizar_texto(q["texto"]) not in textos_nucleo
-                        and all(_normalizar_texto(q["texto"]) != _normalizar_texto(x["texto"])
-                                for x in propias)):
-                    propias.append(q)
-
-        anadir(propuestas.get(c) or [])
-        if not propias:  # El respaldo solo entra si el modelo no ha dado ninguna válida
-            anadir(respaldo["preguntas_por_colectivo"][c])
-        maximo = min(MAX_PROPIAS, min(6, MAX_PREGUNTAS.get(c, 6)) - len(nucleo))
-        propias = propias[:max(1, maximo)]
-        while len(propias) > 1 and _tiempo(nucleo + propias) > limites[c]:
-            propias.pop()
-        # Mínimo de 3 preguntas por colectivo si el tiempo lo permite
-        for t, tipo, d in PREGUNTAS_SECTOR[c]:
-            if len(nucleo) + len(propias) >= 3:
-                break
-            q = _limpiar_pregunta({"texto": t, "tipo": tipo, "dimension": d}, terminos)
-            if q and all(_normalizar_texto(t) != _normalizar_texto(x["texto"]) for x in propias) \
-                    and _tiempo(nucleo + propias + [q]) <= limites[c]:
-                propias.append(q)
-        por_colectivo[c] = _numerar(propias, f"{c}_p")
-        tiempos[c] = _tiempo(nucleo + propias)
-
+    por_colectivo = {c: _numerar(candidatas[c][:cuantas[c]], f"{c}_p") for c in colectivos}
+    tiempos = {c: _tiempo(nucleo + por_colectivo[c]) for c in colectivos}
     return {
         "titulo": titulo, "intro": intro,
         "colectivo": etiqueta_colectivo(colectivos), "colectivos": colectivos,
@@ -457,10 +488,12 @@ def generar_encuesta(necesidad: dict[str, Any], reglas: str = "") -> dict[str, A
     """Genera una encuesta en borrador para uno o varios colectivos.
 
     Una sola llamada al modelo (20 s con un colectivo, 30 s con varios); si no hay modelo o
-    falla, plantillas de respaldo. Devuelve siempre origen, colectivos y colectivo.
+    falla, plantillas de respaldo. Devuelve siempre origen, colectivos y colectivo. Lanza
+    ValueError si la duración no permite una encuesta válida (la ruta responde 422).
     """
     colectivos = colectivos_de(necesidad)
     necesidad = {**necesidad, "colectivos": colectivos}
+    comprobar_duracion(necesidad)  # Antes de llamar al modelo: un error claro y sin esperas
     candidata: dict[str, Any] | None = None
 
     if hay_llm():

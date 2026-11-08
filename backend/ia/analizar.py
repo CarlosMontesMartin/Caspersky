@@ -15,7 +15,7 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
-from . import segundo_plano
+from . import segundo_plano, textos_respaldo
 from .llm import hay_llm, llamar_llm_json
 
 log = logging.getLogger(__name__)
@@ -80,20 +80,8 @@ _PATRONES = {
     for tema, claves in PALABRAS_CLAVE.items()
 }
 
-DESCRIPCION_TEMA = {
-    "descansos": "las pausas y el tiempo para descansar o desconectar",
-    "turnos": "la organización de los turnos y los cambios de horario",
-    "carga_trabajo": "el volumen de trabajo y la falta de personal",
-    "comunicacion": "cómo y cuándo llega la información sobre los cambios",
-    "liderazgo": "la relación con los responsables y la toma de decisiones",
-    "herramientas": "el estado de las herramientas, los equipos y el software",
-    "formacion": "las oportunidades de formación y de crecimiento",
-    "reconocimiento": "el reconocimiento del esfuerzo y del trabajo bien hecho",
-    "seguridad": "la seguridad y la prevención de riesgos",
-    "ambiente": "el ambiente y la relación entre compañeros",
-    "conciliacion": "la conciliación con la vida personal y familiar",
-    "otros": "cuestiones variadas (instalaciones, servicios y otros)",
-}
+# Descripción de cada tema en es, ca y en (textos_respaldo.py)
+DESCRIPCION_TEMA = textos_respaldo.DESCRIPCION_TEMA["es"]
 
 
 def _normalizar(texto: str) -> str:
@@ -222,27 +210,39 @@ def clasificacion_en_curso() -> bool:
         return bool(_EN_CURSO)
 
 
-def _resumen_respaldo(tema: str, n: int) -> str:
-    return f"{n} comentarios sobre {DESCRIPCION_TEMA.get(tema, tema)}."
+def _resumen_respaldo(tema: str, n: int, idioma: str = "es") -> str:
+    return textos_respaldo.resumen_respaldo(tema, n, idioma)
 
 
-def resumir_tema(tema: str, textos: list[str]) -> str:
-    """Devuelve un resumen breve y anónimo de los comentarios de un tema.
+def resumir_tema(tema: str, textos: list[str], idioma: str = "es") -> str:
+    """Devuelve un resumen breve y anónimo de los comentarios de un tema, escrito en `idioma`."""
+    return resumir_tema_con_origen(tema, textos, idioma)[0]
 
-    Responde al momento con el resumen de respaldo y pide el del modelo en segundo plano;
-    las siguientes consultas ya reciben el del modelo.
+
+def resumir_tema_con_origen(tema: str, textos: list[str], idioma: str = "es") -> tuple[str, str]:
+    """Devuelve (resumen, origen): origen ia, pendiente (el modelo trabaja) o reglas (sin modelo).
+
+    El resumen se escribe en `idioma` (es, ca o en) aunque los comentarios estén en otro.
+    Mientras el resumen está pendiente se devuelve el texto de respaldo, que la pantalla no muestra.
     """
+    idioma = textos_respaldo.idioma_valido(idioma)
     if not textos:
-        return ""
-    respaldo = _resumen_respaldo(tema, len(textos))
+        return "", "reglas"
+    respaldo = _resumen_respaldo(tema, len(textos), idioma)
+    if not hay_llm():
+        return respaldo, "reglas"
     # Mientras la clasificación avanza los grupos cambian; se resume al terminar
-    if not hay_llm() or clasificacion_en_curso():
-        return respaldo
-    clave = ("resumen", tema, len(textos), hash(tuple(sorted(textos))))
-    return segundo_plano.obtener(clave, lambda: _resumir_con_ia(tema, textos)) or respaldo
+    if clasificacion_en_curso():
+        return respaldo, "pendiente"
+    clave = ("resumen", idioma, tema, len(textos), hash(tuple(sorted(textos))))
+    estado, valor = segundo_plano.consultar(clave, lambda: _resumir_con_ia(tema, textos, idioma))
+    if estado == "pendiente":
+        return respaldo, "pendiente"
+    return (valor, "ia") if valor else (respaldo, "reglas")
 
 
-def _resumir_con_ia(tema: str, textos: list[str]) -> str | None:
+def _resumir_con_ia(tema: str, textos: list[str], idioma: str = "es") -> str | None:
+    prompt = _leer_prompt("resumir.md") + textos_respaldo.instruccion_idioma(idioma)
     muestra = textos[:MAX_MUESTRA_RESUMEN]
     usuario = (
         f"Tema: {tema} ({DESCRIPCION_TEMA.get(tema, '')})\n"
@@ -251,7 +251,7 @@ def _resumir_con_ia(tema: str, textos: list[str]) -> str | None:
         + "\n".join(f"- {t}" for t in muestra)
     )
     for intento in range(2):
-        datos = llamar_llm_json(_leer_prompt("resumir.md"), usuario, segundo_plano.TIMEOUT_SEG)
+        datos = llamar_llm_json(prompt, usuario, segundo_plano.TIMEOUT_SEG)
         texto = _recortar(str(datos.get("resumen", "") if isinstance(datos, dict) else "").strip())
         if not texto:
             log.warning("Resumen de '%s' vacío; se mantiene el de respaldo", tema)
@@ -312,8 +312,11 @@ def _textos(respuestas: list[dict[str, Any]]) -> list[str]:
 
 
 def analizar_comentarios(respuestas_actual: list[dict[str, Any]],
-                         respuestas_anterior: list[dict[str, Any]]) -> list[dict[str, Any]]:
+                         respuestas_anterior: list[dict[str, Any]],
+                         idioma: str = "es") -> list[dict[str, Any]]:
     """Analiza los comentarios del periodo actual y calcula su evolución respecto al anterior.
+
+    Los resúmenes salen en `idioma` (es, ca o en); la clasificación no depende del idioma.
 
     Omite temas con menos de 5 comentarios y ordena primero por tendencias activas.
     """
@@ -333,13 +336,14 @@ def analizar_comentarios(respuestas_actual: list[dict[str, Any]],
         cuenta_ant[tema] = cuenta_ant.get(tema, 0) + 1
 
     visibles = {t: txt for t, txt in por_tema.items() if len(txt) >= UMBRAL_MINIMO}
-    resumenes = {tema: resumir_tema(tema, txt) for tema, txt in visibles.items()}
+    resumenes = {tema: resumir_tema_con_origen(tema, txt, idioma) for tema, txt in visibles.items()}
 
     resultado = [
         {
             "tema": tema,
             "n": len(txt),
-            "resumen": resumenes[tema],
+            "resumen": resumenes[tema][0],
+            "resumen_origen": resumenes[tema][1],
             "tendencia": calcular_tendencia(len(txt), len(actuales),
                                             cuenta_ant.get(tema, 0), len(anteriores)),
             "n_anterior": cuenta_ant.get(tema, 0),

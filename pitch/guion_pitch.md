@@ -1,67 +1,64 @@
-# Guion del pitch · v2 · 3:30 min · palabra por palabra
+# Guion del pitch · v3 · 3:30 min · palabra por palabra
 
 > Dueño: UAB 2 · Slides en `pitch/estructura_slides.md`.
-> Ritmo ~135 palabras/minuto (≈ 450 palabras habladas). Margen de 30 s hasta los 4 min para el demo.
-> **Ponente 1** narra (UAB 2). **Ponente 2** maneja el demo (UAB 1). Lo que va entre [corchetes] son acotaciones o cifras que se rellenan en el ensayo de H22.
-> Antes de empezar: escenario D ya generado, aprobado y publicado; dashboard abierto en la pestaña Maqueta 3D; cartel con el QR de planta impreso.
+> Unas 300 palabras habladas (≈ 2:15 a 135 palabras/minuto); el resto del tiempo son las pausas del demo en directo. Margen de 30 s hasta los 4 min.
+> **Ponente 1** narra (UAB 2). **Ponente 2** maneja el demo (UAB 1). Lo que va entre [corchetes] son acotaciones o cifras que se rellenan en el ensayo final.
+> Antes de empezar: escenario D generado, aprobado (con las traducciones listas) y publicado; dashboard abierto en la Maqueta 3D; cartel con el QR de planta impreso; Teams abierto en el canal "Encuestas" si está configurado.
 
 ---
 
-## Slide 1 · 0:00–0:25 · El problema
+## Slide 1 · 0:00–0:20 · El problema
 
-> "[Siete coma cinco] por ciento.
-> Es lo que responde el turno de noche de planta en nuestro demo, con datos cien por cien sintéticos.
-> Damm ya escucha. Pero responden siempre los mismos, una encuesta no encaja igual a un operario que a un comercial, y los comentarios se leen cuando ya es tarde.
+> "[Siete coma cinco] por ciento. Es lo que responde el turno de noche de planta en nuestro demo, con datos sintéticos.
+> Responden siempre los mismos, una encuesta no encaja igual a un operario que a un comercial, y los comentarios se leen tarde.
 > Escuchamos. Pero no a todos."
 
-## Slide 2 · 0:25–1:05 · Una encuesta, cada sector con sus preguntas
+## Slide 2 · 0:20–0:55 · La IA propone, RRHH decide
 
-[Ponente 2 abre Nueva necesidad y elige el escenario D.]
+[Ponente 2 abre Nueva necesidad, escenario D, y pulsa Generar.]
 
-> "People escribe lo que quiere entender: cómo afecta el cambio de turnos a planta, logística y comercial. Tres sectores, una sola encuesta."
+> "People escribe qué quiere entender, para planta, logística y comercial. La IA crea preguntas comunes para comparar y preguntas propias de cada sector.
+> Nada es una plantilla: si cambiamos la necesidad, regeneramos.
+> Y decide una persona: editamos, aprobamos… y solo entonces se publica."
 
-[Pulsa Generar.]
+## Slide 3 · 0:55–1:20 · En tu idioma, donde estás
 
-> "La IA crea un núcleo común para comparar a los tres sectores, y preguntas propias para cada uno. Planta habla de pausas y cuadrantes. Logística, de rutas y muelles. Comercial, de visitas.
-> Pero aquí decide una persona: editamos, aprobamos… y solo entonces se publica. Un QR general y uno por sector, para el cartel de cada zona."
+[Ponente 1 levanta el cartel QR de planta.]
 
-## Slide 3 · 1:05–1:45 · El centro de mando en directo
+> "Escaneadlo. Arriba podéis elegir castellano, catalán o inglés, y es ampliable a más idiomas: la IA ha traducido la encuesta al aprobarla. Cambiad de idioma a mitad: lo que habéis marcado se queda.
+> Y todas las respuestas se analizan juntas, en cualquier idioma."
 
-[Ponente 1 levanta el cartel QR de planta hacia el jurado.]
+## Slide 4 · 1:20–1:50 · Centro de mando en directo
 
-> "Escaneadlo. Es el QR de planta."
+[Ponente 2 en la Maqueta 3D. Se espera el pulso del edificio.]
 
-[Ponente 2 está en la Maqueta 3D. Se espera el pulso del edificio.]
-
-> "Ese edificio que late es vuestra respuesta, llegando en directo.
-> La maqueta no es decoración: cada edificio se colorea por participación. Y si pulsamos noche, filtramos el turno de noche: planta, en rojo.
+> "Ese edificio que late es vuestra respuesta. Cada edificio se colorea por participación. Pulsamos noche: planta, en rojo.
 > Donde hay menos de cinco respuestas, no mostramos nada. Nunca.
-> Y desde aquí mismo: crear una encuesta para este sector."
+> Y desde aquí: crear una encuesta para este sector."
 
-## Slide 4 · 1:45–2:20 · Temas e IA medible
+## Slide 5 · 1:50–2:20 · IA que se ve y se mide
 
 [Ponente 2 cambia a Resumen.]
 
-> "Detrás, la IA lee todos los comentarios, con faltas y en dos idiomas, y los agrupa en temas. Los descansos [suben del seis al treinta y cuatro por ciento], y aparecen temas nuevos.
-> Y no os pedimos que os fieis: lo hemos medido. La IA acierta el tema en el [X] por ciento de los comentarios.
-> El mapa de calor compara los tres sectores con la misma pregunta. Para eso sirve el núcleo común."
+> "Mientras la IA lee los comentarios, la pantalla lo dice. Nunca rellenamos con textos inventados.
+> Aquí, los temas que crecen y los que aparecen. Y lo hemos medido: la IA acierta el tema en el [X] por ciento de los comentarios."
 
-## Slide 5 · 2:20–3:00 · Pregunta a tus datos e informe
+## Slide 6 · 2:20–2:55 · Pregunta a tus datos e informe
 
-[Ponente 2 pulsa la sugerencia "¿Qué sector está peor y por qué?".]
+[Ponente 2 pulsa una de las preguntas sugeridas.]
 
-> "People pregunta en lenguaje natural. La IA responde con cifras y avisa si un dato no es representativo."
+> "Estas preguntas también las propone la IA, para estos resultados. Responde con cifras y avisa si un dato no es fiable."
 
 [Ponente 2 escribe: "¿Quién se queja del turno de noche?".]
 
-> "¿Y si alguien pregunta quién se queja? La herramienta se niega. Solo trabaja con resultados agregados.
-> Y para dirección, un clic: informe ejecutivo en una hoja, con acciones, responsable, plazo e indicador."
+> "¿Y si alguien pregunta quién se queja? Se niega. Solo resultados agregados.
+> Para dirección, un clic: informe ejecutivo en una hoja."
 
-## Slide 6 · 3:00–3:30 · Cierre
+## Slide 7 · 2:55–3:30 · Teams y cierre
 
-[Ponente 1 al centro, mirando al jurado.]
+[Ponente 2 pulsa "Publicar en Teams" y se ve la tarjeta en el canal.]
 
-> "Funciona donde está cada persona: QR por sector, una tablet en la zona de descanso, y la próxima parada, Teams.
+> "Y todo llega donde ya trabaja RRHH: la encuesta se publica en Teams con un botón para responder, y el resumen con las alertas, sin un solo comentario individual.
 > No buscábamos una encuesta más. Buscábamos esto:
 > escoltar millor, actuar abans. Gràcies."
 
@@ -71,21 +68,22 @@
 
 | Si falla… | Qué hacer | Frase puente |
 |---|---|---|
-| La IA tarda al generar | Esperar el respaldo (sale con aviso "sin IA") | "Si la IA no responde a tiempo, la plataforma sigue funcionando: así nunca se queda bloqueada." |
+| La IA tarda al generar | Esperar el respaldo (sale con la etiqueta "Sin IA") | "Si la IA no responde, la plataforma sigue funcionando y lo dice." |
 | Nadie del jurado escanea | Responder desde un móvil del equipo | "Os lo enseño yo mismo." |
-| No late el edificio en 10 s | Pulsar Actualizar | — |
+| La traducción no está lista | Enseñar el cambio de idioma de la interfaz | "La traducción se prepara al aprobar; en unos segundos estará." |
+| Teams no responde o no está configurado | Vista previa de la tarjeta | "Esta es la tarjeta que llega al canal." |
 | Se cae todo | Vídeo de respaldo de 90 s y narrar encima | "Para no perder tiempo, os lo enseño en vídeo." |
 
-## Ensayo (H22)
+## Ensayo
 
-- 3 ensayos cronometrados. Objetivo: **3:20–3:35**. Si pasa de 3:45, recortar la frase del mapa de calor (slide 4).
-- Rellenar las cifras entre corchetes con las del ensayo y el dato de precisión de UPC 1. No cambiarlas después.
-- Antes de salir: cerrar terminales, `.env` y pestañas con URLs de la API.
+- 3 ensayos cronometrados. Objetivo: **3:20–3:35**. Si pasa de 3:45, recortar la frase del informe (slide 6).
+- Rellenar las cifras entre corchetes con las del ensayo y el dato de precisión de UPC 1.
+- Antes de salir: cerrar terminales, `.env` y cualquier pestaña con la URL del webhook de Teams.
 
 ## Respuestas para el jurado (≤ 20 s cada una)
 
-- **¿Cómo comparáis sectores si cada uno tiene preguntas distintas?** — "Por el núcleo común: las mismas 1 a 3 preguntas para todos. Las propias sirven para profundizar en cada sector."
-- **¿Y si la IA hace una pregunta inadecuada?** — "Hay temas prohibidos que la IA lee antes de escribir, un filtro después y, sobre todo, nada se publica sin aprobación humana."
-- **¿Puede "Pregunta a tus datos" revelar algo de una persona?** — "No. El modelo solo recibe datos agregados, nunca comentarios individuales, y las preguntas que buscan identificar a alguien se bloquean antes de llegar al modelo."
-- **¿Qué pasa sin conexión o sin IA?** — "Todo funciona con reglas de respaldo y el panel indica si el análisis es con IA o por reglas."
-- **¿Por qué el umbral es 5?** — "Es el mínimo de la guía. Es configurable; con datos reales se podría subir a 10 en grupos pequeños como managers."
+- **¿Cómo comparáis sectores con preguntas distintas?** — "Por el núcleo común: las mismas preguntas para todos. Las propias sirven para profundizar."
+- **¿La traducción cambia los resultados?** — "No: en las opciones se muestra el texto traducido, pero se guarda el valor original. Todo se analiza junto."
+- **¿Y si la IA hace una pregunta inadecuada?** — "Hay temas prohibidos, un filtro y, sobre todo, aprobación humana obligatoria antes de publicar."
+- **¿Qué sale en Teams?** — "La encuesta con su botón y resúmenes agregados. Nunca comentarios ni datos de nadie. La dirección del webhook es un secreto y no está en el código."
+- **¿Qué pasa sin IA?** — "Todo funciona con reglas de respaldo, y la pantalla lo indica con la etiqueta "Sin IA"."

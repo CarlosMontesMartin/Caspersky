@@ -44,6 +44,7 @@ MEZCLA = {
 }
 MEDIA_ESCALA = {"condiciones": (2.2, 3.5), "otras": (3.3, 3.6)}  # (actual, anterior)
 PROB_BANCO = 0.75
+PESO_IDIOMA = {"es": 0.80, "ca": 0.15, "en": 0.05}
 
 
 def _mes_anterior(hoy: date) -> date:
@@ -122,7 +123,8 @@ def simular(encuesta: dict, n: int, con_periodo_anterior: bool = True, semilla: 
             elif comentario and banco.get(tema) and rng.random() < PROB_BANCO:
                 comentario = _variar(rng, rng.choice(banco[tema]))
 
-            entrada = {"turno": turno, "canal": "qr" if rng.random() < 0.7 else "quiosco", "valores": valores}
+            entrada = {"turno": turno, "canal": "qr" if rng.random() < 0.7 else "quiosco", "valores": valores,
+                       "idioma": _elegir(rng, PESO_IDIOMA)}
             texto = next((p["id"] for p in preguntas if p["tipo"] == "texto"), None)
             if texto:
                 entrada["valores"][texto] = comentario
