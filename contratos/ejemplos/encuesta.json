@@ -2,6 +2,7 @@
   "id": "enc_004",
   "estado": "borrador",
   "origen": "ia",
+  "idioma_original": "es",
   "titulo": "Nuevos turnos: ¿cómo lo estás viviendo?",
   "intro": "Menos de 2 minutos. Es anónimo: solo vemos resultados de grupos de 5 personas o más.",
   "periodo": "2026-11",
@@ -96,7 +97,8 @@
     "duracion_max_seg": 120,
     "temas_prohibidos": [
       "salario"
-    ]
+    ],
+    "idioma": "es"
   },
   "traducciones": {
     "ca": {

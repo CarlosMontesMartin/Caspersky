@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from backend.api import ia_o_respaldo as ia
 from backend.api import simulacion, traducciones
 from backend.api.qr import generar_qr
+from backend import textos
 from backend.api.validacion import colectivos_de, etiqueta_colectivo, validar_necesidad, validar_preguntas
 from backend.datos import almacen, metricas
 from backend.reglas import IDIOMAS, idioma_valido
@@ -48,9 +49,10 @@ def _completar_temas(temas: list, actual: list, anterior: list) -> list:
 
 def analisis_y_recomendaciones(encuesta: dict, idioma: str = "es") -> tuple[dict, dict]:
     """Análisis y recomendaciones con las frases del backend y de la IA en `idioma`.
-    Los textos de RRHH (título y preguntas) salen traducidos si existe traducciones[idioma]."""
+    Los textos de RRHH (título y preguntas) salen en `idioma` si existe la traducción y, si no,
+    en el idioma original de la encuesta (v5 §1)."""
     idioma = idioma_valido(idioma)
-    vista = traducciones.aplicar(encuesta, idioma)  # mismos ids, textos en el idioma si hay traducción
+    vista = traducciones.aplicar(encuesta, idioma)  # mismos ids; textos en el idioma o en el original
     respuestas = almacen.leer_respuestas(encuesta["id"])
     base = metricas.calcular_metricas(respuestas, almacen.leer_plantilla(), vista, idioma)
     actual, anterior, _, _ = metricas.separar_periodos(respuestas)
@@ -100,6 +102,22 @@ def _en_idioma(valor, idioma: str):
     return valor
 
 
+def _necesidad_en_idioma(necesidad: dict | None, idioma: str) -> dict | None:
+    """Necesidad de un escenario en `idioma` (v5 P0-1): objetivo y contexto ({es, ca, en} o texto),
+    temas_prohibidos con su nombre en el idioma (códigos de UAB 2 → textos) e "idioma"."""
+    if not isinstance(necesidad, dict):
+        return necesidad
+    resultado = copy.deepcopy(necesidad)
+    for campo in ("objetivo", "contexto"):
+        if campo in resultado:
+            resultado[campo] = _en_idioma(resultado[campo], idioma)
+    if isinstance(resultado.get("temas_prohibidos"), list):
+        resultado["temas_prohibidos"] = [textos.nombre("tema_prohibido", str(t), idioma)
+                                         for t in resultado["temas_prohibidos"]]
+    resultado["idioma"] = idioma
+    return resultado
+
+
 @router.get("/escenarios")
 def escenarios(idioma: str = "es"):
     """contenido/escenarios.json (UAB 2) en el idioma pedido; si no existe, los de backend/api/escenarios.py."""
@@ -110,52 +128,66 @@ def escenarios(idioma: str = "es"):
     else:
         from backend.api.escenarios import ESCENARIOS
         lista = ESCENARIOS
-    return [{k: (v if k == "necesidad" else _en_idioma(v, idioma)) for k, v in e.items()} for e in lista]
+    return [{k: (_necesidad_en_idioma(v, idioma) if k == "necesidad" else _en_idioma(v, idioma))
+             for k, v in e.items()} for e in lista]
 
 
 @router.get("/encuestas")
 def listar(idioma: str = "es"):
-    """Resumen de las encuestas; el título, traducido si existe traducciones[idioma]."""
+    """Resumen de las encuestas; el título en `idioma` si hay traducción y, si no, en el original."""
     idioma = idioma_valido(idioma)
     lista = almacen.listar_encuestas()
-    if idioma != "es":
-        for fila in lista:
-            encuesta = almacen.leer_encuesta(fila["id"]) or {}
-            titulo = ((encuesta.get("traducciones") or {}).get(idioma) or {}).get("titulo")
-            if isinstance(titulo, str) and titulo.strip():
-                fila["titulo"] = titulo
+    for fila in lista:
+        encuesta = almacen.leer_encuesta(fila["id"]) or {}
+        fila["idioma_original"] = traducciones.idioma_original(encuesta)
+        titulo = traducciones.titulo(encuesta, idioma)
+        if isinstance(titulo, str) and titulo.strip():
+            fila["titulo"] = titulo
     return lista
 
 
-def _desde_necesidad(necesidad: dict, encuesta_id: str, periodo: str) -> dict:
-    """Genera una Encuesta en borrador a partir de una Necesidad ya validada (generar y regenerar)."""
-    encuesta = ia.generar_encuesta(necesidad, almacen.leer_reglas())
+def _idioma_de_necesidad(necesidad: dict, idioma_ruta: str | None) -> str:
+    """Idioma original de la encuesta: el de la Necesidad o, si no viene, el ?idioma= de la ruta."""
+    return idioma_valido(necesidad.get("idioma") or idioma_ruta)
+
+
+def _desde_necesidad(necesidad: dict, encuesta_id: str, periodo: str, idioma: str = "es") -> dict:
+    """Genera una Encuesta en borrador a partir de una Necesidad ya validada (generar y regenerar).
+    La encuesta se escribe en `idioma`, que queda como su idioma original (v5 §1)."""
+    necesidad = dict(necesidad, idioma=idioma)
+    try:
+        encuesta = ia.generar_encuesta(necesidad, almacen.leer_reglas(), idioma)
+    except ValueError as error:  # UPC 1: la necesidad no permite una encuesta válida
+        raise HTTPException(422, str(error))
     colectivos = colectivos_de(encuesta) or colectivos_de(necesidad)
     encuesta.setdefault("origen", "ia")
     encuesta.setdefault("preguntas_por_colectivo", {})
     encuesta.update(id=encuesta_id, estado="borrador", periodo=periodo, url=None, qr=None,
                     colectivos=colectivos, colectivo=etiqueta_colectivo(colectivos),
+                    idioma_original=idioma_valido(encuesta.get("idioma_original") or idioma),
                     necesidad=copy.deepcopy(necesidad))  # para volver al paso 1 con sus datos
     return traducciones.reiniciar(encuesta)
 
 
 @router.post("/encuestas/generar")
-def generar(necesidad: dict):
+def generar(necesidad: dict, idioma: str | None = None):
     validar_necesidad(necesidad)
-    encuesta = _desde_necesidad(necesidad, "", date.today().strftime("%Y-%m"))  # la IA puede tardar: sin bloqueo
+    encuesta = _desde_necesidad(necesidad, "", date.today().strftime("%Y-%m"),
+                                _idioma_de_necesidad(necesidad, idioma))  # la IA puede tardar: sin bloqueo
     with traducciones.bloqueo:
         encuesta["id"] = almacen.nuevo_id_encuesta()
         return almacen.guardar_encuesta(encuesta)
 
 
 @router.post("/encuestas/{encuesta_id}/regenerar")
-def regenerar(encuesta_id: str, necesidad: dict):
+def regenerar(encuesta_id: str, necesidad: dict, idioma: str | None = None):
     """Preguntas nuevas con otra Necesidad: mismo id y periodo, vuelve a borrador."""
     validar_necesidad(necesidad)
     actual = obtener(encuesta_id)
     if actual["estado"] == "publicada":
         raise HTTPException(409, "No se puede regenerar una encuesta publicada: duplícala para editarla")
-    nueva = _desde_necesidad(necesidad, encuesta_id, actual.get("periodo") or date.today().strftime("%Y-%m"))
+    nueva = _desde_necesidad(necesidad, encuesta_id, actual.get("periodo") or date.today().strftime("%Y-%m"),
+                             _idioma_de_necesidad(necesidad, idioma))
     with traducciones.bloqueo:
         if obtener(encuesta_id)["estado"] == "publicada":
             raise HTTPException(409, "La encuesta se ha publicado mientras se regeneraba")
@@ -176,11 +208,19 @@ def duplicar(encuesta_id: str):
 
 @router.get("/encuestas/{encuesta_id}")
 def ver(encuesta_id: str, idioma: str = "es"):
-    """Siempre la encuesta original: es la que RRHH edita y guarda con PUT.
-    (Si devolviéramos los textos traducidos, al guardar se perderían los originales.)
+    """La encuesta para RRHH, con "idioma_original" e "idioma_vista" (v5 §1).
+
+    - Publicada (ya no se edita): título, intro y preguntas en `idioma` si hay traducción y,
+      si no, en el original.
+    - Borrador o aprobada (se puede editar con PUT): siempre el original, para que al guardar no
+      se sustituyan los textos originales por una traducción.
     Las traducciones van en encuesta["traducciones"] por si la pantalla quiere mostrarlas."""
-    idioma_valido(idioma)
-    return obtener(encuesta_id)
+    idioma = idioma_valido(idioma)
+    encuesta = obtener(encuesta_id)
+    original = traducciones.idioma_original(encuesta)
+    if encuesta.get("estado") == "publicada" and traducciones.tiene_traduccion(encuesta, idioma):
+        return dict(traducciones.aplicar(encuesta, idioma), idioma_original=original, idioma_vista=idioma)
+    return dict(encuesta, idioma_original=original, idioma_vista=original)
 
 
 @router.put("/encuestas/{encuesta_id}")
@@ -189,10 +229,14 @@ def editar(encuesta_id: str, editada: dict):
         actual = obtener(encuesta_id)
         if actual["estado"] == "publicada":
             raise HTTPException(409, "No se puede editar una encuesta publicada")
+        original = traducciones.idioma_original(actual)
+        if editada.get("idioma_vista") not in (None, original):
+            raise HTTPException(409, "Estás editando una traducción: recarga la encuesta para editar el original")
         nueva = dict(editada, id=actual["id"], periodo=actual["periodo"], estado="borrador", url=None, qr=None,
                      colectivos=colectivos_de(actual), colectivo=actual.get("colectivo"),
-                     origen=actual.get("origen", "ia"),
+                     origen=actual.get("origen", "ia"), idioma_original=original,
                      necesidad=actual.get("necesidad"))  # si estaba aprobada, vuelve a borrador
+        nueva.pop("idioma_vista", None)
         nueva.setdefault("preguntas_por_colectivo", {})
         validar_preguntas(nueva)
         if traducciones.firma(nueva) == traducciones.firma(actual) and actual.get("estado_traduccion") == "lista":

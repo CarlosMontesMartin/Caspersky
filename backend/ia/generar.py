@@ -2,6 +2,7 @@
 
 Con varios colectivos la encuesta tiene un núcleo común (c1..c3) y preguntas propias de cada
 sector. Si no hay clave de modelo o la llamada falla, recurre a plantillas de respaldo.
+La encuesta se escribe en su idioma original (es, ca o en): el de la pantalla de RRHH al generarla.
 """
 
 from __future__ import annotations
@@ -16,7 +17,9 @@ from typing import Any
 
 from backend import reglas
 
+from . import plantillas_respaldo as plantillas
 from .llm import hay_llm, llamar_llm_json
+from .textos_respaldo import NOMBRE_IDIOMA, idioma_valido, nombre
 
 ORDEN_COLECTIVOS = ["planta", "logistica", "comercial", "oficina", "manager"]
 COLECTIVOS_VALIDOS = set(ORDEN_COLECTIVOS)
@@ -50,28 +53,8 @@ log = logging.getLogger(__name__)
 
 MAX_PREGUNTAS = {"planta": 4, "logistica": 4, "comercial": 5, "oficina": 6, "manager": 5}
 
-# Respaldo multisector: dos preguntas propias por colectivo, con el vocabulario de cada uno
-PREGUNTAS_SECTOR: dict[str, list[tuple[str, str, str]]] = {
-    "planta": [("¿Te da tiempo a hacer la pausa completa en tu turno?", "si_no", "bienestar"),
-               ("¿Recibes el cuadrante con antelación suficiente?", "escala_1_5", "condiciones")],
-    "logistica": [("¿El relevo te da tiempo a pasar la información?", "si_no", "condiciones"),
-                  ("¿Cómo valoras la coordinación en el muelle?", "escala_1_5", "entorno")],
-    "comercial": [("¿Tienes el apoyo que necesitas para tus visitas?", "escala_1_5", "liderazgo"),
-                  ("¿Puedes desconectar al acabar la jornada en ruta?", "si_no", "bienestar")],
-    "oficina": [("¿Las reuniones te dejan tiempo para tu trabajo?", "escala_1_5", "condiciones"),
-                ("¿Las herramientas digitales te facilitan el día a día?", "escala_1_5", "entorno")],
-    "manager": [("¿Tienes la información necesaria para decidir con tu equipo?", "escala_1_5",
-                 "liderazgo"),
-                ("¿Recibes apoyo de People para gestionar los cambios?", "escala_1_5", "cultura")],
-}
-
-# Raíces de palabras bloqueadas por reglas de negocio
-SINONIMOS_PROHIBIDOS = {
-    "salario": ["salari", "sueld", "nomina", "dinero", "retribu", "remunera",
-                "paga", "pagan", "pagar", "cobr", "plus", "incentivo", "bonus"],
-    "sueldo": ["salari", "sueld", "nomina", "retribu", "remunera", "cobr"],
-    "dinero": ["dinero", "salari", "sueld", "paga", "cobr"],
-}
+# Respaldo multisector en el idioma de la encuesta (plantillas_respaldo.py)
+PREGUNTAS_SECTOR = plantillas.PREGUNTAS_SECTOR["es"]
 
 
 def _normalizar_texto(texto: str) -> str:
@@ -128,82 +111,22 @@ def _cargar_prompt_sistema() -> str:
     )
 
 
-# Preguntas predefinidas para el modo de respaldo
-_TEMAS_RESPALDO: list[dict[str, Any]] = [
-    {
-        "claves": ["turno", "horario", "cuadrante", "rotacion", "jornada"],
-        "titulo": "Tu opinión sobre los nuevos turnos",
-        "sobre": "el cambio de turnos",
-        "preguntas": [
-            ("¿Cómo valoras el nuevo sistema de turnos?", "condiciones"),
-            ("¿Te explicaron bien cómo funciona el cambio?", "liderazgo"),
-            ("¿Puedes descansar bien con los turnos actuales?", "bienestar"),
-            ("¿Qué cambiarías o reforzarías de los turnos?", "condiciones"),
-        ],
-    },
-    {
-        "claves": ["herramienta", "software", "aplicacion", "app", "sistema nuevo",
-                   "programa", "maquina", "tablet", "plataforma", "digital"],
-        "titulo": "Tu opinión sobre la nueva herramienta",
-        "sobre": "la nueva herramienta",
-        "preguntas": [
-            ("¿Cómo valoras la nueva herramienta?", "condiciones"),
-            ("¿Has recibido formación suficiente para usarla?", "desarrollo"),
-            ("¿Te ayuda a hacer mejor tu trabajo?", "entorno"),
-            ("¿Qué mejorarías de la herramienta?", "condiciones"),
-        ],
-    },
-    {
-        "claves": ["carga", "ritmo", "volumen", "pico", "estres", "presion"],
-        "titulo": "Tu opinión sobre la carga de trabajo",
-        "sobre": "la carga de trabajo",
-        "preguntas": [
-            ("¿Cómo valoras tu carga de trabajo actual?", "condiciones"),
-            ("¿Puedes hacer pausas cuando lo necesitas?", "bienestar"),
-            ("¿Tienes apoyo cuando hay picos de trabajo?", "liderazgo"),
-            ("¿Qué ayudaría a repartir mejor el trabajo?", "condiciones"),
-        ],
-    },
-    {
-        "claves": ["comunica", "informa", "aviso", "transparen"],
-        "titulo": "Tu opinión sobre la comunicación",
-        "sobre": "cómo te llega la información",
-        "preguntas": [
-            ("¿Te llega a tiempo la información importante?", "cultura"),
-            ("¿Entiendes por qué se toman las decisiones?", "liderazgo"),
-            ("¿Sabes a quién acudir si tienes dudas?", "liderazgo"),
-            ("¿Cómo te gustaría recibir la información?", "cultura"),
-        ],
-    },
-    {
-        "claves": ["formacion", "curso", "aprend", "desarrollo", "carrera", "crecer"],
-        "titulo": "Tu opinión sobre formación y desarrollo",
-        "sobre": "tu formación y desarrollo",
-        "preguntas": [
-            ("¿Tienes oportunidades para aprender cosas nuevas?", "desarrollo"),
-            ("¿La formación te sirve en tu día a día?", "desarrollo"),
-            ("¿Sabes cómo puedes crecer en la empresa?", "desarrollo"),
-            ("¿Qué te gustaría aprender?", "desarrollo"),
-        ],
-    },
-]
-_RESPALDO_GENERAL: dict[str, Any] = {
-    "titulo": "¿Cómo estás?",
-    "sobre": "tu día a día en el trabajo",
-    "preguntas": [
-        ("¿Cómo te sientes en tu trabajo últimamente?", "bienestar"),
-        ("¿Te sientes escuchado/a por tu responsable?", "liderazgo"),
-        ("¿Tienes lo necesario para hacer bien tu trabajo?", "condiciones"),
-        ("¿Qué cambiarías para estar mejor?", "condiciones"),
-    ],
-}
+def _idioma(datos: dict[str, Any]) -> str:
+    """Idioma original de una necesidad o encuesta (es si no lo dice)."""
+    return idioma_valido(datos.get("idioma") or datos.get("idioma_original"))
 
 
-def _plantilla_respaldo_colectivo(colectivo: str, objetivo: str,
-                                  contexto: str = "") -> dict[str, Any]:
+def _empieza_palabra(texto: str, raiz: str) -> bool:
+    return re.search(rf"\b{re.escape(raiz)}", texto) is not None
+
+
+def _plantilla_respaldo_colectivo(colectivo: str, objetivo: str, contexto: str = "",
+                                  idioma: str = "es") -> dict[str, Any]:
+    idioma = idioma_valido(idioma)
     texto = _normalizar_texto(f"{objetivo} {contexto}")
-    elegido = next((t for t in _TEMAS_RESPALDO
-                    if any(clave in texto for clave in t["claves"])), _RESPALDO_GENERAL)
+    tema = next((t for t in plantillas.TEMAS_RESPALDO
+                 if any(_empieza_palabra(texto, clave) for clave in t["claves"])), None)
+    elegido = tema["textos"][idioma] if tema else plantillas.RESPALDO_GENERAL[idioma]
     *escalas, abierta = elegido["preguntas"]
     preguntas = [
         {"id": f"p{i}", "texto": txt, "tipo": "escala_1_5", "opciones": [],
@@ -214,22 +137,26 @@ def _plantilla_respaldo_colectivo(colectivo: str, objetivo: str,
                       "dimension": abierta[1], "condicion": None})
     return {
         "titulo": elegido["titulo"],
-        "intro": (f"Queremos saber qué opinas sobre {elegido['sobre']} para mejorarlo. "
-                  "Es anónima: solo se ven resultados agregados."),
+        "intro": plantillas.INTRO[idioma].format(sobre=elegido["sobre"]),
         "preguntas": preguntas,
     }
 
 
 def _construir_terminos_prohibidos(temas_prohibidos: list[str]) -> set[str]:
+    """Expresiones (al principio de palabra, sin tildes) que no pueden aparecer en la encuesta.
+
+    La lista puede venir en cualquier idioma: "salario", "sou" o "salary" bloquean el dinero en
+    castellano, catalán e inglés.
+    """
     terminos = set()
     for tema in temas_prohibidos or []:
         norm = _normalizar_texto(str(tema).strip())
         if not norm:
             continue
-        terminos.add(norm[:-1] if len(norm) >= 6 and " " not in norm else norm)
-        for clave, raices in SINONIMOS_PROHIBIDOS.items():
-            if clave in norm:
-                terminos.update(raices)
+        terminos.add(re.escape(norm[:-1] if len(norm) >= 6 and " " not in norm else norm))
+        for grupo in plantillas.GRUPOS_PROHIBIDOS:
+            if any(norm.startswith(clave) or _empieza_palabra(norm, clave) for clave in grupo["claves"]):
+                terminos.update(grupo["raices"])
     return terminos
 
 
@@ -237,12 +164,8 @@ def _texto_contiene_prohibido(texto: str, terminos_prohibidos: set[str]) -> bool
     if not terminos_prohibidos:
         return False
     texto_norm = _normalizar_texto(texto)
-    for term in terminos_prohibidos:
-        # Límite de palabra para evitar falsos positivos
-        patron = rf"\b{re.escape(term)}"
-        if re.search(patron, texto_norm):
-            return True
-    return False
+    # Límite de palabra al principio para evitar falsos positivos
+    return any(re.search(rf"\b{term}", texto_norm) for term in terminos_prohibidos)
 
 
 def _limpiar_pregunta(p: Any, terminos_prohibidos: set[str]) -> dict[str, Any] | None:
@@ -311,13 +234,21 @@ def _textos_generales(encuesta: dict[str, Any], respaldo: dict[str, Any],
     return titulo.strip(), intro.strip()
 
 
+def _error_no_caben(necesidad: dict[str, Any], colectivo: str) -> ValueError:
+    idioma = _idioma(necesidad)
+    return ValueError(plantillas.ERRORES[idioma]["no_caben"].format(
+        segundos=necesidad.get("duracion_max_seg"), total=reglas.TOTAL_MIN,
+        colectivo=nombre("colectivo", colectivo, idioma)))
+
+
 def comprobar_duracion(necesidad: dict[str, Any]) -> None:
-    """Lanza ValueError si la duración no llega al mínimo de reglas.py para sus sectores."""
+    """Lanza ValueError, en el idioma de la necesidad, si la duración no llega al mínimo."""
     n = len(colectivos_de(necesidad))
     duracion = int(necesidad.get("duracion_max_seg", 120))
     if duracion < reglas.duracion_minima(n):
-        raise ValueError(f"La duración máxima debe ser de al menos {reglas.duracion_minima(n)} s "
-                         f"con {n} {'sector' if n == 1 else 'sectores'}")
+        textos = plantillas.ERRORES[_idioma(necesidad)]
+        raise ValueError(textos["duracion"].format(minimo=reglas.duracion_minima(n), n=n,
+                                                   sectores=textos["sector" if n == 1 else "sectores"]))
 
 
 def validar_encuesta(encuesta: dict[str, Any], necesidad: dict[str, Any]) -> dict[str, Any]:
@@ -333,6 +264,7 @@ def validar_encuesta(encuesta: dict[str, Any], necesidad: dict[str, Any]) -> dic
     else:
         resultado = _validar_sectores(encuesta, necesidad, colectivos)
     resultado["origen"] = encuesta.get("origen", "respaldo")
+    resultado["idioma_original"] = _idioma(necesidad)
     return resultado
 
 
@@ -341,7 +273,8 @@ def _validar_un_colectivo(encuesta: dict[str, Any], necesidad: dict[str, Any],
     objetivo = necesidad.get("objetivo", "clima laboral")
     limite = _limite_tiempo(colectivo, int(necesidad.get("duracion_max_seg", 120)))
     terminos = _construir_terminos_prohibidos(necesidad.get("temas_prohibidos", []))
-    respaldo = _plantilla_respaldo_colectivo(colectivo, objetivo, necesidad.get("contexto", ""))
+    respaldo = _plantilla_respaldo_colectivo(colectivo, objetivo, necesidad.get("contexto", ""),
+                                             _idioma(necesidad))
     titulo, intro = _textos_generales(encuesta, respaldo, terminos)
     de_respaldo = [_limpiar_pregunta(p, set()) for p in respaldo["preguntas"]]
     escala = next(p for p in de_respaldo if p["tipo"] == "escala_1_5")
@@ -367,8 +300,7 @@ def _validar_un_colectivo(encuesta: dict[str, Any], necesidad: dict[str, Any],
                     else _orden_recorte(preguntas)[0]
                 preguntas.pop(indice)
     if len(preguntas) < reglas.TOTAL_MIN or _tiempo(preguntas) > limite:
-        raise ValueError(f"Con {necesidad.get('duracion_max_seg')} s no caben {reglas.TOTAL_MIN} "
-                         f"preguntas para {colectivo}: aumenta la duración máxima")
+        raise _error_no_caben(necesidad, colectivo)
 
     preguntas = _numerar(preguntas, "p")
     tiempo = _tiempo(preguntas)
@@ -383,18 +315,19 @@ def _validar_un_colectivo(encuesta: dict[str, Any], necesidad: dict[str, Any],
 
 
 def _respaldo_sectores(necesidad: dict[str, Any], colectivos: list[str]) -> dict[str, Any]:
+    idioma = _idioma(necesidad)
     base = _plantilla_respaldo_colectivo(colectivos[0], necesidad.get("objetivo", ""),
-                                         necesidad.get("contexto", ""))
+                                         necesidad.get("contexto", ""), idioma)
     primera = next(p for p in base["preguntas"] if p["tipo"] == "escala_1_5")
     return {
         "titulo": base["titulo"],
         "intro": base["intro"],
         "preguntas": [dict(primera),
-                      {"texto": "¿Qué cambiarías?", "tipo": "texto", "opciones": [],
+                      {"texto": plantillas.QUE_CAMBIARIAS[idioma], "tipo": "texto", "opciones": [],
                        "dimension": "condiciones", "condicion": None}],
         "preguntas_por_colectivo": {
             c: [{"texto": t, "tipo": tipo, "opciones": [], "dimension": d, "condicion": None}
-                for t, tipo, d in PREGUNTAS_SECTOR[c]]
+                for t, tipo, d in plantillas.PREGUNTAS_SECTOR[idioma][c]]
             for c in colectivos
         },
     }
@@ -452,8 +385,7 @@ def _validar_sectores(encuesta: dict[str, Any], necesidad: dict[str, Any],
         orden = _orden_recorte(nucleo)
         if not orden:
             sector = next(c for c in colectivos if not cuantas[c])
-            raise ValueError(f"Con {duracion} s no caben {reglas.TOTAL_MIN} preguntas para {sector}: "
-                             "aumenta la duración máxima")
+            raise _error_no_caben(necesidad, sector)
         nucleo.pop(orden[0])
 
     por_colectivo = {c: _numerar(candidatas[c][:cuantas[c]], f"{c}_p") for c in colectivos}
@@ -484,15 +416,24 @@ def _texto_necesidad(necesidad: dict[str, Any], colectivos: list[str]) -> str:
     )
 
 
-def generar_encuesta(necesidad: dict[str, Any], reglas: str = "") -> dict[str, Any]:
-    """Genera una encuesta en borrador para uno o varios colectivos.
+def _instruccion_idioma(idioma: str) -> str:
+    return (f"\n\nEscribe el título, la introducción, las preguntas y las opciones en "
+            f"{NOMBRE_IDIOMA[idioma]}.")
 
-    Una sola llamada al modelo (20 s con un colectivo, 30 s con varios); si no hay modelo o
-    falla, plantillas de respaldo. Devuelve siempre origen, colectivos y colectivo. Lanza
-    ValueError si la duración no permite una encuesta válida (la ruta responde 422).
+
+def generar_encuesta(necesidad: dict[str, Any], reglas: str = "",
+                     idioma: str | None = None) -> dict[str, Any]:
+    """Genera una encuesta en borrador para uno o varios colectivos, escrita en `idioma`.
+
+    `idioma` (es, ca o en) es el idioma original de la encuesta; si no se pasa, el de
+    necesidad["idioma"] y, si tampoco está, es. Una sola llamada al modelo (20 s con un colectivo,
+    30 s con varios); si no hay modelo o falla, plantillas de respaldo en ese idioma. Devuelve
+    siempre origen, idioma_original, colectivos y colectivo. Lanza ValueError (en ese idioma) si la
+    duración no permite una encuesta válida (la ruta responde 422).
     """
     colectivos = colectivos_de(necesidad)
-    necesidad = {**necesidad, "colectivos": colectivos}
+    idioma = idioma_valido(idioma or necesidad.get("idioma"))
+    necesidad = {**necesidad, "colectivos": colectivos, "idioma": idioma}
     comprobar_duracion(necesidad)  # Antes de llamar al modelo: un error claro y sin esperas
     candidata: dict[str, Any] | None = None
 
@@ -506,7 +447,8 @@ def generar_encuesta(necesidad: dict[str, Any], reglas: str = "") -> dict[str, A
                            + f"- Tiempo máximo del colectivo: {TIEMPO_MAX_COLECTIVO[c]} s\n\n"
                            + f"Reglas específicas para el colectivo '{c}':\n{reglas_c}\n\n"
                            + "Genera el JSON de la encuesta cumpliendo todas las indicaciones.")
-                respuesta = llamar_llm_json(_cargar_prompt_sistema(), usuario, TIMEOUT_GENERAR_SEG)
+                respuesta = llamar_llm_json(_cargar_prompt_sistema() + _instruccion_idioma(idioma),
+                                            usuario, TIMEOUT_GENERAR_SEG)
             else:
                 bloques = [f"### {c} (tiempo máximo {TIEMPO_MAX_COLECTIVO[c]} s)\n"
                            f"{_extraer_reglas_colectivo(reglas, c) or REGLAS_POR_DEFECTO[c]}"
@@ -517,18 +459,19 @@ def generar_encuesta(necesidad: dict[str, Any], reglas: str = "") -> dict[str, A
                            + "\nReglas de cada colectivo:\n\n" + "\n\n".join(bloques)
                            + "\n\nGenera el JSON con el núcleo común y las preguntas de cada "
                              f"colectivo ({', '.join(colectivos)}).")
-                respuesta = llamar_llm_json(_leer_prompt("generar_sectores.md"), usuario,
+                respuesta = llamar_llm_json(_leer_prompt("generar_sectores.md")
+                                            + _instruccion_idioma(idioma), usuario,
                                             TIMEOUT_GENERAR_SECTORES_SEG)
             if isinstance(respuesta, dict) and respuesta.get("preguntas"):
                 candidata = {**respuesta, "origen": "ia"}
-                log.info("Encuesta generada por el modelo en %.1f s", time.monotonic() - inicio)
+                log.info("Encuesta generada por el modelo en %.1f s (%s)", time.monotonic() - inicio, idioma)
         except Exception as error:
             log.warning("Encuesta generada con la plantilla de respaldo: %s", error)
 
     if candidata is None:
         if len(colectivos) == 1:
             candidata = _plantilla_respaldo_colectivo(
-                colectivos[0], necesidad.get("objetivo", ""), necesidad.get("contexto", ""))
+                colectivos[0], necesidad.get("objetivo", ""), necesidad.get("contexto", ""), idioma)
         else:
             candidata = _respaldo_sectores(necesidad, colectivos)
         candidata["origen"] = "respaldo"

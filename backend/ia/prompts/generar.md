@@ -19,7 +19,7 @@ Formato exacto de respuesta:
 
 Reglas estrictas que debes cumplir:
 1. Número de preguntas: entre 3 y 6 preguntas en total (según las reglas del colectivo).
-2. Preguntas cortas, directas y redactadas en castellano cercano y claro (pensadas para responderse desde el móvil).
+2. Preguntas cortas, directas, cercanas y claras (pensadas para responderse desde el móvil), en el idioma que se indica al final.
 3. Lenguaje neutro y no sugestivo: no presupongas que la situación es mala o buena.
 4. Tipos de pregunta permitidos:
    - "escala_1_5": escalas de valoración numérica (1 a 5). "opciones" debe ser [].
@@ -33,7 +33,7 @@ Reglas estrictas que debes cumplir:
    - "cultura"
    - "entorno"
    - "condiciones"
-6. Temas prohibidos: bajo NINGÚN concepto incluyas preguntas sobre los temas prohibidos indicados por RRHH (especialmente salario, sueldo, nómina, dinero o remuneración).
+6. Temas prohibidos: bajo NINGÚN concepto incluyas preguntas sobre los temas prohibidos indicados por RRHH (especialmente salario, sueldo, nómina, dinero o remuneración, en cualquier idioma).
 7. Privacidad: no preguntes ningún dato identificativo personal (nombre, correo, teléfono, puesto exacto, edad, etc.).
 8. Respeta siempre las reglas y límites específicos del colectivo recibidos en la solicitud.
 

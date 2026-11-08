@@ -12,17 +12,46 @@
       "en": "Scenario A of the guide: a team has changed the way it works and HR wants to know, in under 2 minutes, whether the change is understood, what difficulties it causes and what needs reinforcing."
     },
     "que_mirar": {
-      "es": ["La IA propone preguntas cortas y con tono cercano", "RRHH edita una pregunta y aprueba", "Se publica con QR y en modo quiosco", "Alerta: el turno de noche responde poco"],
-      "ca": ["La IA proposa preguntes curtes i amb to proper", "RRHH edita una pregunta i aprova", "Es publica amb QR i en mode quiosc", "Alerta: el torn de nit respon poc"],
-      "en": ["The AI suggests short, friendly questions", "HR edits one question and approves", "It is published with a QR code and in kiosk mode", "Alert: the night shift responds little"]
+      "es": [
+        "La IA propone preguntas cortas y con tono cercano",
+        "RRHH edita una pregunta y aprueba",
+        "Se publica con QR y en modo quiosco",
+        "Alerta: el turno de noche responde poco"
+      ],
+      "ca": [
+        "La IA proposa preguntes curtes i amb to proper",
+        "RRHH edita una pregunta i aprova",
+        "Es publica amb QR i en mode quiosc",
+        "Alerta: el torn de nit respon poc"
+      ],
+      "en": [
+        "The AI suggests short, friendly questions",
+        "HR edits one question and approves",
+        "It is published with a QR code and in kiosk mode",
+        "Alert: the night shift responds little"
+      ]
     },
     "necesidad": {
-      "objetivo": "Entender cómo está afectando el nuevo sistema de turnos en planta: si se ha entendido, qué dificultades genera y qué hay que reforzar",
+      "objetivo": {
+        "es": "Entender cómo está afectando el nuevo sistema de turnos en planta: si se ha entendido, qué dificultades genera y qué hay que reforzar",
+        "ca": "Entendre com està afectant el nou sistema de torns a planta: si s'ha entès, quines dificultats genera i què cal reforçar",
+        "en": "Understand how the new shift system is affecting the production plant: whether it is understood, what difficulties it causes and what needs reinforcing"
+      },
       "colectivo": "planta",
-      "colectivos": ["planta"],
-      "contexto": "Desde octubre la fábrica funciona con un nuevo sistema de turnos rotativos: cambia el cuadrante, los horarios de relevo y la hora de la pausa",
+      "colectivos": [
+        "planta"
+      ],
+      "contexto": {
+        "es": "Desde octubre la fábrica funciona con un nuevo sistema de turnos rotativos: cambia el cuadrante, los horarios de relevo y la hora de la pausa",
+        "ca": "Des d'octubre la fàbrica funciona amb un nou sistema de torns rotatius: canvien el quadrant, els horaris de relleu i l'hora de la pausa",
+        "en": "Since October the factory has been running a new rotating shift system: the rota, the handover times and the break time have changed"
+      },
       "duracion_max_seg": 120,
-      "temas_prohibidos": ["salario", "evaluacion_individual", "salud_personal"]
+      "temas_prohibidos": [
+        "salario",
+        "evaluacion_individual",
+        "salud_personal"
+      ]
     }
   },
   {
@@ -38,17 +67,43 @@
       "en": "Scenario B of the guide: people with little time, no computer and limited access to email. A very short mobile survey via QR code, with a representativeness check."
     },
     "que_mirar": {
-      "es": ["Encuesta de 3 o 4 preguntas en menos de un minuto", "Respuesta desde el móvil y en modo quiosco", "Alerta si la participación no es representativa"],
-      "ca": ["Enquesta de 3 o 4 preguntes en menys d'un minut", "Resposta des del mòbil i en mode quiosc", "Alerta si la participació no és representativa"],
-      "en": ["A 3 or 4 question survey in under a minute", "Answered from a phone and in kiosk mode", "Alert if participation is not representative"]
+      "es": [
+        "Encuesta de 3 o 4 preguntas en menos de un minuto",
+        "Respuesta desde el móvil y en modo quiosco",
+        "Alerta si la participación no es representativa"
+      ],
+      "ca": [
+        "Enquesta de 3 o 4 preguntes en menys d'un minut",
+        "Resposta des del mòbil i en mode quiosc",
+        "Alerta si la participació no és representativa"
+      ],
+      "en": [
+        "A 3 or 4 question survey in under a minute",
+        "Answered from a phone and in kiosk mode",
+        "Alert if participation is not representative"
+      ]
     },
     "necesidad": {
-      "objetivo": "Saber cómo se vive el día a día en el almacén: si la información y el cuadrante de rutas llegan a tiempo y qué dificulta más el trabajo",
+      "objetivo": {
+        "es": "Saber cómo se vive el día a día en el almacén: si la información y el cuadrante de rutas llegan a tiempo y qué dificulta más el trabajo",
+        "ca": "Saber com es viu el dia a dia al magatzem: si la informació i el quadrant de rutes arriben a temps i què dificulta més la feina",
+        "en": "Find out what day-to-day life is like in the warehouse: whether information and the route rota arrive on time and what makes the work hardest"
+      },
       "colectivo": "logistica",
-      "colectivos": ["logistica"],
-      "contexto": "Personal de almacén y distribución, siempre en movimiento y sin ordenador ni correo corporativo. Se responde por QR en muelles, fichaje y sala de descanso, o en el quiosco. Es el colectivo que menos participa",
+      "colectivos": [
+        "logistica"
+      ],
+      "contexto": {
+        "es": "Personal de almacén y distribución, siempre en movimiento y sin ordenador ni correo corporativo. Se responde por QR en muelles, fichaje y sala de descanso, o en el quiosco. Es el colectivo que menos participa",
+        "ca": "Personal de magatzem i distribució, sempre en moviment i sense ordinador ni correu corporatiu. Es respon per QR als molls, al fitxatge i a la sala de descans, o al quiosc. És el col·lectiu que menys participa",
+        "en": "Warehouse and distribution staff, always on the move and without a computer or corporate email. They answer via QR code at the loading docks, the time clock and the break room, or at the kiosk. It is the group with the lowest participation"
+      },
       "duracion_max_seg": 60,
-      "temas_prohibidos": ["salario", "evaluacion_individual", "salud_personal"]
+      "temas_prohibidos": [
+        "salario",
+        "evaluacion_individual",
+        "salud_personal"
+      ]
     }
   },
   {
@@ -64,17 +119,43 @@
       "en": "Scenario C of the guide: around 500 open comments from two periods. They are grouped into topics, summarised, emerging topics are detected against the previous period and areas for action are proposed, explaining the limits of the analysis."
     },
     "que_mirar": {
-      "es": ["Temas con su tendencia: nuevos y en aumento", "Resumen de cada tema escrito por la IA", "Límites del análisis y grupos ocultos por tener menos de 5 respuestas"],
-      "ca": ["Temes amb la seva tendència: nous i en augment", "Resum de cada tema escrit per la IA", "Límits de l'anàlisi i grups ocults per tenir menys de 5 respostes"],
-      "en": ["Topics with their trend: new and rising", "AI-written summary of each topic", "Limits of the analysis and groups hidden for having fewer than 5 answers"]
+      "es": [
+        "Temas con su tendencia: nuevos y en aumento",
+        "Resumen de cada tema escrito por la IA",
+        "Límites del análisis y grupos ocultos por tener menos de 5 respuestas"
+      ],
+      "ca": [
+        "Temes amb la seva tendència: nous i en augment",
+        "Resum de cada tema escrit per la IA",
+        "Límits de l'anàlisi i grups ocults per tenir menys de 5 respostes"
+      ],
+      "en": [
+        "Topics with their trend: new and rising",
+        "AI-written summary of each topic",
+        "Limits of the analysis and groups hidden for having fewer than 5 answers"
+      ]
     },
     "necesidad": {
-      "objetivo": "Recoger comentarios abiertos sobre el día a día en fábrica para detectar qué temas preocupan más y cuáles han aparecido o crecido respecto al periodo anterior",
+      "objetivo": {
+        "es": "Recoger comentarios abiertos sobre el día a día en fábrica para detectar qué temas preocupan más y cuáles han aparecido o crecido respecto al periodo anterior",
+        "ca": "Recollir comentaris oberts sobre el dia a dia a la fàbrica per detectar quins temes preocupen més i quins han aparegut o han crescut respecte al període anterior",
+        "en": "Collect open comments about day-to-day life in the factory to detect which topics are of most concern and which have appeared or grown compared with the previous period"
+      },
       "colectivo": "planta",
-      "colectivos": ["planta"],
-      "contexto": "Pulso de clima con una pregunta abierta. Se comparará con los comentarios del periodo anterior (octubre) sobre bienestar, liderazgo, comunicación, herramientas, organización y desarrollo",
+      "colectivos": [
+        "planta"
+      ],
+      "contexto": {
+        "es": "Pulso de clima con una pregunta abierta. Se comparará con los comentarios del periodo anterior (octubre) sobre bienestar, liderazgo, comunicación, herramientas, organización y desarrollo",
+        "ca": "Pols de clima amb una pregunta oberta. Es compararà amb els comentaris del període anterior (octubre) sobre benestar, lideratge, comunicació, eines, organització i desenvolupament",
+        "en": "Climate pulse with one open question. It will be compared with the comments from the previous period (October) on wellbeing, leadership, communication, tools, organisation and development"
+      },
       "duracion_max_seg": 90,
-      "temas_prohibidos": ["salario", "evaluacion_individual", "salud_personal"]
+      "temas_prohibidos": [
+        "salario",
+        "evaluacion_individual",
+        "salud_personal"
+      ]
     }
   },
   {
@@ -90,16 +171,44 @@
       "en": "A single survey for the production plant, logistics and sales: a common core of questions to compare the three sectors and questions specific to each one, about the shift change and its effect on coordination between areas."
     },
     "que_mirar": {
-      "es": ["Preguntas comunes para comparar y preguntas propias de cada sector", "Quien responde elige dónde trabaja, o el QR del sector ya lo indica", "Mapa de calor que compara los tres sectores con la misma pregunta"],
-      "ca": ["Preguntes comunes per comparar i preguntes pròpies de cada sector", "Qui respon tria on treballa, o el QR del sector ja ho indica", "Mapa de calor que compara els tres sectors amb la mateixa pregunta"],
-      "en": ["Common questions to compare and questions specific to each sector", "Respondents choose where they work, or the sector's QR code already says so", "Heat map comparing the three sectors on the same question"]
+      "es": [
+        "Preguntas comunes para comparar y preguntas propias de cada sector",
+        "Quien responde elige dónde trabaja, o el QR del sector ya lo indica",
+        "Mapa de calor que compara los tres sectores con la misma pregunta"
+      ],
+      "ca": [
+        "Preguntes comunes per comparar i preguntes pròpies de cada sector",
+        "Qui respon tria on treballa, o el QR del sector ja ho indica",
+        "Mapa de calor que compara els tres sectors amb la mateixa pregunta"
+      ],
+      "en": [
+        "Common questions to compare and questions specific to each sector",
+        "Respondents choose where they work, or the sector's QR code already says so",
+        "Heat map comparing the three sectors on the same question"
+      ]
     },
     "necesidad": {
-      "objetivo": "Entender cómo está afectando el nuevo sistema de turnos a cada área y a la coordinación entre planta, logística y comercial",
-      "colectivos": ["planta", "logistica", "comercial"],
-      "contexto": "Desde octubre planta trabaja con un nuevo sistema de turnos rotativos. Logística ha tenido que adaptar las cargas y las rutas a los nuevos horarios, y comercial depende de esos plazos para comprometer entregas con los clientes",
+      "objetivo": {
+        "es": "Entender cómo está afectando el nuevo sistema de turnos a cada área y a la coordinación entre planta, logística y comercial",
+        "ca": "Entendre com està afectant el nou sistema de torns a cada àrea i a la coordinació entre planta, logística i comercial",
+        "en": "Understand how the new shift system is affecting each area and the coordination between the production plant, logistics and sales"
+      },
+      "colectivos": [
+        "planta",
+        "logistica",
+        "comercial"
+      ],
+      "contexto": {
+        "es": "Desde octubre planta trabaja con un nuevo sistema de turnos rotativos. Logística ha tenido que adaptar las cargas y las rutas a los nuevos horarios, y comercial depende de esos plazos para comprometer entregas con los clientes",
+        "ca": "Des d'octubre planta treballa amb un nou sistema de torns rotatius. Logística ha hagut d'adaptar les càrregues i les rutes als nous horaris, i comercial depèn d'aquests terminis per comprometre lliuraments amb els clients",
+        "en": "Since October the production plant has been working with a new rotating shift system. Logistics has had to adapt loads and routes to the new schedules, and sales depends on those deadlines to commit to deliveries with customers"
+      },
       "duracion_max_seg": 120,
-      "temas_prohibidos": ["salario", "evaluacion_individual", "salud_personal"]
+      "temas_prohibidos": [
+        "salario",
+        "evaluacion_individual",
+        "salud_personal"
+      ]
     }
   }
 ]

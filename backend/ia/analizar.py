@@ -6,7 +6,6 @@ además en segundo plano y, en cuanto hay resultado, sustituye al de las palabra
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 import threading
@@ -38,42 +37,74 @@ _FALLIDOS: dict[str, float] = {}    # Texto -> momento del fallo, para no reinte
 _BLOQUEO = threading.Lock()
 REINTENTO_FALLIDOS_SEG = 120
 
-# Raíces sin tildes, en castellano y catalán
-
+# Raíces sin tildes, en castellano y catalán. Las que empiezan por \\b son expresiones regulares.
 PALABRAS_CLAVE: dict[str, list[str]] = {
     "descansos": ["descans", "pausa", "desconect", "desconnect", "recuper", "agotad",
-                  "seure", "bano tranquil", "comer", "parar", "tomar algo", "10 min"],
+                  "seure", "bano tranquil", "comer", "parar", "tomar algo", "10 min", "esgotat"],
     "turnos": ["turno", "\\btorn", "rotaci", "rotatiu", "cuadrante", "quadrant", "horarios cambian",
                "horari canvia", "calendario", "de noche", "\\bnit\\b"],
     "carga_trabajo": ["carga", "carrega", "abasto", "falta personal", "falta de gente", "menos gente",
                       "menys gent", "mas personal", "mas gente", "ritmo", "tareas", "volumen",
                       "picos", "limite", "desbordat", "mans", "refuerzo", "demasiado trabajo",
-                      "mas faena", "capacidad", "no crece", "produccion sube"],
+                      "mas faena", "capacidad", "no crece", "produccion sube", "ritme", "\\bsom pocs",
+                      "no arribem", "massa feina", "poca gent"],
     "comunicacion": ["comunic", "informa", "avisa", "avisen", "avisar", "enteramos", "entere",
                      "rumor", "explicacion", "explicarme", "canal oficial", "wasa", "whatsapp",
                      "ens van dir", "no ens van", "nos dijo", "nadie nos", "oficial", "dijeron",
-                     "de un dia para otro", "de un dia pa otro", "sin preguntar", "comunicat"],
-    "liderazgo": ["jefe", "\\bcaps\\b", "mando", "responsable", "encargad", "lideraz", "lideratge",
-                  "superior", "feedback", "decisiones", "escucha", "cercania"],
-    "herramientas": ["herramient", "eines", "eina", "maquin", "software", "sistema se", "tablet",
+                     "de un dia para otro", "de un dia pa otro", "sin preguntar", "comunicat",
+                     "assabent"],
+    "liderazgo": ["jefe", "\\bcaps\\b", "mando", "responsable", "encargad", "encarreg", "lideraz",
+                  "lideratge", "superior", "feedback", "decisiones", "escucha", "escolta", "cercania"],
+    "herramientas": ["herramient", "\\beines\\b", "\\beina\\b", "maquin", "software", "sistema se", "tablet",
                      "wifi", "portatil", "plataforma", "ordenador", "carretilla", "material",
-                     "tecnolog", "bugs", "\\bapp\\b", "aplicacion", "actualitzar", "softw", "lentisim"],
-    "formacion": ["formaci", "curso", "aprend", "carrera", "crecer", "creixer", "mentori",
+                     "tecnolog", "bugs", "\\bapp\\b", "aplicacion", "actualitzar", "softw", "lentisim",
+                     "programa nou", "s'espatlla"],
+    "formacion": ["formaci", "curso", "\\bcurs\\b", "aprend", "carrera", "crecer", "creixer", "mentori",
                   "desenvolupament", "promocion", "oportunidad", "sin explicarnos", "linea nueva"],
-    "reconocimiento": ["reconoc", "reconeix", "valora", "un gracias", "invisible", "celebr",
+    "reconocimiento": ["reconoc", "reconeix", "valora", "un gracias", "\\bgracies", "invisible", "celebr",
                        "esfuerzo", "nadie lo", "logros", "solo te dicen", "algo bien", "da igual lo"],
     "seguridad": ["segur", "peligr", "\\bepi", "senaliz", "extintor", "emergencia", "evacua",
-                  "resbal", "cables", "ilumina", "prevenci", "ergonom", "botiquin", "riesgo",
+                  "resbal", "rellisca", "cables", "ilumina", "prevenci", "ergonom", "botiquin", "riesgo",
                   "simulacro", "visibilidad", "accident", "sortides", "formacion en prevencion"],
     "ambiente": ["ambiente", "ambient", "companer", "companys", "grupito", "tension", "rollo",
                  "rotllo", "mal humor", "se ayuda", "como equipo"],
     "conciliacion": ["concilia", "hijos", "ninos", "nens", "famili", "flexib", "teletrabajo",
                      "vida social", "vida personal", "\\bcole\\b", "escola", "compagin", "familiar",
                      "veo a mis", "recoger a mi", "salir antes", "mi hij"],
-    "otros": ["comedor", "menjador", "parking", "maquina de cafe", "cafe", "calefaccion",
+    "otros": ["comedor", "menjador", "parking", "aparcament", "maquina de cafe", "cafe", "calefaccion",
               "transporte", "uniforme",
-              "vestuario", "nada especial", "res a dir", "todo bien", "frio", "calor"],
+              "vestuario", "nada especial", "res a dir", "todo bien", "tot be", "frio", "calor"],
 }
+
+# Inglés (v5): mismas reglas; las palabras cortas, con límite de palabra para no confundirse
+PALABRAS_CLAVE_EN: dict[str, list[str]] = {
+    "descansos": ["\\brest\\b", "\\bresting", "\\bbreaks?\\b", "tired", "exhaust", "worn out",
+                  "\\blunch", "switch off", "sit down", "recover"],
+    "turnos": ["\\bshifts?\\b", "\\brota\\b", "\\brotas\\b", "schedul", "night shift", "roster"],
+    "carga_trabajo": ["workload", "understaff", "short-staffed", "short staffed", "\\bstaff\\b",
+                      "too much work", "\\bpace\\b", "overload", "overwhelm", "more people",
+                      "so few people", "extra hands", "\\bpeaks?\\b"],
+    "comunicacion": ["\\btold\\b", "\\btell us", "\\binform", "communicat", "\\bnotice\\b",
+                     "\\brumou?rs?\\b", "found out", "find out", "\\bannounce", "nobody explain"],
+    "liderazgo": ["\\bboss", "\\bmanager", "supervisor", "\\blisten", "\\bleader", "team lead",
+                  "management"],
+    "herramientas": ["\\btools?\\b", "machine", "equipment", "forklift", "laptop", "computer",
+                     "\\bscanner", "\\bsystem", "\\bbreaks? down", "crash"],
+    "formacion": ["training", "\\bcourses?\\b", "career", "promotion", "\\blearn", "\\bgrow\\b",
+                  "\\bskills?\\b"],
+    "reconocimiento": ["recogni", "\\bthank", "valued", "appreciat", "unnoticed", "nobody notices",
+                       "\\bcredit\\b", "\\bpraise"],
+    "seguridad": ["safety", "\\bsafe\\b", "danger", "\\bppe\\b", "hazard", "injur", "\\brisks?\\b",
+                  "helmet", "slipp"],
+    "ambiente": ["\\bteam\\b", "colleague", "atmosphere", "coworker", "co-worker", "workmate",
+                 "\\bmood\\b", "each other"],
+    "conciliacion": ["family", "\\bkids?\\b", "children", "work-life", "work life", "from home",
+                     "remote", "childcare", "\\bschool"],
+    "otros": ["canteen", "\\bcoffee", "heating", "\\bcold\\b", "\\bhot\\b", "locker",
+              "nothing special", "all good", "all fine"],
+}
+for _tema, _claves in PALABRAS_CLAVE_EN.items():
+    PALABRAS_CLAVE[_tema] = PALABRAS_CLAVE[_tema] + _claves
 
 _PATRONES = {
     tema: [re.compile(p if p.startswith("\\b") else re.escape(p)) for p in claves]

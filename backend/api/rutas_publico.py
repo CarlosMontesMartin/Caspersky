@@ -46,7 +46,7 @@ def construir_respuesta(encuesta: dict, entrada: dict, *, colectivo: str | None 
     if idioma not in traducciones.IDIOMAS:
         raise HTTPException(422, f"idioma debe ser uno de {traducciones.IDIOMAS}")
     preguntas = preguntas_de(encuesta, colectivo)
-    if isinstance(entrada.get("valores"), dict):  # opción traducida → la original en castellano
+    if isinstance(entrada.get("valores"), dict):  # opción traducida → la del idioma original
         entrada = dict(entrada, valores=traducciones.valores_originales(entrada["valores"], encuesta, preguntas))
     validar_respuesta_entrada(entrada, encuesta, colectivo)
     tipos = {p["id"]: p["tipo"] for p in preguntas}
@@ -93,6 +93,7 @@ def ver_publica(encuesta_id: str, idioma: str = "es"):
             "colectivo": e.get("colectivo", ""), "colectivos": colectivos,
             "tiempo_estimado_seg": e.get("tiempo_estimado_seg", 0),
             "idioma": idioma, "idiomas_disponibles": traducciones.idiomas_disponibles(original),
+            "idioma_original": traducciones.idioma_original(original),
             "transparencia": almacen.leer_transparencia(idioma),
             "preguntas": e["preguntas"], "preguntas_por_colectivo": e.get("preguntas_por_colectivo") or {},
             "turnos": turnos_de(colectivos[0]) if colectivos else ["sin_turno"],
