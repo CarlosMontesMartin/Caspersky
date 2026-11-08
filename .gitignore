@@ -11,3 +11,4 @@ build/
 .DS_Store
 .venv/
 backend/datos/almacen/
+backend/ia/cache/

@@ -1,7 +1,8 @@
 """Llamadas lentas al modelo ejecutadas en segundo plano, con caché por clave.
 
 Permite que el dashboard responda al momento con el texto de respaldo y muestre el de la IA
-en cuanto esté listo, sin repetir llamadas.
+en cuanto esté listo, sin repetir llamadas. Los resúmenes, la lectura con las acciones y las
+preguntas sugeridas se guardan también en disco (cache_disco.py): al reiniciar no se recalculan.
 """
 
 from __future__ import annotations
@@ -10,6 +11,8 @@ import logging
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor, wait
 from typing import Any, Callable, Hashable
+
+from . import cache_disco
 
 log = logging.getLogger(__name__)
 
@@ -24,12 +27,29 @@ _pool_prioritario = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ia-pri
 _bloqueo = threading.Lock()
 _resultados: dict[Hashable, Any] = {}
 _pendientes: dict[Hashable, Future] = {}
+# Tareas cuyo resultado se guarda en disco (su clave ya es estable entre ejecuciones)
+PERSISTENTES = {"resumen", "recomendar", "sugerir"}
+
+
+def _persistente(clave: Hashable) -> bool:
+    return isinstance(clave, tuple) and bool(clave) and clave[0] in PERSISTENTES
+
+
+def _de_disco(clave: Hashable) -> bool:
+    """Si el resultado está en disco, lo pasa a memoria. Llamar con _bloqueo."""
+    if not _persistente(clave):
+        return False
+    valor = cache_disco.leer("tareas", clave)
+    if valor is None:
+        return False
+    _resultados[clave] = valor
+    return True
 
 
 def obtener(clave: Hashable, funcion: Callable[[], Any], prioritario: bool = False) -> Any:
     """Devuelve el resultado si ya está calculado; si no, lo lanza en segundo plano y devuelve None."""
     with _bloqueo:
-        if clave in _resultados:
+        if clave in _resultados or _de_disco(clave):
             return _resultados[clave]
         if clave not in _pendientes:
             cola = _pool_prioritario if prioritario else _pool
@@ -43,7 +63,7 @@ def consultar(clave: Hashable, funcion: Callable[[], Any], prioritario: bool = F
     Un resultado None con estado listo significa que la tarea falló o no dio nada válido.
     """
     with _bloqueo:
-        if clave in _resultados:
+        if clave in _resultados or _de_disco(clave):
             return "listo", _resultados[clave]
     obtener(clave, funcion, prioritario)
     with _bloqueo:
@@ -60,6 +80,8 @@ def _ejecutar(clave: Hashable, funcion: Callable[[], Any]) -> None:
         # Un fallo también se guarda (como None) para no repetir la llamada en cada recarga
         _resultados[clave] = valor
         _pendientes.pop(clave, None)
+    if valor is not None and _persistente(clave):
+        cache_disco.guardar("tareas", clave, valor)
 
 
 def pendientes() -> int:

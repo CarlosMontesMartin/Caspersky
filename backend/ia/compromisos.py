@@ -16,6 +16,7 @@ from typing import Any
 from .analizar import _copia_literal
 from .llm import hay_llm, llamar_llm_json
 from .recomendar import datos_agregados
+from . import cache_disco
 from . import textos_respaldo as textos
 
 log = logging.getLogger(__name__)
@@ -102,6 +103,8 @@ def redactar_compromiso(tema: str | dict[str, Any], analisis: dict[str, Any], ac
 
     datos = _datos_modelo(fila, analisis, accion, colectivos, grupo, idioma)
     clave = (idioma, json.dumps(datos, ensure_ascii=False, sort_keys=True))
+    if clave not in _CACHE and cache_disco.leer("compromiso", clave):
+        _CACHE[clave] = cache_disco.leer("compromiso", clave)
     if clave in _CACHE:
         return {**_CACHE[clave], "origen": "ia"}
     prompt = ((_PROMPTS / "compromiso.md").read_text(encoding="utf-8")
@@ -116,4 +119,5 @@ def redactar_compromiso(tema: str | dict[str, Any], analisis: dict[str, Any], ac
         log.warning("Compromiso por plantilla: el texto del modelo no pasa la validación")
         return respaldo
     _CACHE[clave] = resultado
+    cache_disco.guardar("compromiso", clave, resultado)
     return {**resultado, "origen": "ia"}

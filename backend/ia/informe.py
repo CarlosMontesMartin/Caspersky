@@ -18,6 +18,7 @@ from . import segundo_plano
 from .analizar import clasificacion_en_curso
 from .llm import hay_llm, llamar_llm_json
 from .recomendar import datos_agregados
+from . import cache_disco
 from . import textos_respaldo as textos
 
 log = logging.getLogger(__name__)
@@ -189,6 +190,10 @@ def preguntar(pregunta: str, analisis: dict[str, Any],
     clave = (idioma, _normalizar(pregunta), json.dumps(datos, ensure_ascii=False, sort_keys=True))
     if clave in _CACHE:
         return _CACHE[clave]
+    guardada = cache_disco.leer("preguntar", clave)
+    if guardada:
+        _CACHE[clave] = guardada
+        return guardada
 
     try:
         usuario = (f"Pregunta de RRHH: {pregunta}\n\nDatos agregados (JSON):\n"
@@ -209,6 +214,8 @@ def preguntar(pregunta: str, analisis: dict[str, Any],
         log.warning("Pregunta a tus datos sin modelo: %s", error)
         return _respuesta_reglas(analisis, recomendaciones, idioma)
     _CACHE[clave] = resultado
+    if resultado.get("origen") == "ia":
+        cache_disco.guardar("preguntar", clave, resultado)
     return resultado
 
 

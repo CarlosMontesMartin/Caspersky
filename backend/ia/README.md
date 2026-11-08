@@ -7,6 +7,7 @@
 - `recomendar.py`: lectura ejecutiva, acciones con responsable, plazo e indicador, y encuesta de seguimiento.
 - `informe.py`: Pregunta a tus datos (castellano, catalán e inglés) y preguntas sugeridas, solo con datos agregados.
 - `traducir.py`: traducción de encuestas al catalán y al inglés, con los mismos ids y opciones.
+- `cache_disco.py`: guarda en `backend/ia/cache/` (fuera de git) lo que la IA ya ha calculado (tema de cada comentario, resúmenes, lectura y acciones, sugerencias, "Pregunta a tus datos" y compromisos) para no repetirlo al reiniciar. Claves con huella sha256: no hay comentarios en el archivo. Caduca a los 30 días. `IA_CACHE=0` la desactiva; borrar la carpeta la vacía.
 - `compromisos.py`: borrador "Dijisteis → Hemos hecho" de un compromiso (v6): `redactar_compromiso(tema, analisis, accion, colectivos, idioma)`. El modelo solo ve cifras agregadas; RRHH firma.
 - `plantillas_respaldo.py`: encuestas de respaldo (sin modelo) en castellano, catalán e inglés y temas prohibidos en cualquier idioma.
 - `textos_respaldo.py`: textos de respaldo (sin modelo) en castellano, catalán e inglés; nombres de sectores, turnos y temas.
