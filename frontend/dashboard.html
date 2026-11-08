@@ -26,7 +26,7 @@
         <!-- Cabecera -->
         <div class="cabecera-pagina">
           <div>
-            <h1 id="titulo">Análisis</h1>
+            <h1 id="titulo" data-i18n="dash.titulo">Análisis</h1>
             <div class="meta">
               <span id="badges-sectores" class="meta"></span>
               <span class="badge" id="badge-estado"></span>
@@ -34,31 +34,33 @@
             </div>
           </div>
           <div class="acciones">
-            <button type="button" class="btn btn-secundario" id="btn-actualizar">Actualizar</button>
-            <a class="btn btn-secundario oculto" id="btn-informe">Informe ejecutivo</a>
-            <button type="button" class="btn btn-secundario" id="btn-formulario">Formulario (QR)</button>
-            <button type="button" class="btn btn-secundario oculto" id="btn-simular">Simular respuestas</button>
+            <button type="button" class="btn btn-secundario" id="btn-actualizar" data-i18n="dash.actualizar">Actualizar</button>
+            <a class="btn btn-secundario oculto" id="btn-informe" data-i18n="dash.informe">Informe ejecutivo</a>
+            <button type="button" class="btn btn-secundario" id="btn-formulario" data-i18n="dash.formulario">Formulario (QR)</button>
+            <button type="button" class="btn btn-secundario" id="btn-teams" data-i18n="dash.teams">Enviar resumen a Teams</button>
+            <button type="button" class="btn btn-secundario oculto" id="btn-simular" data-i18n="dash.simular">Simular respuestas</button>
           </div>
         </div>
+        <p class="nota" id="texto-teams" aria-live="polite" style="margin: calc(-1 * var(--e3)) 0 var(--e4); text-align: right;"></p>
 
         <div id="aviso" class="aviso error oculto" role="alert"></div>
 
         <nav class="pestanas" role="tablist" aria-label="Vistas">
-          <button type="button" class="pestana activa" role="tab" aria-selected="true" data-pestana="resumen">Resumen</button>
-          <button type="button" class="pestana" role="tab" aria-selected="false" data-pestana="graficos">Gráficos</button>
-          <button type="button" class="pestana" role="tab" aria-selected="false" data-pestana="maqueta">Maqueta 3D</button>
+          <button type="button" class="pestana activa" role="tab" aria-selected="true" data-pestana="resumen" data-i18n="dash.resumen">Resumen</button>
+          <button type="button" class="pestana" role="tab" aria-selected="false" data-pestana="graficos" data-i18n="dash.graficos">Gráficos</button>
+          <button type="button" class="pestana" role="tab" aria-selected="false" data-pestana="maqueta" data-i18n="dash.maqueta">Maqueta 3D</button>
         </nav>
 
         <!-- ===================== RESUMEN ===================== -->
         <div id="vista-resumen">
-          <div id="cargando" class="cargando">Cargando…</div>
+          <div id="cargando" class="cargando" data-i18n="comun.cargando">Cargando…</div>
 
           <div id="resumen" class="oculto">
 
             <!-- 1. Lectura ejecutiva -->
             <section class="tarjeta seccion lectura oculto" id="bloque-lectura">
               <div class="tarjeta-cabecera" style="margin-bottom: var(--e2);">
-                <h3>Lectura ejecutiva <span class="badge" id="badge-origen-lectura"></span></h3>
+                <h3><span data-i18n="dash.lectura">Lectura ejecutiva</span> <span class="badge" id="badge-origen-lectura"></span></h3>
                 <div class="estado-ia" id="estado-ia"></div>
               </div>
               <p id="texto-lectura"></p>
@@ -67,22 +69,22 @@
             <!-- 2. KPIs -->
             <div class="kpis">
               <div class="tarjeta kpi">
-                <div class="kpi-etiqueta">Respuestas</div>
+                <div class="kpi-etiqueta" data-i18n="dash.kpi_respuestas">Respuestas</div>
                 <div class="kpi-valor" id="kpi-respuestas">—</div>
                 <div class="kpi-nota" id="kpi-respuestas-nota"></div>
               </div>
               <div class="tarjeta kpi">
-                <div class="kpi-etiqueta">Participación global</div>
+                <div class="kpi-etiqueta" data-i18n="dash.kpi_participacion">Participación global</div>
                 <div class="kpi-valor" id="kpi-participacion">—</div>
                 <div class="kpi-nota" id="kpi-participacion-nota"></div>
               </div>
               <div class="tarjeta kpi">
-                <div class="kpi-etiqueta">Segmentos no representativos</div>
+                <div class="kpi-etiqueta" data-i18n="dash.kpi_segmentos">Segmentos no representativos</div>
                 <div class="kpi-valor" id="kpi-segmentos">—</div>
                 <div class="kpi-nota" id="kpi-segmentos-nota"></div>
               </div>
               <div class="tarjeta kpi">
-                <div class="kpi-etiqueta">Valoración media</div>
+                <div class="kpi-etiqueta" data-i18n="dash.kpi_valoracion">Valoración media</div>
                 <div class="kpi-valor" id="kpi-valoracion">—</div>
                 <div class="kpi-nota" id="kpi-valoracion-nota"></div>
               </div>
@@ -100,37 +102,34 @@
             <!-- 4. Pregunta a tus datos -->
             <section class="tarjeta seccion" id="seccion-preguntar">
               <div class="tarjeta-cabecera" style="margin-bottom: var(--e2);">
-                <h3>Pregunta a tus datos</h3>
-                <span class="nota">Solo usa datos agregados. No identifica a nadie.</span>
+                <h3 data-i18n="dash.preguntar">Pregunta a tus datos</h3>
+                <span class="nota" data-i18n="dash.preguntar_nota">Solo usa datos agregados. No identifica a nadie.</span>
               </div>
               <form id="form-preguntar" class="preguntar">
-                <label class="sr-only" for="input-pregunta">Tu pregunta</label>
+                <label class="sr-only" for="input-pregunta" data-i18n="dash.tu_pregunta">Tu pregunta</label>
                 <input type="text" id="input-pregunta" class="entrada" maxlength="300"
-                       placeholder="Escribe una pregunta sobre estos resultados">
-                <button type="submit" class="btn btn-secundario" id="btn-preguntar">Preguntar</button>
+                       data-i18n-placeholder="dash.preguntar_placeholder" placeholder="Escribe una pregunta sobre estos resultados">
+                <button type="submit" class="btn btn-secundario" id="btn-preguntar" data-i18n="dash.preguntar_boton">Preguntar</button>
               </form>
-              <div class="sugerencias" id="sugerencias">
-                <button type="button" class="chip">¿Qué sector está peor y por qué?</button>
-                <button type="button" class="chip">¿Qué ha cambiado respecto al mes pasado?</button>
-                <button type="button" class="chip">¿Es fiable el dato del turno de noche?</button>
-              </div>
+              <!-- Sugerencias que propone la IA a partir de estos resultados (GET /sugerencias) -->
+              <div class="sugerencias" id="sugerencias"></div>
               <div id="respuesta-datos" class="respuesta-datos oculto" aria-live="polite"></div>
             </section>
 
             <!-- 5. Recomendaciones -->
             <section class="seccion">
               <div class="tarjeta-cabecera">
-                <h3>Recomendaciones <span class="badge oculto" id="badge-origen-recs"></span></h3>
-                <span class="nota">Propuestas para que RRHH decida</span>
+                <h3><span data-i18n="dash.recomendaciones">Recomendaciones</span> <span class="badge oculto" id="badge-origen-recs"></span></h3>
+                <span class="nota" data-i18n="dash.propuestas">Propuestas para que RRHH decida</span>
               </div>
               <div class="recomendaciones" id="lista-recomendaciones"></div>
               <div class="tarjeta seguimiento oculto" id="bloque-seguimiento">
                 <div>
-                  <div class="etiqueta">Encuesta de seguimiento propuesta</div>
+                  <div class="etiqueta" data-i18n="dash.seguimiento">Encuesta de seguimiento propuesta</div>
                   <div class="texto-2" id="seguimiento-objetivo" style="margin-top: var(--e1);"></div>
                   <div class="nota" id="seguimiento-sectores" style="margin-top: var(--e1);"></div>
                 </div>
-                <button type="button" class="btn btn-principal" id="btn-seguimiento">Crear encuesta de seguimiento</button>
+                <button type="button" class="btn btn-principal" id="btn-seguimiento" data-i18n="dash.crear_seguimiento">Crear encuesta de seguimiento</button>
               </div>
             </section>
 
@@ -141,30 +140,30 @@
 
         <!-- ===================== GRÁFICOS ===================== -->
         <div id="vista-graficos" class="oculto">
-          <div id="cargando-graficos" class="cargando">Cargando…</div>
+          <div id="cargando-graficos" class="cargando" data-i18n="comun.cargando">Cargando…</div>
           <div id="graficos" class="oculto">
             <div class="dos-columnas">
               <section class="tarjeta">
                 <div class="tarjeta-cabecera">
-                  <h3>Participación frente al objetivo</h3>
-                  <span class="nota">Objetivo: 20&#8239;%</span>
+                  <h3 data-i18n="dash.g_participacion">Participación frente al objetivo</h3>
+                  <span class="nota" data-i18n="dash.objetivo20">Objetivo: 20&#8239;%</span>
                 </div>
                 <div class="grafico" id="caja-participacion"><canvas id="grafico-participacion" aria-label="Participación por sector y turno"></canvas></div>
               </section>
 
               <section class="tarjeta">
                 <div class="tarjeta-cabecera">
-                  <h3>Temas: antes y ahora</h3>
+                  <h3 data-i18n="dash.g_temas">Temas: antes y ahora</h3>
                   <span class="nota" id="nota-temas">% de los comentarios</span>
                 </div>
                 <div class="grafico" id="caja-temas"><canvas id="grafico-temas" aria-label="Temas del periodo actual frente al anterior"></canvas></div>
-                <div class="tema-detalle" id="tema-detalle"><span class="nota">Pulsa un tema para ver su resumen.</span></div>
+                <div class="tema-detalle" id="tema-detalle"><span class="nota" data-i18n="dash.pulsa_tema">Pulsa un tema para ver su resumen.</span></div>
               </section>
             </div>
 
             <section class="tarjeta seccion">
               <div class="tarjeta-cabecera">
-                <h3>Cómo han respondido</h3>
+                <h3 data-i18n="dash.g_respuestas">Cómo han respondido</h3>
                 <div class="leyenda">
                   <span><span class="cuadro" style="background:#B91C1C"></span>1</span>
                   <span><span class="cuadro" style="background:#FCA5A5"></span>2</span>
@@ -178,8 +177,8 @@
 
             <section class="tarjeta seccion" id="seccion-calor">
               <div class="tarjeta-cabecera">
-                <h3>Valoraciones</h3>
-                <span class="nota">Media de 1 a 5 · flecha si cambia 0,3 o más · — sin datos suficientes</span>
+                <h3 data-i18n="dash.g_valoraciones">Valoraciones</h3>
+                <span class="nota" data-i18n="dash.g_valoraciones_nota">Media de 1 a 5 · flecha si cambia 0,3 o más · — sin datos suficientes</span>
               </div>
               <div class="tabla-envoltura">
                 <table class="tabla calor" id="tabla-calor"></table>
@@ -194,20 +193,20 @@
         <div id="vista-maqueta" class="oculto">
           <div class="instalaciones-barra">
             <div style="display: flex; gap: var(--e3); align-items: center; flex-wrap: wrap;">
-              <span class="etiqueta">Capa</span>
+              <span class="etiqueta" data-i18n="dash.capa">Capa</span>
               <div class="segmentado" role="group" aria-label="Capa" id="selector-capa">
-                <button type="button" class="activo" data-capa="participacion">Participación</button>
-                <button type="button" data-capa="valoracion">Valoración</button>
-                <button type="button" data-capa="alertas">Alertas</button>
+                <button type="button" class="activo" data-capa="participacion" data-i18n="dash.capa_participacion">Participación</button>
+                <button type="button" data-capa="valoracion" data-i18n="dash.capa_valoracion">Valoración</button>
+                <button type="button" data-capa="alertas" data-i18n="dash.capa_alertas">Alertas</button>
               </div>
-              <button type="button" class="btn btn-secundario" id="btn-noche" aria-pressed="false">Día/Noche (turno de noche)</button>
+              <button type="button" class="btn btn-secundario" id="btn-noche" aria-pressed="false" data-i18n="dash.noche">Día/Noche (turno de noche)</button>
             </div>
             <div class="leyenda" id="leyenda-capa"></div>
           </div>
           <div class="instalaciones">
             <div class="visor-3d-contenedor" id="contenedor-3d"></div>
             <div class="tarjeta panel-3d-detalle" id="panel-3d-detalle">
-              <p class="texto-2">Haz clic en un edificio para ver su detalle. Arrastra para girar y usa la rueda para acercar.</p>
+              <p class="texto-2" data-i18n="dash.ayuda_3d">Haz clic en un edificio para ver su detalle. Arrastra para girar y usa la rueda para acercar.</p>
             </div>
           </div>
           <div class="aviso-directo oculto" id="aviso-directo" role="status"></div>
@@ -219,18 +218,18 @@
 
   <!-- Formulario (QR) -->
   <dialog class="dialogo" id="dialogo-formulario" aria-labelledby="titulo-formulario">
-    <h3 id="titulo-formulario">Formulario de la encuesta</h3>
+    <h3 id="titulo-formulario" data-i18n="dash.formulario_titulo">Formulario de la encuesta</h3>
     <img id="formulario-qr" alt="Código QR de la encuesta">
     <div class="campo">
-      <label for="formulario-url">Enlace</label>
+      <label for="formulario-url" data-i18n="crear.enlace">Enlace</label>
       <div class="copiar">
         <input type="text" id="formulario-url" class="entrada" readonly>
-        <button type="button" class="btn btn-secundario" id="btn-copiar">Copiar</button>
+        <button type="button" class="btn btn-secundario" id="btn-copiar" data-i18n="comun.copiar">Copiar</button>
       </div>
     </div>
     <div class="pie-acciones">
-      <a class="btn btn-secundario" id="formulario-quiosco" target="_blank" rel="noopener">Abrir modo quiosco</a>
-      <button type="button" class="btn btn-secundario" id="btn-cerrar-formulario">Cerrar</button>
+      <a class="btn btn-secundario" id="formulario-quiosco" target="_blank" rel="noopener" data-i18n="crear.quiosco">Abrir modo quiosco</a>
+      <button type="button" class="btn btn-secundario" id="btn-cerrar-formulario" data-i18n="comun.cerrar">Cerrar</button>
     </div>
   </dialog>
 
@@ -239,9 +238,12 @@
     import {
       obtenerAnalisis, obtenerRecomendaciones, obtenerEncuesta, obtenerSalud, simularRespuestas, preguntarDatos,
       formatearColectivo, formatearTema, formatearTurno, formatearEstado, formatearPct, formatearMedia,
-      colectivosDe, ORDEN_COLECTIVOS
+      colectivosDe, ORDEN_COLECTIVOS, obtenerSugerencias
     } from '/js/api.js';
     import { escapar, entero, nombrePeriodo, textoLegible, colorCalor } from '/js/ui.js';
+    import { accionTeams } from '/js/teams.js';
+    import { t, alCambiarIdioma, traducirZona } from '/js/idioma.js';
+    const tr = t; // alias: en algunas funciones "t" es un tema
 
     const $ = id => document.getElementById(id);
     const encuestaId = new URLSearchParams(window.location.search).get('id') || 'enc_000';
@@ -323,9 +325,10 @@
         ocultarError();
         pintarBadgesSectores();
         pintarResumen(animar);
+        cargarSugerencias();
         if (vista3d?.actualizar) vista3d.actualizar(analisis);
-        const ahora = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        $('texto-actualizado').textContent = `Actualizado a las ${ahora}`;
+        horaActualizado = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        pintarHoraActualizado();
         primeraCarga = false;
       } catch (err) {
         mostrarError(`No se pudo cargar el análisis: ${err.message}`);
@@ -351,31 +354,61 @@
     }
 
     // ---------------- 1. Lectura ejecutiva y estado de la IA ----------------
+    /** Origen de lo que propone la IA: "ia", "pendiente" (la IA trabaja) o "reglas" (sin IA) */
+    function origenRecomendaciones() {
+      if (recs?.origen) return recs.origen;
+      const ia = analisis.estado_ia || {};
+      if (ia.llm && ia.recomendaciones_listas === false) return 'pendiente';
+      return ia.origen_recomendaciones || 'reglas';
+    }
+
+    /** "(75 de 101 comentarios analizados)" a partir de estado_ia */
+    function progresoIA() {
+      const ia = analisis.estado_ia || {};
+      if (!ia.comentarios_total) return '';
+      return t('dash.progreso', '({hechos} de {total} comentarios analizados)', { hechos: entero(ia.comentarios_ia || 0), total: entero(ia.comentarios_total) });
+    }
+
+    function esqueleto(lineas = 3) {
+      return `<div class="esqueleto" aria-hidden="true">${Array.from({ length: lineas }, (_, i) =>
+        `<span class="esqueleto-linea" style="width: ${[100, 92, 70, 85][i % 4]}%"></span>`).join('')}</div>`;
+    }
+    const textoPreparando = () => `${t('dash.preparando', 'La IA está preparando…')} ${progresoIA()}`.trim();
+
+    function etiquetaOrigen(badge, origen) {
+      badge.classList.toggle('oculto', origen === 'pendiente' || !origen);
+      badge.textContent = origen === 'ia' ? t('comun.ia', 'IA') : t('comun.sin_ia', 'Sin IA');
+      badge.className = `badge ${origen === 'ia' ? 'badge-ia' : 'badge-sin-ia'} ${origen === 'pendiente' || !origen ? 'oculto' : ''}`;
+    }
+
     function pintarLectura() {
-      const lectura = analisis.lectura || recs?.lectura || '';
       const tieneV2 = 'lectura' in analisis || 'estado_ia' in analisis;
+      const origen = origenRecomendaciones();
+      const lectura = analisis.lectura || recs?.lectura || '';
       $('bloque-lectura').classList.toggle('oculto', !tieneV2 && !lectura);
-      $('texto-lectura').textContent = lectura ? legible(lectura) : 'La lectura ejecutiva estará lista en unos segundos.';
-      $('texto-lectura').classList.toggle('texto-3', !lectura);
+      etiquetaOrigen($('badge-origen-lectura'), origen);
+
+      const p = $('texto-lectura');
+      if (origen === 'pendiente' || !lectura) {
+        // Mientras la IA trabaja no se enseña el texto de respaldo
+        p.innerHTML = `${esqueleto(3)}<span class="nota">${escapar(textoPreparando())}</span>`;
+      } else {
+        p.textContent = legible(lectura);
+      }
 
       const ia = analisis.estado_ia || {};
-      const origen = ia.origen_recomendaciones || recs?.origen;
-      const badge = $('badge-origen-lectura');
-      badge.textContent = origen === 'ia' ? 'IA' : 'Reglas';
-      badge.className = `badge ${origen === 'ia' ? 'badge-ia' : ''}`;
-
       const el = $('estado-ia');
       if (!('estado_ia' in analisis)) { el.innerHTML = ''; return; }
       if (!ia.llm) {
-        el.innerHTML = '<span class="punto punto-aviso"></span><span>Sin IA: análisis por reglas</span>';
-      } else if (ia.listo) {
-        el.innerHTML = '<span class="punto punto-ok"></span><span>Análisis con IA listo</span>';
+        el.innerHTML = `<span class="punto punto-aviso"></span><span>${escapar(t('dash.sin_ia_reglas', 'Sin IA: análisis por reglas'))}</span>`;
+      } else if (ia.listo && ia.resumenes_listos !== false && ia.recomendaciones_listas !== false) {
+        el.innerHTML = `<span class="punto punto-ok"></span><span>${escapar(t('dash.ia_lista', 'Análisis con IA listo'))}</span>`;
       } else {
         const total = ia.comentarios_total || 0;
         const hechos = ia.comentarios_ia || 0;
         const pct = total ? Math.round((hechos / total) * 100) : 0;
         el.innerHTML = `
-          <span>Analizando comentarios con IA · ${entero(hechos)} de ${entero(total)}</span>
+          <span>${escapar(t('dash.analizando', 'Analizando comentarios con IA · {hechos} de {total}', { hechos: entero(hechos), total: entero(total) }))}</span>
           <span class="barra-pista" style="width: 96px;"><span class="barra-relleno" style="width: ${pct}%; display: block;"></span></span>`;
       }
     }
@@ -407,15 +440,15 @@
 
       $('kpi-respuestas').textContent = entero(analisis.n_respuestas);
       $('kpi-respuestas-nota').textContent = analisis.n_simuladas > 0
-        ? `Incluye ${entero(analisis.n_simuladas)} simuladas`
-        : `Periodo actual${analisis.n_anterior ? ` · ${entero(analisis.n_anterior)} en el anterior` : ''}`;
+        ? tr('dash.incluye_simuladas', 'Incluye {n} simuladas', { n: entero(analisis.n_simuladas) })
+        : tr('dash.periodo_actual', 'Periodo actual') + (analisis.n_anterior ? ` · ${tr('dash.en_anterior', '{n} en el anterior', { n: entero(analisis.n_anterior) })}` : '');
 
       $('kpi-participacion').textContent = formatearPct(global);
-      $('kpi-participacion-nota').textContent = personas ? `${entero(respuestas)} de ${entero(personas)} personas` : '';
+      $('kpi-participacion-nota').textContent = personas ? tr('dash.de_personas', '{n} de {total} personas', { n: entero(respuestas), total: entero(personas) }) : '';
 
-      $('kpi-segmentos').textContent = `${noRep} de ${part.length}`;
+      $('kpi-segmentos').textContent = tr('dash.n_de_m', '{n} de {m}', { n: noRep, m: part.length });
       $('kpi-segmentos').classList.toggle('critico', noRep > 0);
-      $('kpi-segmentos-nota').textContent = noRep ? 'Interpretar sus resultados con cautela' : 'Todos son representativos';
+      $('kpi-segmentos-nota').textContent = noRep ? tr('dash.cautela', 'Interpretar sus resultados con cautela') : tr('dash.todos_rep', 'Todos son representativos');
 
       const v = valoracionMedia();
       $('kpi-valoracion').innerHTML = v.actual === null ? '—' : `${formatearMedia(v.actual)} <span class="kpi-sobre">/ 5</span>`;
@@ -423,9 +456,9 @@
         const dif = v.actual - v.anterior;
         const flecha = dif <= -0.05 ? '↓' : dif >= 0.05 ? '↑' : '=';
         const clase = dif <= -0.3 ? 'texto-critico' : dif >= 0.3 ? 'texto-ok' : '';
-        $('kpi-valoracion-nota').innerHTML = `<span class="${clase}">${flecha} ${formatearMedia(Math.abs(dif))}</span> frente a ${escapar(nombrePeriodo(analisis.periodo_anterior))}`;
+        $('kpi-valoracion-nota').innerHTML = `<span class="${clase}">${flecha} ${formatearMedia(Math.abs(dif))}</span> ${escapar(tr('dash.frente_a', 'frente a {periodo}', { periodo: nombrePeriodo(analisis.periodo_anterior) }))}`;
       } else {
-        $('kpi-valoracion-nota').textContent = analisis.periodo_anterior ? '' : 'Sin periodo anterior para comparar';
+        $('kpi-valoracion-nota').textContent = analisis.periodo_anterior ? '' : tr('dash.sin_anterior', 'Sin periodo anterior para comparar');
       }
     }
 
@@ -433,10 +466,10 @@
     const claseAlerta = tipo => (tipo === 'representatividad' ? 'critico' : 'aviso');
     function pintarAlertas() {
       const alertas = analisis.alertas || [];
-      $('titulo-alertas').textContent = `Alertas (${alertas.length})`;
+      $('titulo-alertas').textContent = tr('dash.alertas_n', 'Alertas ({n})', { n: alertas.length });
       const lista = $('lista-alertas');
       if (!alertas.length) {
-        lista.innerHTML = '<li class="texto-2">Sin alertas en este periodo.</li>';
+        lista.innerHTML = `<li class="texto-2">${escapar(tr('dash.sin_alertas', 'Sin alertas en este periodo.'))}</li>`;
         $('btn-ver-alertas').classList.add('oculto');
         return;
       }
@@ -447,7 +480,7 @@
         <li><span class="punto punto-${claseAlerta(al.tipo)}"></span><span>${escapar(legible(al.mensaje))}</span></li>`).join('');
       const b = $('btn-ver-alertas');
       b.classList.toggle('oculto', alertas.length <= MAX_ALERTAS);
-      b.textContent = alertasDesplegadas ? 'Ver menos' : `Ver todas (${alertas.length})`;
+      b.textContent = alertasDesplegadas ? tr('dash.ver_menos', 'Ver menos') : tr('dash.ver_todas', 'Ver todas ({n})', { n: alertas.length });
     }
     $('btn-ver-alertas').addEventListener('click', () => { alertasDesplegadas = !alertasDesplegadas; pintarAlertas(); });
 
@@ -606,13 +639,15 @@
       const t = (analisis.temas || []).find(x => x.tema === nombre);
       if (!t) return;
       temaSeleccionado = nombre;
-      const etiqueta = t.tendencia === 'nuevo' ? '<span class="badge badge-nuevo">Nuevo</span>'
-        : t.tendencia === 'sube' ? '<span class="badge badge-nuevo">Sube</span>'
-        : t.tendencia === 'baja' ? '<span class="badge">Baja</span>' : '';
+      const etiqueta = t.tendencia === 'nuevo' ? `<span class="badge badge-nuevo">${escapar(tr('dash.nuevo', 'Nuevo'))}</span>`
+        : t.tendencia === 'sube' ? `<span class="badge badge-nuevo">${escapar(tr('dash.sube', 'Sube'))}</span>`
+        : t.tendencia === 'baja' ? `<span class="badge">${escapar(tr('dash.baja', 'Baja'))}</span>` : '';
       $('tema-detalle').innerHTML = `
         <div class="tema-detalle-cabecera"><strong>${escapar(formatearTema(t.tema))}</strong> ${etiqueta}
-          <span class="nota">${entero(t.n)} comentarios${t.n_anterior !== undefined ? ` · ${entero(t.n_anterior)} en el periodo anterior` : ''}</span></div>
-        <p class="texto-2">${escapar(legible(t.resumen || 'Sin resumen todavía.'))}</p>`;
+          <span class="nota">${escapar(tr('dash.n_comentarios', '{n} comentarios', { n: entero(t.n) }))}${t.n_anterior !== undefined ? ` · ${escapar(tr('dash.en_periodo_anterior', '{n} en el periodo anterior', { n: entero(t.n_anterior) }))}` : ''}</span></div>
+        ${t.resumen_origen === 'pendiente'
+          ? `${esqueleto(2)}<span class="nota">${escapar(textoPreparando())}</span>`
+          : `<p class="texto-2">${escapar(legible(t.resumen || ''))}</p>${t.resumen_origen === 'reglas' ? `<span class="badge badge-sin-ia">${escapar(tr('comun.sin_ia', 'Sin IA'))}</span>` : ''}`}`;
     }
 
     function graficoDistribuciones(animar) {
@@ -737,26 +772,46 @@
       boton.disabled = true;
       $('input-pregunta').disabled = true;
       caja.classList.remove('oculto');
-      caja.innerHTML = '<p class="cargando">Consultando los datos… (hasta 25 s)</p>';
+      caja.innerHTML = `<p class="cargando">${escapar(tr('dash.consultando', 'Consultando los datos… (hasta 25 s)'))}</p>`;
       try {
         const r = await preguntarDatos(encuestaId, pregunta);
-        const confianza = { alta: 'Confianza alta', media: 'Confianza media', baja: 'Confianza baja' }[r.confianza] || '';
+        const confianza = { alta: tr('dash.conf_alta', 'Confianza alta'), media: tr('dash.conf_media', 'Confianza media'), baja: tr('dash.conf_baja', 'Confianza baja') }[r.confianza] || '';
         caja.innerHTML = `
           <div class="respuesta-pregunta">${escapar(pregunta)}</div>
           <p>${escapar(legible(r.respuesta || 'Sin respuesta.'))}</p>
           ${r.cifras?.length ? `<ul class="cifras">${r.cifras.map(c => `<li>${escapar(legible(c))}</li>`).join('')}</ul>` : ''}
           <div class="meta">
             ${confianza ? `<span class="badge ${r.confianza === 'baja' ? 'badge-critico' : r.confianza === 'media' ? 'badge-aprobada' : 'badge-ok'}">${confianza}</span>` : ''}
-            <span class="badge ${r.origen === 'ia' ? 'badge-ia' : ''}">${r.origen === 'ia' ? 'IA' : 'Reglas'}</span>
+            <span class="badge ${r.origen === 'ia' ? 'badge-ia' : 'badge-sin-ia'}">${escapar(r.origen === 'ia' ? tr('comun.ia', 'IA') : tr('comun.sin_ia', 'Sin IA'))}</span>
           </div>`;
       } catch (err) {
-        caja.innerHTML = `<p class="texto-critico">No se pudo responder: ${escapar(err.message)}</p>`;
+        caja.innerHTML = `<p class="texto-critico">${escapar(tr('dash.no_responder', 'No se pudo responder'))}: ${escapar(err.message)}</p>`;
       } finally {
         boton.disabled = false;
         $('input-pregunta').disabled = false;
       }
     }
     $('form-preguntar').addEventListener('submit', e => { e.preventDefault(); preguntar($('input-pregunta').value); });
+    // Sugerencias propuestas por la IA (v3): pendiente → chips en esqueleto; ninguno → sin chips
+    let sugerenciasListas = false;
+    async function cargarSugerencias() {
+      if (sugerenciasListas) return;
+      const caja = $('sugerencias');
+      try {
+        const r = await obtenerSugerencias(encuestaId);
+        if (r.origen === 'pendiente') {
+          caja.innerHTML = [1, 2, 3].map(() => '<span class="chip chip-esqueleto" aria-hidden="true"></span>').join('');
+          return; // se vuelve a pedir con la recarga automática
+        }
+        sugerenciasListas = true;
+        caja.innerHTML = (r.origen === 'ia' ? r.preguntas || [] : [])
+          .map(p => `<button type="button" class="chip">${escapar(p)}</button>`).join('');
+      } catch {
+        sugerenciasListas = true; // el servidor aún no tiene sugerencias: solo la caja de texto
+        caja.innerHTML = '';
+      }
+    }
+
     $('sugerencias').addEventListener('click', e => {
       const chip = e.target.closest('.chip');
       if (!chip) return;
@@ -767,33 +822,40 @@
     // ---------------- 6. Recomendaciones ----------------
     let seguimiento = null;
     function pintarRecomendaciones() {
+      const origen = origenRecomendaciones();
+      etiquetaOrigen($('badge-origen-recs'), origen);
+      if (origen === 'pendiente') {
+        // La IA está preparando las acciones: no se enseñan las de respaldo
+        $('lista-recomendaciones').innerHTML = [1, 2, 3].map(() => `
+          <article class="tarjeta recomendacion">${esqueleto(4)}</article>`).join('') +
+          `<p class="nota" style="grid-column: 1 / -1;">${escapar(textoPreparando())}</p>`;
+        $('bloque-seguimiento').classList.add('oculto');
+        seguimiento = null;
+        return;
+      }
       const acciones = recs?.acciones || [];
-      const badge = $('badge-origen-recs');
-      badge.classList.toggle('oculto', !recs?.origen);
-      badge.textContent = recs?.origen === 'ia' ? 'IA' : 'Reglas';
-      badge.className = `badge ${recs?.origen === 'ia' ? 'badge-ia' : ''} ${recs?.origen ? '' : 'oculto'}`;
 
       $('lista-recomendaciones').innerHTML = acciones.length
         ? acciones.map(ac => `
             <article class="tarjeta recomendacion">
-              <div><span class="badge">Propuesta</span></div>
+              <div><span class="badge">${escapar(tr('dash.propuesta', 'Propuesta'))}</span></div>
               <h4>${escapar(legible(ac.titulo))}</h4>
               <p class="motivo">${escapar(legible(ac.motivo))}</p>
               ${ac.responsable || ac.plazo || ac.indicador ? `
                 <dl class="ficha">
-                  ${ac.responsable ? `<dt>Responsable</dt><dd>${escapar(ac.responsable)}</dd>` : ''}
-                  ${ac.plazo ? `<dt>Plazo</dt><dd>${escapar(ac.plazo)}</dd>` : ''}
-                  ${ac.indicador ? `<dt>Indicador</dt><dd>${escapar(legible(ac.indicador))}</dd>` : ''}
+                  ${ac.responsable ? `<dt>${escapar(tr('dash.responsable', 'Responsable'))}</dt><dd>${escapar(ac.responsable)}</dd>` : ''}
+                  ${ac.plazo ? `<dt>${escapar(tr('dash.plazo', 'Plazo'))}</dt><dd>${escapar(ac.plazo)}</dd>` : ''}
+                  ${ac.indicador ? `<dt>${escapar(tr('dash.indicador', 'Indicador'))}</dt><dd>${escapar(legible(ac.indicador))}</dd>` : ''}
                 </dl>` : ''}
             </article>`).join('')
-        : '<p class="vacio">Sin recomendaciones para este periodo.</p>';
+        : `<p class="vacio">${escapar(tr('dash.sin_recomendaciones', 'Sin recomendaciones para este periodo.'))}</p>`;
 
       seguimiento = recs?.seguimiento || null;
       $('bloque-seguimiento').classList.toggle('oculto', !seguimiento);
       if (seguimiento) {
         $('seguimiento-objetivo').textContent = seguimiento.objetivo || '';
         const cols = colectivosDe(seguimiento);
-        $('seguimiento-sectores').textContent = cols.length ? `Sectores: ${cols.map(c => formatearColectivo(c)).join(', ')}` : '';
+        $('seguimiento-sectores').textContent = cols.length ? `${tr('crear.sectores', 'Sectores')}: ${cols.map(c => formatearColectivo(c)).join(', ')}` : '';
       }
     }
     $('btn-seguimiento').addEventListener('click', () => {
@@ -806,18 +868,18 @@
     function pintarLimites() {
       const textos = [...(analisis.limites || [])];
       if (!textos.some(t => /menos de 5/i.test(t))) textos.push('Los segmentos con menos de 5 respuestas no se muestran.');
-      $('limites').innerHTML = '<p><strong>Límites del análisis.</strong></p>' + textos.map(t => `<p>${escapar(legible(t))}</p>`).join('');
+      $('limites').innerHTML = `<p><strong>${escapar(tr('dash.limites', 'Límites del análisis.'))}</strong></p>` + textos.map(t => `<p>${escapar(legible(t))}</p>`).join('');
     }
 
     // ---------------- Maqueta 3D ----------------
     const LEYENDAS = {
-      participacion: [['punto-critico', 'Menos del 10 %'], ['punto-aviso', '10–20 %'], ['punto-ok', '20 % o más']],
-      valoracion: [['punto-critico', 'Menos de 2,5'], ['punto-aviso', '2,5–3,4'], ['punto-ok', '3,5 o más'], ['', 'Oculto (n < 5)']],
-      alertas: [['punto-ok', 'Sin alertas'], ['punto-aviso', '1 alerta'], ['punto-critico', '2 o más']],
+      participacion: [['punto-critico', 'dash.l_menos10', 'Menos del 10 %'], ['punto-aviso', 'dash.l_10_20', '10–20 %'], ['punto-ok', 'dash.l_20', '20 % o más']],
+      valoracion: [['punto-critico', 'dash.l_menos25', 'Menos de 2,5'], ['punto-aviso', 'dash.l_25_34', '2,5–3,4'], ['punto-ok', 'dash.l_35', '3,5 o más'], ['', 'dash.l_oculto', 'Oculto (n < 5)']],
+      alertas: [['punto-ok', 'dash.l_sin_alertas', 'Sin alertas'], ['punto-aviso', 'dash.l_1_alerta', '1 alerta'], ['punto-critico', 'dash.l_2_alertas', '2 o más']],
     };
     function pintarLeyenda() {
-      $('leyenda-capa').innerHTML = LEYENDAS[capa].map(([clase, texto]) => `<span><span class="punto ${clase}"></span>${texto}</span>`).join('') +
-        (noche ? '<span class="nota">Mostrando el turno de noche</span>' : '');
+      $('leyenda-capa').innerHTML = LEYENDAS[capa].map(([clase, clave, texto]) => `<span><span class="punto ${clase}"></span>${escapar(tr(clave, texto))}</span>`).join('') +
+        (noche ? `<span class="nota">${escapar(tr('dash.mostrando_noche', 'Mostrando el turno de noche'))}</span>` : '');
     }
 
     async function abrirMaqueta() {
@@ -914,6 +976,13 @@
       $('dialogo-formulario').showModal();
     });
     $('btn-cerrar-formulario').addEventListener('click', () => $('dialogo-formulario').close());
+
+    $('btn-teams').addEventListener('click', async () => {
+      $('texto-teams').textContent = '';
+      const r = await accionTeams(encuestaId, 'resumen', $('btn-teams'));
+      $('texto-teams').textContent = r.mensaje;
+      $('texto-teams').style.color = r.ok ? '' : 'var(--critico)';
+    });
     $('btn-copiar').addEventListener('click', async () => {
       try { await navigator.clipboard.writeText($('formulario-url').value); }
       catch { $('formulario-url').select(); document.execCommand('copy'); }
@@ -959,6 +1028,18 @@
       await cargarDatos();
       setInterval(() => { if (document.visibilityState === 'visible') cargarDatos(); }, REFRESCO_MS);
     }
+
+    let horaActualizado = '';
+    function pintarHoraActualizado() {
+      if (horaActualizado) $('texto-actualizado').textContent = tr('dash.actualizado', 'Actualizado a las {hora}', { hora: horaActualizado });
+    }
+
+    alCambiarIdioma(() => {
+      pintarHoraActualizado();
+      if (!analisis) return;
+      pintarResumen(false);
+      if (pestanaActual === 'maqueta') pintarLeyenda();
+    });
 
     iniciar();
   </script>

@@ -10,6 +10,7 @@
  */
 import { obtenerSalud, listarEncuestasActivas } from '/js/api.js';
 import { ICONOS, escapar, entero } from '/js/ui.js';
+import { t, traducirZona } from '/js/idioma.js';
 
 const pagina = window.location.pathname.replace(/^\//, '') || 'index.html';
 const idAbierto = new URLSearchParams(window.location.search).get('id');
@@ -57,7 +58,7 @@ async function pintarLista(forzar = false) {
   try {
     const lista = await encuestasActivas(forzar);
     if (!lista.length) {
-      ul.innerHTML = '<li class="submenu-vacio">Sin encuestas publicadas</li>';
+      ul.innerHTML = `<li class="submenu-vacio" data-i18n="menu.sin_publicadas">${t('menu.sin_publicadas', 'Sin encuestas publicadas')}</li>`;
       return;
     }
     ul.innerHTML = lista.map(e => {
@@ -72,7 +73,7 @@ async function pintarLista(forzar = false) {
         </li>`;
     }).join('');
   } catch {
-    ul.innerHTML = '<li class="submenu-vacio">No se pudo cargar la lista</li>';
+    ul.innerHTML = `<li class="submenu-vacio" data-i18n="menu.error_lista">${t('menu.error_lista', 'No se pudo cargar la lista')}</li>`;
   }
 }
 
@@ -90,18 +91,18 @@ function montar() {
     <nav class="menu" aria-label="Secciones">
       <div class="menu-grupo">
         <div class="menu-fila ${enListado ? 'activo' : ''}">
-          <a href="/" ${enListado ? 'aria-current="page"' : ''}>${ICONOS.lista}<span>Mis encuestas</span></a>
+          <a href="/" ${enListado ? 'aria-current="page"' : ''}>${ICONOS.lista}<span data-i18n="menu.mis_encuestas">Mis encuestas</span></a>
           <button type="button" class="menu-flecha ${desplegado ? 'abierto' : ''}" id="btn-mis-encuestas"
-                  aria-expanded="${desplegado}" aria-controls="mis-encuestas" aria-label="Mostrar encuestas publicadas">
+                  aria-expanded="${desplegado}" aria-controls="mis-encuestas" data-i18n-aria-label="menu.mostrar_publicadas" aria-label="Mostrar encuestas publicadas">
             ${ICONOS.chevron}
           </button>
         </div>
         <ul class="submenu ${desplegado ? '' : 'oculto'}" id="mis-encuestas">
-          <li class="submenu-vacio">Cargando…</li>
+          <li class="submenu-vacio" data-i18n="comun.cargando">Cargando…</li>
         </ul>
       </div>
       <a href="/crear.html" class="${pagina === 'crear.html' ? 'activo' : ''}" ${pagina === 'crear.html' ? 'aria-current="page"' : ''}>
-        ${ICONOS.mas}<span>Nueva necesidad</span>
+        ${ICONOS.mas}<span data-i18n="menu.nueva">Nueva necesidad</span>
       </a>
     </nav>
     <div class="estado-servidor" id="estado-servidor"></div>
@@ -116,6 +117,7 @@ function montar() {
     try { sessionStorage.setItem(CLAVE_DESPLEGADO, abrir ? '1' : '0'); } catch { /* nada */ }
   });
 
+  traducirZona(barra);
   pintarLista();
 
   // Estado del servidor: IA conectada o modo de respaldo
@@ -123,13 +125,16 @@ function montar() {
     .then(salud => {
       const el = document.getElementById('estado-servidor');
       if (!el || !salud) return;
-      const ia = salud.llm ? 'IA conectada' : 'IA en modo de respaldo';
-      const demo = salud.modo_demo ? ' · Modo demo' : '';
+      const ia = salud.llm
+        ? `<span data-i18n="menu.ia_conectada">IA conectada</span>`
+        : `<span data-i18n="menu.ia_respaldo">IA en modo de respaldo</span>`;
+      const demo = salud.modo_demo ? ` · <span data-i18n="menu.modo_demo">Modo demo</span>` : '';
       el.innerHTML = `<span class="punto ${salud.llm ? 'punto-ok' : 'punto-aviso'}"></span><span>${ia}${demo}</span>`;
+      traducirZona(el);
     })
     .catch(() => {
       const el = document.getElementById('estado-servidor');
-      if (el) el.innerHTML = '<span class="punto punto-critico"></span><span>Sin conexión con el servidor</span>';
+      if (el) { el.innerHTML = '<span class="punto punto-critico"></span><span data-i18n="menu.sin_conexion">Sin conexión con el servidor</span>'; traducirZona(el); }
     });
 }
 

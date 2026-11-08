@@ -232,7 +232,9 @@ async function peticion(ruta, opciones = {}) {
     } catch (_) {
       // Ignora error de parseo si no es JSON
     }
-    throw new Error(detalle || `Error HTTP ${respuesta.status}`);
+    const error = new Error(detalle || `Error HTTP ${respuesta.status}`);
+    error.status = respuesta.status;
+    throw error;
   }
 
   return respuesta.json();
@@ -349,6 +351,8 @@ export async function generarEncuesta(necesidad) {
     const nuevaEncuesta = varios
       ? _encuestaMultisectorSimulada(nuevoId, necesidad, colectivos)
       : _encuestaUnSectorSimulada(nuevoId, necesidad, colectivos[0] || "planta");
+    nuevaEncuesta.necesidad = { ...necesidad, colectivos };
+    nuevaEncuesta.estado_traduccion = "pendiente";
 
     almacen.encuestas[nuevoId] = nuevaEncuesta;
     almacen.respuestas[nuevoId] = 0;
@@ -552,7 +556,7 @@ export async function obtenerRecomendaciones(id) {
  * Devuelve EncuestaPublica:
  * { id, titulo, intro, colectivo, tiempo_estimado_seg, preguntas, turnos, transparencia }
  */
-export async function obtenerEncuestaPublica(id) {
+export async function obtenerEncuestaPublica(id, idioma) {
   if (USAR_EJEMPLOS) {
     const almacen = _obtenerAlmacen();
     const enc = almacen.encuestas[id];
@@ -575,10 +579,13 @@ export async function obtenerEncuestaPublica(id) {
       preguntas_por_colectivo: enc.preguntas_por_colectivo || {},
       turnos: turnos_por_colectivo[colectivos[0]] || ["sin_turno"],
       turnos_por_colectivo,
+      idioma: "es",
+      idiomas_disponibles: ["es"],
       transparencia: "Esta microencuesta ayuda a mejorar tu día a día en Damm. Tus respuestas son 100 % anónimas: no se guarda quién eres ni desde dónde respondes. RRHH solo ve resultados agregados (mínimo 5 respuestas por grupo)."
     };
   }
-  return peticion(`/publico/encuestas/${encodeURIComponent(id)}`);
+  const consulta = idioma ? `?idioma=${encodeURIComponent(idioma)}` : "";
+  return peticion(`/publico/encuestas/${encodeURIComponent(id)}${consulta}`);
 }
 
 /**
@@ -662,7 +669,7 @@ export async function listarEscenarios() {
  */
 export async function simularRespuestas(id, opciones = {}) {
   if (USAR_EJEMPLOS) {
-    const almacen = _almacenSimulado;
+    const almacen = _obtenerAlmacen();
     const enc = almacen.encuestas[id];
     if (!enc || enc.estado !== "publicada") {
       throw new Error("Solo se pueden simular respuestas de una encuesta publicada");
@@ -677,6 +684,154 @@ export async function simularRespuestas(id, opciones = {}) {
     method: "POST",
     body: opciones
   });
+}
+
+// ============================================================================
+// Versión 3 (contratos v3): volver atrás, sugerencias de la IA, Teams e idiomas
+// ============================================================================
+
+/** Idiomas de la aplicación: código, nombre en su propio idioma y etiqueta corta */
+export const IDIOMAS = [
+  { codigo: "es", nombre: "Español", corto: "ES" },
+  { codigo: "ca", nombre: "Català", corto: "CA" },
+  { codigo: "en", nombre: "English", corto: "EN" },
+  { codigo: "pt", nombre: "Português", corto: "PT" },
+  { codigo: "zh", nombre: "中文", corto: "中文" },
+];
+
+/**
+ * POST /encuestas/{id}/regenerar
+ * Recibe una Necesidad y devuelve la Encuesta en borrador, con el mismo id y preguntas nuevas.
+ * 409 si está publicada.
+ */
+export async function regenerarEncuesta(id, necesidad) {
+  if (USAR_EJEMPLOS) {
+    const almacen = _obtenerAlmacen();
+    const actual = almacen.encuestas[id];
+    if (!actual) throw new Error(`La encuesta ${id} no existe`);
+    if (actual.estado === "publicada") {
+      const e = new Error("No se puede regenerar una encuesta publicada"); e.status = 409; throw e;
+    }
+    const colectivos = colectivosDe(necesidad);
+    const nueva = colectivos.length > 1
+      ? _encuestaMultisectorSimulada(id, necesidad, colectivos)
+      : _encuestaUnSectorSimulada(id, necesidad, colectivos[0] || "planta");
+    nueva.periodo = actual.periodo;
+    nueva.necesidad = { ...necesidad, colectivos };
+    nueva.estado_traduccion = "pendiente";
+    almacen.encuestas[id] = nueva;
+    _guardarAlmacen(almacen);
+    return JSON.parse(JSON.stringify(nueva));
+  }
+  return peticion(`/encuestas/${encodeURIComponent(id)}/regenerar`, { method: "POST", body: necesidad });
+}
+
+/**
+ * POST /encuestas/{id}/duplicar
+ * Devuelve una Encuesta nueva en borrador (id nuevo, mismas preguntas y necesidad, sin respuestas).
+ */
+export async function duplicarEncuesta(id) {
+  if (USAR_EJEMPLOS) {
+    const almacen = _obtenerAlmacen();
+    const original = almacen.encuestas[id];
+    if (!original) throw new Error(`La encuesta ${id} no existe`);
+    const nuevoId = `enc_${String(Object.keys(almacen.encuestas).length).padStart(3, "0")}`;
+    const copia = JSON.parse(JSON.stringify(original));
+    Object.assign(copia, { id: nuevoId, estado: "borrador", url: null, qr: null, estado_traduccion: "pendiente" });
+    delete copia.traducciones;
+    almacen.encuestas[nuevoId] = copia;
+    almacen.respuestas[nuevoId] = 0;
+    _guardarAlmacen(almacen);
+    return JSON.parse(JSON.stringify(copia));
+  }
+  return peticion(`/encuestas/${encodeURIComponent(id)}/duplicar`, { method: "POST" });
+}
+
+/**
+ * GET /encuestas/{id}/sugerencias
+ * Devuelve { preguntas: [3 textos], origen: "ia" | "pendiente" | "ninguno" }.
+ * Las preguntas las propone la IA a partir de los resultados; sin IA, lista vacía.
+ */
+export async function obtenerSugerencias(id) {
+  if (USAR_EJEMPLOS) {
+    return {
+      preguntas: [
+        "¿Por qué baja la información de los cambios en planta?",
+        "¿Qué piden los comentarios sobre los descansos de noche?",
+        "¿Son fiables los datos de logística con 31 respuestas?",
+      ],
+      origen: "ia",
+    };
+  }
+  return peticion(`/encuestas/${encodeURIComponent(id)}/sugerencias`);
+}
+
+/** GET /integraciones → { teams: true | false } */
+export async function obtenerIntegraciones() {
+  if (USAR_EJEMPLOS) return { teams: false };
+  return peticion("/integraciones");
+}
+
+/**
+ * GET /encuestas/{id}/teams/vista_previa?tipo=publicar|resumen
+ * Devuelve la tarjeta adaptativa (Adaptive Card 1.4, JSON) que se enviaría a Teams.
+ */
+export async function vistaPreviaTeams(id, tipo = "publicar") {
+  if (USAR_EJEMPLOS) return _tarjetaTeamsEjemplo(id, tipo);
+  return peticion(`/encuestas/${encodeURIComponent(id)}/teams/vista_previa?tipo=${encodeURIComponent(tipo)}`);
+}
+
+/** POST /encuestas/{id}/teams/publicar → { enviado: true }. 409 sin publicar, 503 sin Teams, 502 si Teams falla */
+export async function enviarTeamsPublicar(id) {
+  if (USAR_EJEMPLOS) {
+    const e = new Error("Teams no está configurado"); e.status = 503; throw e;
+  }
+  return peticion(`/encuestas/${encodeURIComponent(id)}/teams/publicar`, { method: "POST" });
+}
+
+/** POST /encuestas/{id}/teams/resumen → { enviado: true }. 503 sin Teams, 502 si Teams falla */
+export async function enviarTeamsResumen(id) {
+  if (USAR_EJEMPLOS) {
+    const e = new Error("Teams no está configurado"); e.status = 503; throw e;
+  }
+  return peticion(`/encuestas/${encodeURIComponent(id)}/teams/resumen`, { method: "POST" });
+}
+
+function _tarjetaTeamsEjemplo(id, tipo) {
+  const enc = _obtenerAlmacen().encuestas[id] || ENCUESTA_MULTISECTOR;
+  if (tipo === "resumen") {
+    const a = ANALISIS_MULTISECTOR;
+    return {
+      type: "AdaptiveCard", version: "1.4",
+      body: [
+        { type: "TextBlock", text: `Resumen · ${enc.titulo}`, weight: "Bolder", size: "Medium", wrap: true },
+        { type: "TextBlock", text: a.lectura, wrap: true },
+        { type: "FactSet", facts: [
+          { title: "Respuestas", value: String(a.n_respuestas) },
+          { title: "Participación", value: "23,6 %" },
+          { title: "No representativos", value: "2 de 5" },
+        ] },
+        { type: "TextBlock", text: "Alertas", weight: "Bolder", spacing: "Medium" },
+        ...a.alertas.slice(0, 3).map(al => ({ type: "TextBlock", text: `• ${al.mensaje}`, wrap: true, spacing: "Small" })),
+        { type: "TextBlock", text: "Acciones propuestas", weight: "Bolder", spacing: "Medium" },
+        ...RECOMENDACIONES_MULTISECTOR.acciones.slice(0, 2).map(ac => ({ type: "TextBlock", text: `• ${ac.titulo}`, wrap: true, spacing: "Small" })),
+      ],
+      actions: [{ type: "Action.OpenUrl", title: "Ver análisis", url: `${location.origin}/dashboard.html?id=${id}` }],
+    };
+  }
+  return {
+    type: "AdaptiveCard", version: "1.4",
+    body: [
+      { type: "TextBlock", text: enc.titulo, weight: "Bolder", size: "Medium", wrap: true },
+      { type: "TextBlock", text: enc.intro, wrap: true },
+      { type: "FactSet", facts: [
+        { title: "Duración", value: `Menos de ${Math.ceil((enc.tiempo_estimado_seg || 60) / 60)} min` },
+        { title: "Sectores", value: colectivosDe(enc).map(c => formatearColectivo(c)).join(", ") },
+      ] },
+      { type: "TextBlock", text: "Anónima · resultados agregados", isSubtle: true, size: "Small" },
+    ],
+    actions: [{ type: "Action.OpenUrl", title: "Responder", url: enc.url || `${location.origin}/responder/${id}` }],
+  };
 }
 
 // ============================================================================
@@ -829,6 +984,13 @@ if (typeof window !== "undefined") {
     preguntasDe,
     formatearPct,
     formatearMedia,
+    regenerarEncuesta,
+    duplicarEncuesta,
+    obtenerSugerencias,
+    obtenerIntegraciones,
+    vistaPreviaTeams,
+    enviarTeamsPublicar,
+    enviarTeamsResumen,
     ETIQUETAS_COLECTIVOS,
     ETIQUETAS_TEMAS,
     ETIQUETAS_TURNOS,

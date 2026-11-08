@@ -14,9 +14,9 @@
       <div class="contenido-interior">
 
         <div class="cabecera-pagina">
-          <h1>Mis encuestas</h1>
+          <h1 data-i18n="menu.mis_encuestas">Mis encuestas</h1>
           <div class="acciones">
-            <a href="/crear.html" class="btn btn-principal">Nueva necesidad</a>
+            <a href="/crear.html" class="btn btn-principal" data-i18n="menu.nueva">Nueva necesidad</a>
           </div>
         </div>
 
@@ -27,16 +27,16 @@
             <table class="tabla">
               <thead>
                 <tr>
-                  <th style="padding-left: var(--e5);">Título</th>
-                  <th>Colectivo</th>
-                  <th>Estado</th>
-                  <th class="der">Respuestas</th>
-                  <th>Periodo</th>
-                  <th class="der" style="padding-right: var(--e5);"><span class="sr-only">Acción</span></th>
+                  <th style="padding-left: var(--e5);" data-i18n="lista.titulo">Título</th>
+                  <th data-i18n="lista.sector">Sector</th>
+                  <th data-i18n="lista.estado">Estado</th>
+                  <th class="der" data-i18n="dash.kpi_respuestas">Respuestas</th>
+                  <th data-i18n="lista.periodo">Periodo</th>
+                  <th class="der" style="padding-right: var(--e5);"><span class="sr-only" data-i18n="lista.accion">Acción</span></th>
                 </tr>
               </thead>
               <tbody id="lista-encuestas">
-                <tr><td colspan="6" class="cargando" style="padding-left: var(--e5);">Cargando…</td></tr>
+                <tr><td colspan="6" class="cargando" style="padding-left: var(--e5);" data-i18n="comun.cargando">Cargando…</td></tr>
               </tbody>
             </table>
           </div>
@@ -50,6 +50,7 @@
   <script type="module">
     import { listarEncuestas, formatearColectivo, formatearEstado } from '/js/api.js';
     import { escapar, entero, nombrePeriodo } from '/js/ui.js';
+    import { t, alCambiarIdioma } from '/js/idioma.js';
 
     const cuerpo = document.getElementById('lista-encuestas');
     const error = document.getElementById('mensaje-error');
@@ -71,7 +72,7 @@
           <td><span class="badge badge-${escapar(enc.estado)}">${escapar(formatearEstado(enc.estado))}</span></td>
           <td class="der num">${entero(enc.n_respuestas)}</td>
           <td class="texto-2">${escapar(nombrePeriodo(enc.periodo))}</td>
-          <td class="der" style="padding-right: var(--e5);"><a href="${url}" class="btn btn-secundario">Abrir</a></td>
+          <td class="der" style="padding-right: var(--e5);"><a href="${url}" class="btn btn-secundario">${escapar(t('lista.abrir', 'Abrir'))}</a></td>
         </tr>`;
     }
 
@@ -81,13 +82,13 @@
         if (!encuestas || encuestas.length === 0) {
           cuerpo.innerHTML = `
             <tr><td colspan="6" class="vacio" style="padding-left: var(--e5);">
-              Todavía no hay encuestas. <a href="/crear.html">Crear la primera</a>
+              ${escapar(t('lista.vacia', 'Todavía no hay encuestas.'))} <a href="/crear.html">${escapar(t('lista.crear_primera', 'Crear la primera'))}</a>
             </td></tr>`;
           return;
         }
         cuerpo.innerHTML = encuestas.map(fila).join('');
       } catch (err) {
-        error.textContent = `No se pudieron cargar las encuestas: ${err.message}`;
+        error.textContent = `${t('lista.error', 'No se pudieron cargar las encuestas')}: ${err.message}`;
         error.classList.remove('oculto');
         cuerpo.innerHTML = '';
       }
@@ -100,6 +101,7 @@
       if (tr) window.location.href = tr.dataset.url;
     });
 
+    alCambiarIdioma(() => cargar());
     cargar();
   </script>
 </body>

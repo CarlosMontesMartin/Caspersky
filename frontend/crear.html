@@ -16,7 +16,7 @@
 
         <div class="cabecera-pagina">
           <div>
-            <h1 id="titulo-pagina">Nueva necesidad</h1>
+            <h1 id="titulo-pagina" data-i18n="crear.titulo">Nueva necesidad</h1>
             <div class="meta oculto" id="meta-encuesta">
               <span class="badge" id="badge-estado"></span>
               <span class="nota" id="texto-id"></span>
@@ -24,84 +24,91 @@
           </div>
         </div>
 
+        <!-- Indicador de pasos pulsable -->
         <ol class="pasos" aria-label="Pasos">
-          <li data-paso="1"><span class="numero">1</span>Necesidad</li>
+          <li><button type="button" class="paso" data-paso="1"><span class="numero">1</span><span data-i18n="crear.paso1">Necesidad</span></button></li>
           <li class="separador" aria-hidden="true"></li>
-          <li data-paso="2"><span class="numero">2</span>Revisión</li>
+          <li><button type="button" class="paso" data-paso="2"><span class="numero">2</span><span data-i18n="crear.paso2">Revisión</span></button></li>
           <li class="separador" aria-hidden="true"></li>
-          <li data-paso="3"><span class="numero">3</span>Publicación</li>
+          <li><button type="button" class="paso" data-paso="3"><span class="numero">3</span><span data-i18n="crear.paso3">Publicación</span></button></li>
         </ol>
 
         <div id="aviso" class="aviso oculto" role="status">
           <span id="aviso-texto"></span>
-          <button type="button" class="btn-texto cerrar" id="aviso-cerrar">Cerrar</button>
+          <button type="button" class="btn-texto cerrar" id="aviso-cerrar" data-i18n="comun.cerrar">Cerrar</button>
+        </div>
+
+        <!-- Encuesta publicada: solo lectura -->
+        <div id="aviso-publicada" class="aviso info oculto">
+          <span data-i18n="crear.publicada_solo_lectura">Esta encuesta ya está publicada y no se puede editar. Para cambiarla, crea una copia.</span>
+          <button type="button" class="btn btn-secundario cerrar" id="btn-duplicar" data-i18n="crear.duplicar">Duplicar para editar</button>
         </div>
 
         <!-- ================= Paso 1 · Necesidad ================= -->
         <section class="tarjeta" id="paso-1">
           <div id="bloque-escenarios" class="oculto" style="margin-bottom: var(--e5);">
-            <span class="etiqueta">Empezar desde un escenario</span>
+            <span class="etiqueta" data-i18n="crear.escenarios">Empezar desde un escenario</span>
             <div class="escenarios-lista" id="lista-escenarios"></div>
-          </div>
-
-          <div id="bloque-ya-generada" class="aviso info oculto">
-            <span id="texto-ya-generada"></span>
-            <a href="/crear.html" class="btn-texto cerrar">Empezar otra</a>
           </div>
 
           <form id="form-necesidad" class="rejilla-2" novalidate>
             <div class="campo ancho">
-              <label for="input-objetivo">Objetivo</label>
+              <label for="input-objetivo" data-i18n="crear.objetivo">Objetivo</label>
               <input type="text" id="input-objetivo" class="entrada" required
+                     data-i18n-placeholder="crear.objetivo_ejemplo"
                      placeholder="Por ejemplo: saber cómo afecta el nuevo sistema de turnos">
             </div>
 
             <fieldset class="campo ancho">
-              <legend class="etiqueta">Sectores</legend>
+              <legend class="etiqueta" data-i18n="crear.sectores">Sectores</legend>
               <div class="chips" id="chips-sectores" role="group" aria-label="Sectores"></div>
-              <span class="ayuda" id="nota-sectores">Con varios sectores, la IA crea preguntas comunes para comparar y preguntas propias de cada sector.</span>
+              <span class="ayuda" id="nota-sectores" data-i18n="crear.nota_sectores">Con varios sectores, la IA crea preguntas comunes para comparar y preguntas propias de cada sector.</span>
             </fieldset>
 
             <div class="campo">
-              <label for="input-duracion">Duración máxima (segundos)</label>
+              <label for="input-duracion" data-i18n="crear.duracion">Duración máxima (segundos)</label>
               <input type="number" id="input-duracion" class="entrada num" value="120" min="30" max="300" step="10">
             </div>
             <div class="campo">
-              <label for="input-temas">Temas que no se deben preguntar</label>
+              <label for="input-temas" data-i18n="crear.temas_prohibidos">Temas que no se deben preguntar</label>
               <input type="text" id="input-temas" class="entrada" value="salario">
-              <span class="ayuda">Separados por comas.</span>
+              <span class="ayuda" data-i18n="crear.separados_comas">Separados por comas.</span>
             </div>
             <div class="campo ancho">
-              <label for="input-contexto">Contexto</label>
+              <label for="input-contexto" data-i18n="crear.contexto">Contexto</label>
               <textarea id="input-contexto" class="area" rows="3"
+                        data-i18n-placeholder="crear.contexto_ejemplo"
                         placeholder="Por ejemplo: cambio de turnos desde octubre"></textarea>
             </div>
           </form>
 
           <div class="pie-acciones">
             <span class="nota izquierda" id="texto-generando" aria-live="polite"></span>
-            <button type="button" class="btn btn-principal" id="btn-generar">Generar propuesta</button>
+            <button type="button" class="btn btn-secundario oculto" id="btn-a-revision" data-i18n="crear.volver_revision">Volver a la revisión sin regenerar</button>
+            <button type="button" class="btn btn-principal" id="btn-generar" data-i18n="crear.generar">Generar propuesta</button>
           </div>
         </section>
 
         <!-- ================= Paso 2 · Revisión ================= -->
         <section class="tarjeta oculto" id="paso-2">
+          <div id="aviso-aprobada" class="aviso info oculto" data-i18n="crear.aviso_aprobada">Al editarla vuelve a borrador; tendrás que aprobarla otra vez.</div>
+
           <div class="rejilla-2" style="margin-bottom: var(--e5);">
             <div class="campo ancho">
-              <label for="input-titulo">Título</label>
+              <label for="input-titulo" data-i18n="crear.titulo_encuesta">Título</label>
               <input type="text" id="input-titulo" class="entrada">
             </div>
             <div class="campo ancho">
-              <label for="input-intro">Introducción</label>
+              <label for="input-intro" data-i18n="crear.intro">Introducción</label>
               <textarea id="input-intro" class="area" rows="2"></textarea>
             </div>
           </div>
 
           <div class="tarjeta-cabecera" style="margin-bottom: var(--e2);">
-            <h3>Preguntas</h3>
+            <h3 data-i18n="crear.preguntas">Preguntas</h3>
             <span class="badge oculto" id="badge-origen"></span>
           </div>
-          <p class="nota" style="margin-bottom: var(--e3);" id="nota-propuesta">Propuesta generada por IA. Revísala antes de aprobar.</p>
+          <p class="nota" style="margin-bottom: var(--e3);" id="nota-propuesta"></p>
 
           <nav class="pestanas oculto" role="tablist" aria-label="Preguntas por sector" id="pestanas-sectores"></nav>
           <p class="nota oculto" id="explicacion-pestana" style="margin-bottom: var(--e2);"></p>
@@ -109,20 +116,22 @@
           <p class="nota" id="texto-duracion" style="margin-top: var(--e3);"></p>
 
           <div class="pie-acciones">
-            <button type="button" class="btn-texto izquierda" id="btn-volver-1">Ver la necesidad</button>
-            <button type="button" class="btn btn-secundario" id="btn-guardar">Guardar borrador</button>
-            <button type="button" class="btn btn-principal" id="btn-aprobar">Aprobar</button>
+            <button type="button" class="btn btn-secundario izquierda" data-atras="1" data-i18n="comun.atras">Atrás</button>
+            <span class="nota" id="texto-guardado" aria-live="polite"></span>
+            <button type="button" class="btn btn-secundario" id="btn-guardar" data-i18n="crear.guardar">Guardar borrador</button>
+            <button type="button" class="btn btn-principal" id="btn-aprobar" data-i18n="crear.aprobar">Aprobar</button>
           </div>
         </section>
 
         <!-- ================= Paso 3 · Publicación ================= -->
         <section class="tarjeta oculto" id="paso-3">
           <div id="bloque-sin-publicar">
-            <h3 style="margin-bottom: var(--e2);">Encuesta aprobada</h3>
-            <p class="texto-2">Al publicarla se generan el enlace y el código QR para compartirla.</p>
+            <h3 style="margin-bottom: var(--e2);" data-i18n="crear.aprobada">Encuesta aprobada</h3>
+            <p class="texto-2" data-i18n="crear.al_publicar">Al publicarla se generan el enlace y el código QR para compartirla.</p>
+            <p class="nota" id="texto-traduccion" style="margin-top: var(--e2);"></p>
             <div class="pie-acciones">
-              <button type="button" class="btn-texto izquierda" id="btn-editar">Editar preguntas</button>
-              <button type="button" class="btn btn-principal" id="btn-publicar">Publicar</button>
+              <button type="button" class="btn btn-secundario izquierda" data-atras="2" data-i18n="comun.atras">Atrás</button>
+              <button type="button" class="btn btn-principal" id="btn-publicar" data-i18n="crear.publicar">Publicar</button>
             </div>
           </div>
 
@@ -131,29 +140,35 @@
               <img id="img-qr" class="qr" alt="Código QR general de la encuesta">
               <div style="display: flex; flex-direction: column; gap: var(--e4);">
                 <div>
-                  <h3>QR general</h3>
-                  <p class="nota" id="texto-qr-general">Quien responde elige su sector al empezar.</p>
+                  <h3 data-i18n="crear.qr_general">QR general</h3>
+                  <p class="nota" id="texto-qr-general"></p>
                 </div>
                 <div class="campo">
-                  <label for="input-url">Enlace</label>
+                  <label for="input-url" data-i18n="crear.enlace">Enlace</label>
                   <div class="copiar">
                     <input type="text" id="input-url" class="entrada" readonly>
-                    <button type="button" class="btn btn-secundario" data-copiar="input-url">Copiar</button>
+                    <button type="button" class="btn btn-secundario" data-copiar="input-url" data-i18n="comun.copiar">Copiar</button>
                   </div>
                 </div>
                 <div class="acciones">
-                  <button type="button" class="btn btn-secundario" data-imprimir="">Imprimir cartel</button>
-                  <a class="btn btn-secundario" id="btn-quiosco" target="_blank" rel="noopener">Abrir modo quiosco</a>
-                  <a class="btn btn-principal" id="btn-analisis">Ir al análisis</a>
+                  <button type="button" class="btn btn-secundario" data-imprimir="" data-i18n="crear.imprimir_cartel">Imprimir cartel</button>
+                  <a class="btn btn-secundario" id="btn-quiosco" target="_blank" rel="noopener" data-i18n="crear.quiosco">Abrir modo quiosco</a>
+                  <button type="button" class="btn btn-secundario" id="btn-teams" data-i18n="crear.publicar_teams">Publicar en Teams</button>
+                  <a class="btn btn-principal" id="btn-analisis" data-i18n="crear.ir_analisis">Ir al análisis</a>
                 </div>
-                <p class="nota">Las respuestas son anónimas y solo se muestran agregadas, en grupos de al menos 5.</p>
+                <p class="nota" id="texto-teams" aria-live="polite"></p>
+                <p class="nota" data-i18n="crear.nota_anonima">Las respuestas son anónimas y solo se muestran agregadas, en grupos de al menos 5.</p>
               </div>
             </div>
 
             <div id="bloque-qr-sectores" class="oculto" style="margin-top: var(--e6);">
-              <h3>QR para cada sector</h3>
-              <p class="nota" style="margin-bottom: var(--e4);">Para carteles en cada zona: quien escanea no tiene que elegir su sector.</p>
+              <h3 data-i18n="crear.qr_sectores">QR para cada sector</h3>
+              <p class="nota" style="margin-bottom: var(--e4);" data-i18n="crear.qr_sectores_nota">Para carteles en cada zona: quien escanea no tiene que elegir su sector.</p>
               <div class="qr-sectores" id="lista-qr-sectores"></div>
+            </div>
+
+            <div class="pie-acciones">
+              <button type="button" class="btn btn-secundario izquierda" data-atras="2" data-i18n="comun.atras">Atrás</button>
             </div>
           </div>
         </section>
@@ -174,19 +189,25 @@
   <script type="module" src="/js/layout.js"></script>
   <script type="module">
     import {
-      generarEncuesta, obtenerEncuesta, guardarEncuesta, aprobarEncuesta, publicarEncuesta,
-      listarEscenarios, formatearEstado, formatearColectivo, colectivosDe, ORDEN_COLECTIVOS
+      generarEncuesta, regenerarEncuesta, duplicarEncuesta, obtenerEncuesta, guardarEncuesta,
+      aprobarEncuesta, publicarEncuesta, listarEscenarios, formatearEstado, formatearColectivo,
+      colectivosDe, ORDEN_COLECTIVOS
     } from '/js/api.js';
     import { escapar, TIPOS_PREGUNTA } from '/js/ui.js';
+    import { accionTeams } from '/js/teams.js';
+    import { t, alCambiarIdioma } from '/js/idioma.js';
 
     const $ = id => document.getElementById(id);
-    const params = new URLSearchParams(window.location.search);
 
-    let encuesta = null;            // Encuesta en edición (formato v2)
-    let duracionMax = null;         // de la necesidad, para avisar si se supera
-    let hayCambios = false;
-    let pestanaActual = 'comunes';  // 'comunes' o un colectivo
+    let encuesta = null;            // Encuesta en edición
+    let paso = 1;
+    let hayCambios = false;         // cambios sin guardar en el paso 2
+    let necesidadOriginal = '';     // para saber si el paso 1 ha cambiado
+    let pestanaActual = 'comunes';
     let sectoresElegidos = new Set(['planta']);
+
+    const publicada = () => encuesta?.estado === 'publicada';
+    const nombresSectores = cols => cols.map(c => formatearColectivo(c)).join(', ');
 
     // ---------- Avisos ----------
     function avisar(texto, tipo = 'info') {
@@ -196,44 +217,78 @@
     function ocultarAviso() { $('aviso').className = 'aviso oculto'; }
     $('aviso-cerrar').addEventListener('click', ocultarAviso);
 
-    // ---------- Pasos ----------
-    function irAPaso(n) {
-      [1, 2, 3].forEach(i => $(`paso-${i}`).classList.toggle('oculto', i !== n));
-      document.querySelectorAll('.pasos li[data-paso]').forEach(li => {
-        const p = Number(li.dataset.paso);
-        li.classList.toggle('actual', p === n);
-        li.classList.toggle('hecho', p < n);
-        if (p === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+    // ---------- Navegación entre pasos (con la URL y el botón Atrás del navegador) ----------
+    function pasoPermitido(n) {
+      if (n === 1) return true;
+      if (!encuesta) return false;
+      if (n === 2) return true;
+      return encuesta.estado === 'aprobada' || encuesta.estado === 'publicada';
+    }
+
+    function actualizarIndicador() {
+      document.querySelectorAll('.pasos .paso').forEach(b => {
+        const n = Number(b.dataset.paso);
+        b.classList.toggle('actual', n === paso);
+        b.classList.toggle('hecho', n < paso && pasoPermitido(n));
+        b.disabled = !pasoPermitido(n);
+        if (n === paso) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
       });
+    }
+
+    function urlDelPaso(n) {
+      const url = new URL(window.location.href);
+      if (encuesta) url.searchParams.set('id', encuesta.id); else url.searchParams.delete('id');
+      url.searchParams.set('paso', String(n));
+      return url;
+    }
+
+    /** Cambia de paso. Al salir del paso 2, guarda si hay cambios. */
+    async function irAPaso(n, { historial = 'push' } = {}) {
+      if (!pasoPermitido(n)) return;
+      if (paso === 2 && n !== 2 && hayCambios && !publicada()) {
+        const ok = await guardar({ silencioso: true });
+        if (!ok) return;
+      }
+      paso = n;
+      if (historial === 'push') history.pushState({ paso: n }, '', urlDelPaso(n));
+      else if (historial === 'replace') history.replaceState({ paso: n }, '', urlDelPaso(n));
+
+      [1, 2, 3].forEach(i => $(`paso-${i}`).classList.toggle('oculto', i !== n));
+      $('aviso-publicada').classList.toggle('oculto', !(publicada() && n !== 3));
+      if (n === 1) pintarPaso1();
+      if (n === 2) pintarRevision();
+      if (n === 3) pintarPublicacion();
+      actualizarIndicador();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    const nombresSectores = cols => cols.map(c => formatearColectivo(c)).join(', ');
+    document.querySelectorAll('.pasos .paso').forEach(b =>
+      b.addEventListener('click', () => irAPaso(Number(b.dataset.paso))));
+    document.querySelectorAll('[data-atras]').forEach(b =>
+      b.addEventListener('click', () => irAPaso(Number(b.dataset.atras))));
+    window.addEventListener('popstate', e => {
+      const n = e.state?.paso || Number(new URLSearchParams(location.search).get('paso')) || 1;
+      irAPaso(n, { historial: 'none' });
+    });
 
     function pintarCabecera() {
       if (!encuesta) return;
-      $('titulo-pagina').textContent = encuesta.titulo || 'Nueva necesidad';
+      $('titulo-pagina').textContent = encuesta.titulo || t('crear.titulo', 'Nueva necesidad');
       $('meta-encuesta').classList.remove('oculto');
       $('badge-estado').className = `badge badge-${encuesta.estado}`;
       $('badge-estado').textContent = formatearEstado(encuesta.estado);
       $('texto-id').textContent = `${encuesta.id} · ${nombresSectores(colectivosDe(encuesta))}`;
     }
 
-    function fijarIdEnUrl(id) {
-      const url = new URL(window.location.href);
-      url.searchParams.set('id', id);
-      history.replaceState(null, '', url);
-    }
-
-    // ---------- Paso 1 · chips de sectores ----------
+    // ---------- Paso 1 · Necesidad ----------
     function pintarChips() {
       const todos = ORDEN_COLECTIVOS.every(c => sectoresElegidos.has(c));
+      const bloqueado = publicada();
       $('chips-sectores').innerHTML =
         ORDEN_COLECTIVOS.map(c => `
-          <button type="button" class="chip" data-sector="${c}" aria-pressed="${sectoresElegidos.has(c)}">${escapar(formatearColectivo(c))}</button>
+          <button type="button" class="chip" data-sector="${c}" aria-pressed="${sectoresElegidos.has(c)}" ${bloqueado ? 'disabled' : ''}>${escapar(formatearColectivo(c))}</button>
         `).join('') +
-        `<button type="button" class="chip" data-sector="todos" aria-pressed="${todos}">Todos</button>`;
-      $('nota-sectores').classList.toggle('texto-3', sectoresElegidos.size <= 1);
+        `<button type="button" class="chip" data-sector="todos" aria-pressed="${todos}" ${bloqueado ? 'disabled' : ''}>${escapar(t('crear.todos', 'Todos'))}</button>`;
     }
     $('chips-sectores').addEventListener('click', e => {
       const chip = e.target.closest('.chip');
@@ -243,16 +298,14 @@
         const todos = ORDEN_COLECTIVOS.every(c => sectoresElegidos.has(c));
         sectoresElegidos = todos ? new Set([ORDEN_COLECTIVOS[0]]) : new Set(ORDEN_COLECTIVOS);
       } else if (sectoresElegidos.has(s)) {
-        if (sectoresElegidos.size === 1) {
-          avisar('Elige al menos un sector.', 'error');
-          return;
-        }
+        if (sectoresElegidos.size === 1) { avisar(t('crear.minimo_sector', 'Elige al menos un sector.'), 'error'); return; }
         sectoresElegidos.delete(s);
       } else {
         sectoresElegidos.add(s);
       }
       ocultarAviso();
       pintarChips();
+      revisarCambiosNecesidad();
     });
 
     function leerNecesidad() {
@@ -260,13 +313,14 @@
       return {
         objetivo: $('input-objetivo').value.trim(),
         colectivos,
-        // Campo antiguo, solo con un sector: así también funciona con el backend anterior
+        // Campo antiguo, solo con un sector (compatibilidad)
         ...(colectivos.length === 1 ? { colectivo: colectivos[0] } : {}),
         contexto: $('input-contexto').value.trim(),
         duracion_max_seg: Number($('input-duracion').value) || 120,
-        temas_prohibidos: $('input-temas').value.split(',').map(t => t.trim()).filter(Boolean),
+        temas_prohibidos: $('input-temas').value.split(',').map(x => x.trim()).filter(Boolean),
       };
     }
+    const firma = n => JSON.stringify({ ...n, colectivo: undefined });
 
     function rellenarNecesidad(n) {
       if (!n) return;
@@ -279,12 +333,46 @@
       pintarChips();
     }
 
-    function bloquearFormulario(bloquear) {
-      $('form-necesidad').querySelectorAll('input, textarea').forEach(el => { el.disabled = bloquear; });
-      $('chips-sectores').querySelectorAll('.chip').forEach(el => { el.disabled = bloquear; });
-      $('btn-generar').disabled = bloquear;
-      $('bloque-escenarios').querySelectorAll('button').forEach(el => { el.disabled = bloquear; });
+    /** La Necesidad guardada en la encuesta (v3); con encuestas antiguas, lo que se puede deducir */
+    function necesidadDeEncuesta() {
+      return encuesta.necesidad || {
+        objetivo: encuesta.titulo || '',
+        colectivos: colectivosDe(encuesta),
+        contexto: '',
+        duracion_max_seg: encuesta.tiempo_estimado_seg ? Math.max(60, encuesta.tiempo_estimado_seg) : 120,
+        temas_prohibidos: ['salario'],
+      };
     }
+
+    function pintarPaso1() {
+      const existe = !!encuesta;
+      const soloLectura = publicada();
+      $('form-necesidad').querySelectorAll('input, textarea').forEach(el => { el.disabled = soloLectura; });
+      pintarChips();
+      $('bloque-escenarios').classList.toggle('oculto', existe || !$('lista-escenarios').children.length);
+      $('btn-a-revision').classList.toggle('oculto', !existe);
+      $('btn-generar').classList.toggle('oculto', soloLectura);
+      if (existe) {
+        $('btn-generar').textContent = t('crear.regenerar', 'Regenerar preguntas');
+        revisarCambiosNecesidad();
+      } else {
+        $('btn-generar').textContent = t('crear.generar', 'Generar propuesta');
+        $('btn-generar').disabled = false;
+      }
+      $('btn-a-revision').textContent = soloLectura
+        ? t('crear.ver_revision', 'Ver las preguntas')
+        : t('crear.volver_revision', 'Volver a la revisión sin regenerar');
+    }
+
+    /** Con encuesta existente, "Regenerar preguntas" solo se activa si cambia la necesidad */
+    function revisarCambiosNecesidad() {
+      if (!encuesta) return;
+      $('btn-generar').disabled = firma(leerNecesidad()) === necesidadOriginal;
+    }
+    ['input-objetivo', 'input-duracion', 'input-temas', 'input-contexto'].forEach(id =>
+      $(id).addEventListener('input', revisarCambiosNecesidad));
+
+    $('btn-a-revision').addEventListener('click', () => irAPaso(2));
 
     async function cargarEscenarios() {
       try {
@@ -299,9 +387,9 @@
           b.title = esc.descripcion || '';
           const sectores = esc.necesidad ? nombresSectores(colectivosDe(esc.necesidad)) : '';
           b.innerHTML = `
-            <span class="escenario-id">Escenario ${escapar(esc.id)}${sectores ? ` · ${escapar(sectores)}` : ''}</span>
+            <span class="escenario-id">${escapar(t('crear.escenario', 'Escenario'))} ${escapar(esc.id)}${sectores ? ` · ${escapar(sectores)}` : ''}</span>
             <span class="escenario-titulo">${escapar(esc.titulo || esc.nombre || '')}</span>
-            <span class="escenario-accion">${esc.necesidad ? 'Rellena el formulario' : 'Abre su análisis'}</span>`;
+            <span class="escenario-accion">${escapar(esc.necesidad ? t('crear.rellena', 'Rellena el formulario') : t('crear.abre_analisis', 'Abre su análisis'))}</span>`;
           b.addEventListener('click', () => {
             if (!esc.necesidad && esc.encuesta_id) {
               window.location.href = `/dashboard.html?id=${encodeURIComponent(esc.encuesta_id)}`;
@@ -313,7 +401,7 @@
           lista.appendChild(b);
         });
         lista.style.gridTemplateColumns = `repeat(${Math.min(escenarios.length, 4)}, minmax(0, 1fr))`;
-        $('bloque-escenarios').classList.remove('oculto');
+        if (!encuesta) $('bloque-escenarios').classList.remove('oculto');
       } catch (err) {
         console.warn('No se pudieron cargar los escenarios:', err);
       }
@@ -322,67 +410,64 @@
     $('btn-generar').addEventListener('click', async () => {
       const necesidad = leerNecesidad();
       if (!necesidad.objetivo) {
-        avisar('Escribe el objetivo de la encuesta.', 'error');
+        avisar(t('crear.falta_objetivo', 'Escribe el objetivo de la encuesta.'), 'error');
         $('input-objetivo').focus();
         return;
       }
+      const regenerar = !!encuesta;
+      if (regenerar && !window.confirm(t('crear.confirmar_regenerar', 'Se sustituirán las preguntas actuales y se perderán tus ediciones. ¿Quieres continuar?'))) return;
+
       ocultarAviso();
       const n = necesidad.colectivos.length;
-      bloquearFormulario(true);
-      $('btn-generar').textContent = 'Generando…';
+      const boton = $('btn-generar');
+      const textoBoton = boton.textContent;
+      boton.disabled = true;
+      boton.textContent = t('crear.generando_boton', 'Generando…');
       $('texto-generando').textContent = n > 1
-        ? `Generando preguntas para ${n} sectores… (hasta 30 s)`
-        : 'Generando preguntas… (hasta 20 s)';
+        ? t('crear.generando_varios', 'Generando preguntas para {n} sectores… (hasta 30 s)', { n })
+        : t('crear.generando_uno', 'Generando preguntas… (hasta 20 s)');
       try {
-        encuesta = normalizar(await generarEncuesta(necesidad));
-        duracionMax = necesidad.duracion_max_seg;
+        const nueva = regenerar ? await regenerarEncuesta(encuesta.id, necesidad) : await generarEncuesta(necesidad);
+        encuesta = normalizar(nueva);
+        if (!encuesta.necesidad) encuesta.necesidad = necesidad;
+        necesidadOriginal = firma(necesidadDeEncuesta());
         hayCambios = false;
         pestanaActual = 'comunes';
-        fijarIdEnUrl(encuesta.id);
         pintarCabecera();
-        marcarYaGenerada();
-        pintarRevision();
-        irAPaso(2);
-        if (encuesta.origen === 'respaldo') {
-          avisar('Propuesta generada sin IA: el servicio no ha respondido a tiempo.');
-        }
+        await irAPaso(2, { historial: regenerar ? 'push' : 'replace' });
+        if (encuesta.origen === 'respaldo') avisar(t('crear.sin_ia', 'Propuesta generada sin IA: el servicio no ha respondido a tiempo.'));
+        else if (regenerar) avisar(t('crear.regeneradas', 'Preguntas regeneradas.'));
       } catch (err) {
-        bloquearFormulario(false);
-        avisar(`No se pudo generar la propuesta: ${err.message}`, 'error');
+        avisar(`${t('crear.error_generar', 'No se pudo generar la propuesta')}: ${err.message}`, 'error');
+        boton.disabled = false;
       } finally {
-        $('btn-generar').textContent = 'Generar propuesta';
+        boton.textContent = textoBoton;
         $('texto-generando').textContent = '';
       }
     });
 
-    /** Una vez generada, el paso 1 queda de solo lectura (para no duplicar borradores) */
-    function marcarYaGenerada() {
-      bloquearFormulario(true);
-      $('bloque-ya-generada').classList.remove('oculto');
-      $('texto-ya-generada').textContent = `Esta necesidad ya tiene una propuesta (${encuesta.id}).`;
-    }
-
-    // ---------- Paso 2 · revisión por sectores ----------
+    // ---------- Paso 2 · Revisión por sectores ----------
     function normalizar(e) {
       e.preguntas = e.preguntas || [];
       e.preguntas_por_colectivo = e.preguntas_por_colectivo || {};
       return e;
     }
     const esMultisector = () => colectivosDe(encuesta).length > 1 || Object.keys(encuesta.preguntas_por_colectivo).length > 0;
-
     const segundosPregunta = p => (p.tipo === 'texto' ? 30 : 15);
     function segundosDe(colectivo) {
       const propias = colectivo ? (encuesta.preguntas_por_colectivo[colectivo] || []) : [];
       return [...encuesta.preguntas, ...propias].reduce((s, p) => s + segundosPregunta(p), 0);
     }
+    const duracionMax = () => necesidadDeEncuesta().duracion_max_seg;
 
     function pintarPestanas() {
       const nav = $('pestanas-sectores');
       if (!esMultisector()) { nav.classList.add('oculto'); return; }
       const sectores = colectivosDe(encuesta);
+      if (pestanaActual !== 'comunes' && !sectores.includes(pestanaActual)) pestanaActual = 'comunes';
       nav.classList.remove('oculto');
       nav.innerHTML = [
-        `<button type="button" class="pestana ${pestanaActual === 'comunes' ? 'activa' : ''}" role="tab" aria-selected="${pestanaActual === 'comunes'}" data-pestana="comunes">Comunes</button>`,
+        `<button type="button" class="pestana ${pestanaActual === 'comunes' ? 'activa' : ''}" role="tab" aria-selected="${pestanaActual === 'comunes'}" data-pestana="comunes">${escapar(t('crear.comunes', 'Comunes'))}</button>`,
         ...sectores.map(c => `<button type="button" class="pestana ${pestanaActual === c ? 'activa' : ''}" role="tab" aria-selected="${pestanaActual === c}" data-pestana="${c}">${escapar(formatearColectivo(c))}</button>`),
       ].join('');
     }
@@ -393,7 +478,12 @@
       pintarRevision();
     });
 
-    function filaPregunta(p, numero, { editable, lista }) {
+    function marcarCambio() {
+      hayCambios = true;
+      $('texto-guardado').textContent = t('crear.sin_guardar', 'Cambios sin guardar');
+    }
+
+    function filaPregunta(p, numero, { editable, lista, comun }) {
       const li = document.createElement('li');
       li.className = `pregunta ${editable ? '' : 'solo-lectura'}`;
       const opciones = p.tipo === 'opcion' && p.opciones?.length ? escapar(p.opciones.join(' · ')) : '';
@@ -401,15 +491,16 @@
         <span class="pregunta-num">${numero}</span>
         <div>
           ${editable
-            ? `<label class="sr-only" for="texto-${escapar(p.id)}">Texto de la pregunta ${numero}</label>
+            ? `<label class="sr-only" for="texto-${escapar(p.id)}">${escapar(t('crear.texto_pregunta', 'Texto de la pregunta'))} ${numero}</label>
                <input type="text" class="entrada" id="texto-${escapar(p.id)}" value="${escapar(p.texto)}">`
             : `<div class="pregunta-fija">${escapar(p.texto)}</div>`}
           ${opciones ? `<div class="pregunta-opciones">${opciones}</div>` : ''}
         </div>
         <span class="badge">${escapar(TIPOS_PREGUNTA[p.tipo] || p.tipo)}</span>
-        ${editable ? '<button type="button" class="btn-texto peligro">Borrar</button>' : '<span class="nota pregunta-comun">Común</span>'}`;
+        ${editable ? `<button type="button" class="btn-texto peligro">${escapar(t('crear.borrar', 'Borrar'))}</button>`
+                   : comun ? `<span class="nota pregunta-comun">${escapar(t('crear.comun', 'Común'))}</span>` : '<span></span>'}`;
       if (editable) {
-        li.querySelector('input').addEventListener('input', e => { p.texto = e.target.value; hayCambios = true; });
+        li.querySelector('input').addEventListener('input', e => { p.texto = e.target.value; marcarCambio(); });
         li.querySelector('button').addEventListener('click', () => borrarPregunta(p, lista));
       }
       return li;
@@ -419,29 +510,36 @@
       const arr = lista === 'comunes' ? encuesta.preguntas : encuesta.preguntas_por_colectivo[lista];
       if (arr.length <= 1) {
         avisar(lista === 'comunes'
-          ? 'El núcleo común necesita al menos una pregunta.'
-          : `${formatearColectivo(lista)} necesita al menos una pregunta propia.`, 'error');
+          ? t('crear.minimo_comun', 'El núcleo común necesita al menos una pregunta.')
+          : t('crear.minimo_propia', '{sector} necesita al menos una pregunta propia.', { sector: formatearColectivo(lista) }), 'error');
         return;
       }
       const restante = arr.filter(x => x.id !== p.id);
       if (lista === 'comunes') encuesta.preguntas = restante;
       else encuesta.preguntas_por_colectivo[lista] = restante;
-      // Las condiciones que dependían de la pregunta borrada dejan de tener sentido
       [encuesta.preguntas, ...Object.values(encuesta.preguntas_por_colectivo)].forEach(l =>
         l.forEach(x => { if (x.condicion?.pregunta === p.id) x.condicion = null; }));
-      hayCambios = true;
+      marcarCambio();
       pintarRevision();
     }
 
     function pintarRevision() {
+      const editable = !publicada();
       $('input-titulo').value = encuesta.titulo || '';
       $('input-intro').value = encuesta.intro || '';
+      $('input-titulo').disabled = !editable;
+      $('input-intro').disabled = !editable;
+      $('aviso-aprobada').classList.toggle('oculto', encuesta.estado !== 'aprobada');
+      $('btn-guardar').classList.toggle('oculto', !editable);
+      $('btn-aprobar').classList.toggle('oculto', !editable);
+      $('texto-guardado').textContent = hayCambios ? t('crear.sin_guardar', 'Cambios sin guardar') : '';
+
       const origen = $('badge-origen');
       origen.classList.toggle('oculto', !encuesta.origen);
-      origen.textContent = encuesta.origen === 'respaldo' ? 'Sin IA' : 'Generada con IA';
+      origen.textContent = encuesta.origen === 'respaldo' ? t('comun.sin_ia', 'Sin IA') : t('crear.con_ia', 'Generada con IA');
       $('nota-propuesta').textContent = encuesta.origen === 'respaldo'
-        ? 'Propuesta automática generada sin IA. Revísala antes de aprobar.'
-        : 'Propuesta generada por IA. Revísala antes de aprobar.';
+        ? t('crear.nota_sin_ia', 'Propuesta automática generada sin IA. Revísala antes de aprobar.')
+        : t('crear.nota_ia', 'Propuesta generada por IA. Revísala antes de aprobar.');
 
       pintarPestanas();
       const lista = $('lista-preguntas');
@@ -450,102 +548,110 @@
 
       if (!esMultisector()) {
         explicacion.classList.add('oculto');
-        encuesta.preguntas.forEach((p, i) => lista.appendChild(filaPregunta(p, i + 1, { editable: true, lista: 'comunes' })));
+        encuesta.preguntas.forEach((p, i) => lista.appendChild(filaPregunta(p, i + 1, { editable, lista: 'comunes' })));
         pintarDuracion(null);
         return;
       }
-
       explicacion.classList.remove('oculto');
       if (pestanaActual === 'comunes') {
-        explicacion.textContent = 'Las preguntas comunes las responden todos los sectores y sirven para compararlos.';
-        encuesta.preguntas.forEach((p, i) => lista.appendChild(filaPregunta(p, i + 1, { editable: true, lista: 'comunes' })));
+        explicacion.textContent = t('crear.explica_comunes', 'Las preguntas comunes las responden todos los sectores y sirven para compararlos.');
+        encuesta.preguntas.forEach((p, i) => lista.appendChild(filaPregunta(p, i + 1, { editable, lista: 'comunes' })));
         pintarDuracion(null);
       } else {
         const c = pestanaActual;
-        explicacion.textContent = `Así verá la encuesta ${formatearColectivo(c).toLowerCase()}: primero las comunes y después sus preguntas propias.`;
-        encuesta.preguntas.forEach((p, i) => lista.appendChild(filaPregunta(p, i + 1, { editable: false })));
-        const propias = encuesta.preguntas_por_colectivo[c] || [];
-        propias.forEach((p, i) => lista.appendChild(filaPregunta(p, encuesta.preguntas.length + i + 1, { editable: true, lista: c })));
+        explicacion.textContent = t('crear.explica_sector', 'Así verá la encuesta {sector}: primero las comunes y después sus preguntas propias.', { sector: formatearColectivo(c).toLowerCase() });
+        encuesta.preguntas.forEach((p, i) => lista.appendChild(filaPregunta(p, i + 1, { editable: false, comun: true })));
+        (encuesta.preguntas_por_colectivo[c] || []).forEach((p, i) =>
+          lista.appendChild(filaPregunta(p, encuesta.preguntas.length + i + 1, { editable, lista: c })));
         pintarDuracion(c);
       }
     }
 
     function pintarDuracion(colectivo) {
       const el = $('texto-duracion');
-      const max = duracionMax;
+      const max = duracionMax();
+      const linea = (n, seg) => t('crear.duracion_linea', '{n} preguntas · unos {seg} s', { n, seg }) +
+        (max && seg > max ? ` · ${t('crear.supera', 'supera el máximo de {max} s', { max })}` : '');
       if (!esMultisector()) {
         const seg = segundosDe(null);
-        const supera = max && seg > max;
-        el.textContent = `${encuesta.preguntas.length} preguntas · unos ${seg} s${supera ? ` · supera el máximo de ${max} s` : ''}`;
-        el.style.color = supera ? 'var(--critico)' : '';
-        return;
-      }
-      if (colectivo) {
+        el.textContent = linea(encuesta.preguntas.length, seg);
+        el.style.color = max && seg > max ? 'var(--critico)' : '';
+      } else if (colectivo) {
         const seg = segundosDe(colectivo);
-        const n = encuesta.preguntas.length + (encuesta.preguntas_por_colectivo[colectivo] || []).length;
-        const supera = max && seg > max;
-        el.textContent = `${formatearColectivo(colectivo)}: ${n} preguntas · unos ${seg} s${supera ? ` · supera el máximo de ${max} s` : ''}`;
-        el.style.color = supera ? 'var(--critico)' : '';
+        el.textContent = `${formatearColectivo(colectivo)}: ${linea(encuesta.preguntas.length + (encuesta.preguntas_por_colectivo[colectivo] || []).length, seg)}`;
+        el.style.color = max && seg > max ? 'var(--critico)' : '';
       } else {
-        const partes = colectivosDe(encuesta).map(c => `${formatearColectivo(c)} ${segundosDe(c)} s`);
-        el.textContent = `Tiempo estimado por sector: ${partes.join(' · ')}`;
+        el.textContent = `${t('crear.tiempo_sector', 'Tiempo estimado por sector')}: ${colectivosDe(encuesta).map(c => `${formatearColectivo(c)} ${segundosDe(c)} s`).join(' · ')}`;
         el.style.color = '';
       }
     }
 
-    $('input-titulo').addEventListener('input', e => { encuesta.titulo = e.target.value; hayCambios = true; });
-    $('input-intro').addEventListener('input', e => { encuesta.intro = e.target.value; hayCambios = true; });
+    $('input-titulo').addEventListener('input', e => { encuesta.titulo = e.target.value; marcarCambio(); });
+    $('input-intro').addEventListener('input', e => { encuesta.intro = e.target.value; marcarCambio(); });
 
-    async function guardar() {
-      // Se envía la encuesta entera: núcleo y listas por sector
-      encuesta = normalizar(await guardarEncuesta(encuesta));
-      hayCambios = false;
-      pintarCabecera();
+    /** Guarda la encuesta entera; si estaba aprobada, el servidor la devuelve a borrador */
+    async function guardar({ silencioso = false } = {}) {
+      try {
+        const necesidad = encuesta.necesidad;
+        encuesta = normalizar(await guardarEncuesta(encuesta));
+        if (!encuesta.necesidad && necesidad) encuesta.necesidad = necesidad;
+        hayCambios = false;
+        $('texto-guardado').textContent = t('crear.guardado', 'Guardado');
+        pintarCabecera();
+        actualizarIndicador();
+        if (!silencioso) avisar(t('crear.borrador_guardado', 'Borrador guardado.'));
+        return true;
+      } catch (err) {
+        avisar(`${t('crear.error_guardar', 'No se pudo guardar')}: ${err.message}`, 'error');
+        return false;
+      }
     }
 
     $('btn-guardar').addEventListener('click', async () => {
-      const b = $('btn-guardar');
-      b.disabled = true;
-      try {
-        await guardar();
-        pintarRevision();
-        avisar('Borrador guardado.');
-      } catch (err) {
-        avisar(`No se pudo guardar: ${err.message}`, 'error');
-      } finally {
-        b.disabled = false;
-      }
+      $('btn-guardar').disabled = true;
+      await guardar();
+      $('btn-guardar').disabled = false;
     });
 
     $('btn-aprobar').addEventListener('click', async () => {
       const b = $('btn-aprobar');
       b.disabled = true;
-      b.textContent = 'Aprobando…';
+      b.textContent = t('crear.aprobando', 'Aprobando…');
       try {
-        if (hayCambios || encuesta.estado !== 'borrador') await guardar();
-        encuesta = normalizar(await aprobarEncuesta(encuesta.id));
+        if (hayCambios || encuesta.estado !== 'borrador') {
+          if (!(await guardar({ silencioso: true }))) return;
+        }
+        encuesta = normalizar({ ...(await aprobarEncuesta(encuesta.id)) });
         ocultarAviso();
         pintarCabecera();
-        pintarPublicacion();
-        irAPaso(3);
+        await irAPaso(3);
       } catch (err) {
-        avisar(`No se pudo aprobar: ${err.message}`, 'error');
+        avisar(`${t('crear.error_aprobar', 'No se pudo aprobar')}: ${err.message}`, 'error');
       } finally {
         b.disabled = false;
-        b.textContent = 'Aprobar';
+        b.textContent = t('crear.aprobar', 'Aprobar');
       }
     });
 
-    $('btn-volver-1').addEventListener('click', () => { ocultarAviso(); irAPaso(1); });
+    // ---------- Encuesta publicada: duplicar para editar ----------
+    $('btn-duplicar').addEventListener('click', async () => {
+      const b = $('btn-duplicar');
+      b.disabled = true;
+      try {
+        const copia = await duplicarEncuesta(encuesta.id);
+        window.location.href = `/crear.html?id=${encodeURIComponent(copia.id)}&paso=2`;
+      } catch (err) {
+        avisar(`${t('crear.error_duplicar', 'No se pudo duplicar')}: ${err.message}`, 'error');
+        b.disabled = false;
+      }
+    });
 
-    // ---------- Paso 3 · publicación ----------
+    // ---------- Paso 3 · Publicación ----------
     function urlCon(url, clave, valor) {
       const u = new URL(url, window.location.origin);
       u.searchParams.set(clave, valor);
       return u.toString();
     }
-
-    /** QR generado en el navegador (vendor/qrcode.js), para los enlaces por sector */
     function qrDataUrl(texto) {
       if (typeof window.qrcode !== 'function') return '';
       const qr = window.qrcode(0, 'M');
@@ -553,7 +659,6 @@
       qr.make();
       return qr.createDataURL(6, 2);
     }
-
     function imprimirCartel(sector, qr) {
       $('cartel-titulo').textContent = encuesta.titulo || '';
       $('cartel-sector').textContent = sector ? formatearColectivo(sector) : '';
@@ -562,10 +667,14 @@
     }
 
     function pintarPublicacion() {
-      const publicada = encuesta.estado === 'publicada' && encuesta.url;
-      $('bloque-sin-publicar').classList.toggle('oculto', publicada);
-      $('bloque-publicada').classList.toggle('oculto', !publicada);
-      if (!publicada) return;
+      const esPublicada = publicada() && encuesta.url;
+      $('bloque-sin-publicar').classList.toggle('oculto', esPublicada);
+      $('bloque-publicada').classList.toggle('oculto', !esPublicada);
+      const trad = { pendiente: t('crear.traduccion_pendiente', 'La IA está traduciendo la encuesta a otros idiomas…'),
+                     lista: t('crear.traduccion_lista', 'Traducciones listas.'),
+                     error: t('crear.traduccion_error', 'No se pudo traducir: quien responda en otro idioma la verá en castellano.') }[encuesta.estado_traduccion] || '';
+      $('texto-traduccion').textContent = trad;
+      if (!esPublicada) return;
 
       const sectores = colectivosDe(encuesta);
       const varios = sectores.length > 1;
@@ -574,8 +683,8 @@
       $('btn-quiosco').href = urlCon(encuesta.url, 'canal', 'quiosco');
       $('btn-analisis').href = `/dashboard.html?id=${encodeURIComponent(encuesta.id)}`;
       $('texto-qr-general').textContent = varios
-        ? 'Quien responde elige su sector al empezar.'
-        : `Para ${formatearColectivo(sectores[0] || '').toLowerCase()}.`;
+        ? t('crear.qr_general_varios', 'Quien responde elige su sector al empezar.')
+        : t('crear.qr_general_uno', 'Para {sector}.', { sector: formatearColectivo(sectores[0] || '').toLowerCase() });
       document.querySelector('[data-imprimir=""]').onclick = () => imprimirCartel('', encuesta.qr);
 
       $('bloque-qr-sectores').classList.toggle('oculto', !varios);
@@ -584,12 +693,12 @@
         const url = urlCon(encuesta.url, 'colectivo', c);
         return `
           <div class="qr-sector tarjeta">
-            <img src="${qrDataUrl(url)}" alt="QR para ${escapar(formatearColectivo(c))}">
+            <img src="${qrDataUrl(url)}" alt="QR ${escapar(formatearColectivo(c))}">
             <div class="qr-sector-nombre">${escapar(formatearColectivo(c))}</div>
-            <input type="text" class="entrada" id="url-${c}" value="${escapar(url)}" readonly aria-label="Enlace para ${escapar(formatearColectivo(c))}">
+            <input type="text" class="entrada" id="url-${c}" value="${escapar(url)}" readonly aria-label="${escapar(formatearColectivo(c))}">
             <div class="acciones">
-              <button type="button" class="btn btn-secundario" data-copiar="url-${c}">Copiar</button>
-              <button type="button" class="btn btn-secundario" data-imprimir="${c}">Imprimir</button>
+              <button type="button" class="btn btn-secundario" data-copiar="url-${c}">${escapar(t('comun.copiar', 'Copiar'))}</button>
+              <button type="button" class="btn btn-secundario" data-imprimir="${c}">${escapar(t('crear.imprimir', 'Imprimir'))}</button>
             </div>
           </div>`;
       }).join('');
@@ -599,7 +708,6 @@
       });
     }
 
-    // Copiar cualquier enlace
     document.addEventListener('click', async e => {
       const b = e.target.closest('[data-copiar]');
       if (!b) return;
@@ -607,71 +715,80 @@
       try { await navigator.clipboard.writeText(input.value); }
       catch { input.select(); document.execCommand('copy'); }
       const antes = b.textContent;
-      b.textContent = 'Copiado';
+      b.textContent = t('comun.copiado', 'Copiado');
       setTimeout(() => { b.textContent = antes; }, 1500);
-    });
-
-    $('btn-editar').addEventListener('click', () => {
-      pintarRevision();
-      irAPaso(2);
-      avisar('Si cambias algo, tendrás que volver a aprobar la encuesta.');
     });
 
     $('btn-publicar').addEventListener('click', async () => {
       const b = $('btn-publicar');
       b.disabled = true;
-      b.textContent = 'Publicando…';
+      b.textContent = t('crear.publicando', 'Publicando…');
       try {
         encuesta = normalizar(await publicarEncuesta(encuesta.id));
         ocultarAviso();
         pintarCabecera();
         pintarPublicacion();
+        actualizarIndicador();
         try { sessionStorage.removeItem('encuestas_activas'); } catch { /* nada */ }
       } catch (err) {
-        avisar(`No se pudo publicar: ${err.message}`, 'error');
+        avisar(`${t('crear.error_publicar', 'No se pudo publicar')}: ${err.message}`, 'error');
       } finally {
         b.disabled = false;
-        b.textContent = 'Publicar';
+        b.textContent = t('crear.publicar', 'Publicar');
       }
+    });
+
+    $('btn-teams').addEventListener('click', async () => {
+      $('texto-teams').textContent = '';
+      const r = await accionTeams(encuesta.id, 'publicar', $('btn-teams'));
+      $('texto-teams').textContent = r.mensaje;
+      $('texto-teams').style.color = r.ok ? '' : 'var(--critico)';
     });
 
     // ---------- Inicio ----------
     async function inicializar() {
-      pintarChips();
+      const params = new URLSearchParams(window.location.search);
       const id = params.get('id');
+      const pasoUrl = Number(params.get('paso'));
+      pintarChips();
+
       if (id) {
         try {
           encuesta = normalizar(await obtenerEncuesta(id));
+          rellenarNecesidad(necesidadDeEncuesta());
+          necesidadOriginal = firma(necesidadDeEncuesta());
           pintarCabecera();
-          rellenarNecesidad({ objetivo: encuesta.titulo, colectivos: colectivosDe(encuesta) });
-          marcarYaGenerada();
-          if (encuesta.estado === 'borrador') {
-            pintarRevision();
-            irAPaso(2);
-          } else {
-            pintarPublicacion();
-            irAPaso(3);
-          }
+          const porDefecto = encuesta.estado === 'borrador' ? 2 : 3;
+          const destino = pasoUrl && pasoPermitido(pasoUrl) ? pasoUrl : porDefecto;
+          await irAPaso(destino, { historial: 'replace' });
           return;
         } catch (err) {
-          avisar(`No existe la encuesta ${id}. Puedes crear una nueva.`, 'error');
+          encuesta = null;
+          avisar(t('crear.no_existe', 'No existe la encuesta {id}. Puedes crear una nueva.', { id }), 'error');
         }
       }
 
-      irAPaso(1);
-      // Encuesta de seguimiento propuesta desde el análisis o la maqueta 3D
+      await irAPaso(1, { historial: 'replace' });
       try {
         const prefill = sessionStorage.getItem('necesidad_prefill');
         if (prefill) {
           sessionStorage.removeItem('necesidad_prefill');
           rellenarNecesidad(JSON.parse(prefill));
-          avisar('Formulario rellenado con la encuesta propuesta. Revísalo y genera la propuesta.');
+          avisar(t('crear.prefill', 'Formulario rellenado con la encuesta propuesta. Revísalo y genera la propuesta.'));
         }
       } catch (e) {
         console.warn('No se pudo leer la necesidad propuesta:', e);
       }
       cargarEscenarios();
     }
+
+    // Al cambiar de idioma se vuelven a pintar los textos que pone el código
+    alCambiarIdioma(() => {
+      pintarCabecera();
+      if (paso === 1) pintarPaso1();
+      if (paso === 2) pintarRevision();
+      if (paso === 3) pintarPublicacion();
+    });
 
     inicializar();
   </script>
