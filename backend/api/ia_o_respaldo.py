@@ -67,7 +67,7 @@ def _generar_respaldo(necesidad: dict) -> dict:
     colectivos = colectivos_de(necesidad)
     objetivo = necesidad.get("objetivo", "").strip().rstrip(".")
     valoracion = f"Del 1 al 5, ¿cómo valoras lo siguiente: {objetivo[:1].lower() + objetivo[1:]}?"
-    base = {"origen": "respaldo", "titulo": "Tu opinión cuenta", "periodo": None, "url": None, "qr": None,
+    base = {"origen": "respaldo", "idioma_original": "es", "titulo": "Tu opinión cuenta", "periodo": None, "url": None, "qr": None,
             "intro": "Menos de 2 minutos. Es anónima: solo vemos resultados de grupos de 5 personas o más.",
             "colectivos": colectivos, "colectivo": etiqueta_colectivo(colectivos)}
     if len(colectivos) == 1:
@@ -86,10 +86,18 @@ def _generar_respaldo(necesidad: dict) -> dict:
                 tiempo_por_colectivo=tiempos, tiempo_estimado_seg=max(tiempos.values()))
 
 
-def generar_encuesta(necesidad: dict, reglas: str) -> dict:
+def generar_encuesta(necesidad: dict, reglas: str, idioma: str = "es") -> dict:
+    """Encuesta escrita en `idioma` (v5 §1). Un ValueError de UPC 1 (necesidad imposible, p. ej.
+    duración demasiado corta) se deja pasar: la ruta lo convierte en 422."""
     try:
         from backend.ia.generar import generar_encuesta as real
-        return real(necesidad, reglas)
+    except Exception as error:
+        _aviso("generar_encuesta", error)
+        return _generar_respaldo(necesidad)
+    try:
+        return _con_idioma(real, necesidad, reglas, idioma=idioma)
+    except ValueError:
+        raise
     except Exception as error:
         _aviso("generar_encuesta", error)
     return _generar_respaldo(necesidad)
@@ -297,7 +305,14 @@ def sugerir_preguntas(analisis: dict, idioma: str = "es") -> dict:
     return {"preguntas": [], "origen": "ninguno"}
 
 
-def traducir_encuesta(encuesta: dict, idiomas: list) -> dict:
-    """{"ca": {...}, "en": {...}} (formato de `traducciones`). Lanza la excepción si UPC 1 falla."""
+def traducir_encuesta(encuesta: dict, idiomas: list, idioma_origen: str = "es") -> dict:
+    """{"<idioma>": {...}, …} (formato de `traducciones`), traducido DESDE idioma_origen (v5 §1).
+    Lanza la excepción si UPC 1 falla."""
     from backend.ia.traducir import traducir_encuesta as real
-    return real(encuesta, idiomas) or {}
+    try:
+        acepta = "idioma_origen" in inspect.signature(real).parameters
+    except (TypeError, ValueError):
+        acepta = False
+    if acepta:
+        return real(encuesta, idiomas, idioma_origen=idioma_origen) or {}
+    return real(encuesta, idiomas) or {}  # versión de UPC 1 anterior a v5: solo traduce desde castellano

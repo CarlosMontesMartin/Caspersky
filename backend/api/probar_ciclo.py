@@ -1,4 +1,4 @@
-"""Recorre el ciclo completo por la API y dice OK o FALLO en cada comprobación · UPC 2 (v2 3.6, v3 3.5, v4 P1).
+"""Recorre el ciclo completo por la API y dice OK o FALLO en cada comprobación · UPC 2 (v2 3.6, v3 3.5, v4 P1, v5).
 
     python -m backend.api.probar_ciclo                       # sin servidor, datos temporales
     python -m backend.api.probar_ciclo --url http://localhost:8000   # contra un servidor arrancado
@@ -11,6 +11,9 @@ Sale con código 1 si algo falla. Tarda unos segundos: úsalo después de cada c
 Siempre se ejecuta SIN clave de IA (LLM_API_KEY vacío) para no gastar ni saturar
 la API del evento: todo tiene que pasar con el modo de respaldo. Los caminos con
 IA se prueban a mano, una vez por función.
+
+Teams: sin --url nunca sale nada a la red (TEAMS_WEBHOOK_URL vacío y el envío se simula).
+Con --url, si el servidor tiene Teams configurado, NO se prueban los envíos (llegarían al canal).
 """
 import argparse
 import json
@@ -213,6 +216,7 @@ def recorrer(c, res: Resultado, almacen=None, local: bool = False) -> None:
     recorrer_multisector(c, res, pedir)
     recorrer_v3(c, res, pedir, almacen, local)
     recorrer_v4(c, res, pedir, eid, local)
+    recorrer_v5(c, res, pedir, eid, almacen, local)
 
     res.seccion("13. Histórico enc_000 (escenario C)")
     estado, lista = pedir("get", "/encuestas")
@@ -431,23 +435,33 @@ def recorrer_v4(c, res: Resultado, pedir, eid: str, local: bool = False) -> None
     estado, pub = pedir("get", f"/encuestas/{eid}")
     res.comprobar("La encuesta guarda estado_traduccion", pub.get("estado_traduccion") in ("pendiente", "lista", "error"))
 
-    res.seccion("12. Teams sin conexión (vista previa)")
+    res.seccion("12. Teams (vista previa y envío)")
     estado, integ = pedir("get", "/integraciones")
-    res.comprobar("GET /integraciones → teams false", estado == 200 and integ.get("teams") is False, str(integ))
+    res.comprobar("GET /integraciones → {teams, aviso}",
+                  estado == 200 and isinstance(integ.get("teams"), bool) and "aviso" in integ, str(integ))
+    if local:
+        res.comprobar("Sin TEAMS_WEBHOOK_URL → teams false y sin aviso",
+                      integ.get("teams") is False and integ.get("aviso") is None, str(integ))
     estado, tarjeta = pedir("get", f"/encuestas/{eid}/teams/vista_previa?tipo=publicar&idioma=ca")
     botones = [x.get("title") for x in (tarjeta or {}).get("actions", [])]
     res.comprobar("Vista previa de publicar con el botón «Respondre» (ca)",
                   estado == 200 and tarjeta.get("type") == "AdaptiveCard" and "Respondre" in botones, str(botones))
     res.comprobar("El enlace de la tarjeta lleva canal=teams",
                   "canal=teams" in ((tarjeta or {}).get("actions") or [{}])[0].get("url", ""))
+    res.comprobar("La tarjeta de publicar no tiene TextBlock vacíos", not _bloques_vacios(tarjeta),
+                  json.dumps(_bloques_vacios(tarjeta), ensure_ascii=False))
     estado, resumen = pedir("get", f"/encuestas/{eid}/teams/vista_previa?tipo=resumen&idioma=en")
     res.comprobar("Vista previa del resumen sin comentarios ni datos personales",
                   estado == 200 and not any(n in json.dumps(resumen, ensure_ascii=False) for n in NOMBRES_INVENTADOS)
                   and "View analysis" in json.dumps(resumen))
-    estado, _ = pedir("post", f"/encuestas/{eid}/teams/publicar")
-    res.comprobar("POST teams/publicar → 503 (N/A)", estado == 503, f"devolvió {estado}")
-    estado, _ = pedir("post", f"/encuestas/{eid}/teams/resumen")
-    res.comprobar("POST teams/resumen → 503 (N/A)", estado == 503, f"devolvió {estado}")
+    res.comprobar("La tarjeta del resumen no tiene TextBlock vacíos", not _bloques_vacios(resumen))
+    if integ.get("teams"):
+        res.omitir("POST teams/publicar y teams/resumen", "Teams está configurado en el servidor: no se envía nada")
+    else:
+        estado, _ = pedir("post", f"/encuestas/{eid}/teams/publicar")
+        res.comprobar("POST teams/publicar sin configurar → 503", estado == 503, f"devolvió {estado}")
+        estado, _ = pedir("post", f"/encuestas/{eid}/teams/resumen")
+        res.comprobar("POST teams/resumen sin configurar → 503", estado == 503, f"devolvió {estado}")
     estado, _ = pedir("post", f"/publico/encuestas/{eid}/respuestas",
                       json={"turno": "manana", "canal": "teams", "valores": {next(iter(_escalas(c, eid, pedir)), "p1"): 4}})
     res.comprobar("Respuesta con canal teams se acepta", estado == 200, f"devolvió {estado}")
@@ -469,6 +483,247 @@ def recorrer_v4(c, res: Resultado, pedir, eid: str, local: bool = False) -> None
         if estado != 200:
             fallos.append(f"aprobar {elegidos} {duracion}s → {estado} {(err or {}).get('detail')}")
     res.comprobar("10 encuestas generadas se pueden aprobar", not fallos, " | ".join(fallos)[:400])
+
+
+def _bloques_vacios(tarjeta) -> list:
+    return [b for b in (tarjeta or {}).get("body", [])
+            if b.get("type") == "TextBlock" and not str(b.get("text") or "").strip()]
+
+
+def _pregunta_prueba(pid, texto, tipo="escala_1_5", opciones=None):
+    return {"id": pid, "texto": texto, "tipo": tipo, "opciones": opciones or [],
+            "dimension": "condiciones", "condicion": None}
+
+
+def recorrer_v5(c, res: Resultado, pedir, eid: str, almacen=None, local: bool = False) -> None:
+    res.seccion("14. Idioma original (v5)")
+    estado, enc = pedir("post", "/encuestas/generar", json=dict(NECESIDAD_A, idioma="ca"))
+    res.comprobar("Necesidad con idioma ca → idioma_original ca",
+                  estado == 200 and enc.get("idioma_original") == "ca" and enc["necesidad"].get("idioma") == "ca",
+                  f"{estado} {enc and enc.get('idioma_original')}")
+    estado, enc_en = pedir("post", "/encuestas/generar?idioma=en", json=NECESIDAD_A)
+    res.comprobar("Sin idioma en la Necesidad → el ?idioma= de la ruta (en)",
+                  estado == 200 and enc_en.get("idioma_original") == "en", f"{estado} {enc_en and enc_en.get('idioma_original')}")
+    estado, enc_es = pedir("post", "/encuestas/generar", json=NECESIDAD_A)
+    res.comprobar("Sin idioma en ningún sitio → es", estado == 200 and enc_es.get("idioma_original") == "es")
+    estado, enc_fr = pedir("post", "/encuestas/generar", json=dict(NECESIDAD_A, idioma="fr"))
+    res.comprobar("Idioma no soportado en la Necesidad → es", estado == 200 and enc_fr.get("idioma_original") == "es")
+    if estado == 200 and enc:
+        estado, reg = pedir("post", f"/encuestas/{enc_es['id']}/regenerar", json=dict(NECESIDAD_A, idioma="en"))
+        res.comprobar("Regenerar con idioma en → idioma_original en",
+                      estado == 200 and reg.get("idioma_original") == "en", f"{estado}")
+    estado, lista = pedir("get", "/encuestas")
+    if any(e["id"] == "enc_000" for e in lista or []):
+        estado, e0 = pedir("get", "/encuestas/enc_000")
+        res.comprobar("enc_000 (sin el campo) cuenta como idioma_original es", e0.get("idioma_original") == "es")
+
+    estado, esc_ca = pedir("get", "/escenarios?idioma=ca")
+    estado, esc_es = pedir("get", "/escenarios?idioma=es")
+    nec_ca = [e["necesidad"] for e in esc_ca or [] if e.get("necesidad")]
+    nec_es = [e["necesidad"] for e in esc_es or [] if e.get("necesidad")]
+    res.comprobar("Escenarios ?idioma=ca → necesidad con idioma ca",
+                  bool(nec_ca) and all(n.get("idioma") == "ca" for n in nec_ca), str([n.get("idioma") for n in nec_ca]))
+    res.comprobar("Objetivo, contexto y temas prohibidos en texto (no objeto)",
+                  all(isinstance(n.get("objetivo"), str) and isinstance(n.get("contexto", ""), str)
+                      and all(isinstance(t, str) for t in n.get("temas_prohibidos", [])) for n in nec_ca))
+    if any(a.get("objetivo") != b.get("objetivo") for a, b in zip(nec_es, nec_ca)):
+        res.comprobar("Escenarios: el objetivo cambia con el idioma", True)
+    else:
+        res.omitir("Escenarios: objetivo y contexto traducidos", "contenido/escenarios.json aún no tiene {es, ca, en} (UAB 2)")
+    if nec_ca:
+        estado, gen = pedir("post", "/encuestas/generar", json=nec_ca[0])
+        res.comprobar("El escenario en catalán se puede generar (idioma_original ca)",
+                      estado == 200 and gen.get("idioma_original") == "ca", f"{estado}")
+
+    if not (local and almacen is not None):
+        res.omitir("Encuesta escrita en catalán, traducción desde el original y Teams", "solo sin --url")
+        return
+    _comprobar_idioma_original_local(res, pedir, almacen)
+    _comprobar_teams_local(res, pedir, almacen, eid)
+
+
+def _encuesta_catalan(encuesta_id: str, estado: str) -> dict:
+    return {"id": encuesta_id, "titulo": "Torns", "intro": "Menys de 2 minuts.", "periodo": "2026-11",
+            "colectivo": "planta", "colectivos": ["planta"], "origen": "ia", "url": None, "qr": None,
+            "idioma_original": "ca", "necesidad": dict(NECESIDAD_A, idioma="ca"),
+            "preguntas": [_pregunta_prueba("p1", "Com valores el nou sistema?"),
+                          _pregunta_prueba("p2", "Què costa més?", "opcion", ["Pauses", "Horari"]),
+                          _pregunta_prueba("p3", "Què canviaries?", "texto")],
+            "preguntas_por_colectivo": {}, "estado": estado, "estado_traduccion": "lista",
+            "traducciones": {
+                "es": {"titulo": "Turnos", "intro": "Menos de 2 minutos.", "preguntas": [
+                    {"id": "p1", "texto": "¿Cómo valoras el nuevo sistema?", "opciones": []},
+                    {"id": "p2", "texto": "¿Qué cuesta más?", "opciones": ["Pausas", "Horario"]},
+                    {"id": "p3", "texto": "¿Qué cambiarías?", "opciones": []}]},
+                "en": {"titulo": "Shifts", "intro": "Under 2 minutes.", "preguntas": [
+                    {"id": "p1", "texto": "How do you rate the new system?", "opciones": []},
+                    {"id": "p2", "texto": "What is hardest?", "opciones": ["Breaks", "Schedule"]},
+                    {"id": "p3", "texto": "What would you change?", "opciones": []}]}}}
+
+
+def _comprobar_idioma_original_local(res: Resultado, pedir, almacen) -> None:
+    from backend.api import traducciones
+    almacen.guardar_encuesta(_encuesta_catalan("enc_prueba_ca", "publicada"))
+    ruta = "/publico/encuestas/enc_prueba_ca"
+    estado, ca = pedir("get", f"{ruta}?idioma=ca")
+    res.comprobar("Pública en el idioma original (ca) → textos originales",
+                  estado == 200 and ca["titulo"] == "Torns" and ca.get("idioma_original") == "ca", f"{estado}")
+    res.comprobar("idiomas_disponibles: el original primero (ca, es, en)",
+                  ca.get("idiomas_disponibles") == ["ca", "es", "en"], str(ca.get("idiomas_disponibles")))
+    estado, es = pedir("get", f"{ruta}?idioma=es")
+    res.comprobar("Pública en es → traducción al castellano",
+                  es.get("titulo") == "Turnos" and es["preguntas"][1]["opciones"] == ["Pausas", "Horario"])
+    estado, _ = pedir("post", f"{ruta}/respuestas", json={"turno": "noche", "idioma": "en", "valores": {"p1": 3, "p2": "Schedule"}})
+    guardada = almacen.leer_respuestas("enc_prueba_ca")[-1] if estado == 200 else {}
+    res.comprobar("Opción respondida en inglés se guarda en el idioma original (ca)",
+                  guardada.get("valores", {}).get("p2") == "Horari", f"{estado} {guardada.get('valores')}")
+    estado, _ = pedir("post", f"{ruta}/respuestas", json={"turno": "noche", "idioma": "ca", "valores": {"p2": "Pauses"}})
+    guardada = almacen.leer_respuestas("enc_prueba_ca")[-1] if estado == 200 else {}
+    res.comprobar("Opción en el idioma original se guarda tal cual", guardada.get("valores", {}).get("p2") == "Pauses")
+
+    estado, rrhh_en = pedir("get", "/encuestas/enc_prueba_ca?idioma=en")
+    res.comprobar("RRHH en inglés (publicada) → título y preguntas en inglés",
+                  rrhh_en.get("titulo") == "Shifts" and rrhh_en["preguntas"][0]["texto"].startswith("How")
+                  and rrhh_en.get("idioma_vista") == "en", str(rrhh_en.get("titulo")))
+    estado, rrhh_ca = pedir("get", "/encuestas/enc_prueba_ca?idioma=ca")
+    res.comprobar("RRHH en catalán → el original", rrhh_ca.get("titulo") == "Torns" and rrhh_ca.get("idioma_vista") == "ca")
+    estado, lista = pedir("get", "/encuestas?idioma=es")
+    fila = next((e for e in lista or [] if e["id"] == "enc_prueba_ca"), {})
+    res.comprobar("Listado en es → título traducido", fila.get("titulo") == "Turnos", str(fila))
+    estado, lista = pedir("get", "/encuestas?idioma=ca")
+    fila = next((e for e in lista or [] if e["id"] == "enc_prueba_ca"), {})
+    res.comprobar("Listado en ca → título original", fila.get("titulo") == "Torns", str(fila))
+    estado, a_es = pedir("get", "/encuestas/enc_prueba_ca/analisis?idioma=es")
+    textos_es = [p.get("texto") for p in (a_es or {}).get("preguntas", [])]
+    res.comprobar("Análisis en es → textos de las preguntas en castellano",
+                  estado == 200 and "¿Cómo valoras el nuevo sistema?" in textos_es, str(textos_es))
+    estado, a_ca = pedir("get", "/encuestas/enc_prueba_ca/analisis?idioma=ca")
+    res.comprobar("Análisis en ca → textos originales",
+                  "Com valores el nou sistema?" in [p.get("texto") for p in (a_ca or {}).get("preguntas", [])])
+
+    almacen.guardar_encuesta(_encuesta_catalan("enc_prueba_ca_editable", "aprobada"))
+    estado, editable = pedir("get", "/encuestas/enc_prueba_ca_editable?idioma=en")
+    res.comprobar("Encuesta editable → siempre el original (no se pierde al guardar)",
+                  editable.get("titulo") == "Torns" and editable.get("idioma_vista") == "ca", str(editable.get("titulo")))
+    estado, _ = pedir("put", "/encuestas/enc_prueba_ca_editable", json=dict(editable, idioma_vista="en", titulo="Shifts"))
+    res.comprobar("PUT de una traducción → 409", estado == 409, f"devolvió {estado}")
+    estado, guardada = pedir("put", "/encuestas/enc_prueba_ca_editable", json=dict(editable, titulo="Torns nous"))
+    res.comprobar("PUT conserva idioma_original", estado == 200 and guardada.get("idioma_original") == "ca"
+                  and "idioma_vista" not in guardada, f"{estado}")
+
+    llamadas = []
+
+    def traducir_falso(encuesta, idiomas, idioma_origen="es"):
+        llamadas.append((list(idiomas), idioma_origen))
+        return {i: {"titulo": f"[{i}] {encuesta['titulo']}", "intro": "x",
+                    "preguntas": [{"id": p["id"], "texto": f"[{i}]", "opciones": list(p.get("opciones") or [])}
+                                  for p in encuesta["preguntas"]]} for i in idiomas}
+
+    original = traducciones.ia.traducir_encuesta
+    traducciones.ia.traducir_encuesta = traducir_falso
+    try:
+        nueva = traducciones.reiniciar(_encuesta_catalan("enc_prueba_traducir", "aprobada"))
+        almacen.guardar_encuesta(nueva)
+        traducciones.lanzar(nueva)
+        traducciones.esperar(10)
+    finally:
+        traducciones.ia.traducir_encuesta = original
+    traducida = almacen.leer_encuesta("enc_prueba_traducir") or {}
+    res.comprobar("Se traduce DESDE el original (ca) a es y en",
+                  llamadas == [(["es", "en"], "ca")], str(llamadas))
+    res.comprobar("Traducción lista con es y en",
+                  traducida.get("estado_traduccion") == "lista" and set(traducida.get("traducciones", {})) == {"es", "en"},
+                  f"{traducida.get('estado_traduccion')} {sorted(traducida.get('traducciones', {}))}")
+
+
+class _RespuestaFalsa:
+    def __init__(self, status):
+        self.status = status
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+
+def _comprobar_teams_local(res: Resultado, pedir, almacen, eid: str) -> None:
+    import urllib.error
+    import urllib.request
+    res.seccion("15. Teams listo para conectar (v5, sin red)")
+    secreto = "https://prod-00.westeurope.logic.azure.com:443/workflows/abc/triggers/manual/paths/invoke?sig=SECRETO"
+    antes = {k: os.environ.get(k) for k in ("TEAMS_WEBHOOK_URL", "BASE_URL")}
+    urlopen_real = urllib.request.urlopen
+    enviados = []
+    try:
+        almacen.guardar_encuesta(dict(_encuesta_catalan("enc_prueba_teams", "publicada"), intro=""))
+        estado, tarjeta = pedir("get", "/encuestas/enc_prueba_teams/teams/vista_previa?tipo=publicar&idioma=en")
+        res.comprobar("Tarjeta con idioma=en y traducción → título en inglés",
+                      estado == 200 and tarjeta["body"][0].get("text") == "Shifts", str((tarjeta or {}).get("body", [{}])[0]))
+        res.comprobar("Intro vacía → sin TextBlock vacío", not _bloques_vacios(tarjeta),
+                      json.dumps(_bloques_vacios(tarjeta)))
+
+        os.environ["TEAMS_WEBHOOK_URL"] = "http://ejemplo.com"
+        estado, integ = pedir("get", "/integraciones")
+        res.comprobar("TEAMS_WEBHOOK_URL=http://ejemplo.com → teams false y aviso",
+                      integ.get("teams") is False and integ.get("aviso") == "TEAMS_WEBHOOK_URL no válida", str(integ))
+        os.environ["TEAMS_WEBHOOK_URL"] = "https://logic.azure.com.ejemplo.com/workflows/x"
+        estado, integ = pedir("get", "/integraciones")
+        res.comprobar("Dominio que solo imita a Microsoft → no válida", integ.get("teams") is False, str(integ))
+        estado, _ = pedir("post", f"/encuestas/{eid}/teams/publicar")
+        res.comprobar("Con URL no válida, publicar → 503", estado == 503, f"devolvió {estado}")
+
+        os.environ["TEAMS_WEBHOOK_URL"] = secreto
+        os.environ["BASE_URL"] = "http://localhost:8000"
+        estado, integ = pedir("get", "/integraciones")
+        res.comprobar("URL válida + BASE_URL localhost → teams true y aviso de localhost",
+                      integ.get("teams") is True and "localhost" in str(integ.get("aviso"))
+                      and integ.get("aviso_codigo") == "localhost", str(integ))
+        os.environ["BASE_URL"] = "http://192.168.1.20:8000"
+        estado, integ = pedir("get", "/integraciones")
+        res.comprobar("BASE_URL con IP → sin aviso", integ.get("teams") is True and integ.get("aviso") is None, str(integ))
+
+        def urlopen_ok(peticion, timeout=None):
+            enviados.append((peticion, timeout))
+            return _RespuestaFalsa(202)
+        urllib.request.urlopen = urlopen_ok
+        estado, r = pedir("post", f"/encuestas/{eid}/teams/publicar?idioma=ca")
+        res.comprobar("Publicar en Teams (configurado) → {enviado: true}",
+                      estado == 200 and r == {"enviado": True}, f"{estado} {r}")
+        cuerpo = json.loads(enviados[-1][0].data) if enviados else {}
+        adjunto = (cuerpo.get("attachments") or [{}])[0]
+        res.comprobar("Formato del workflow: message + adaptive card",
+                      cuerpo.get("type") == "message" and adjunto.get("contentType") == "application/vnd.microsoft.card.adaptive"
+                      and "contentUrl" in adjunto and adjunto.get("content", {}).get("type") == "AdaptiveCard", str(cuerpo)[:200])
+        res.comprobar("POST con Content-Type JSON y timeout de 10 s",
+                      bool(enviados) and enviados[-1][0].get_method() == "POST"
+                      and enviados[-1][0].get_header("Content-type") == "application/json" and enviados[-1][1] == 10)
+        res.comprobar("La tarjeta enviada no tiene TextBlock vacíos", not _bloques_vacios(adjunto.get("content")))
+        estado, r = pedir("post", f"/encuestas/{eid}/teams/resumen?idioma=en")
+        res.comprobar("Resumen en Teams (configurado) → {enviado: true}", estado == 200 and r == {"enviado": True}, f"{estado} {r}")
+
+        def urlopen_400(peticion, timeout=None):
+            raise urllib.error.HTTPError(peticion.full_url, 400, "Bad Request", {}, None)
+        urllib.request.urlopen = urlopen_400
+        estado, r = pedir("post", f"/encuestas/{eid}/teams/publicar")
+        detalle = str((r or {}).get("detail", ""))
+        res.comprobar("Teams responde 400 → 502 «Teams respondió 400»",
+                      estado == 502 and detalle == "Teams respondió 400", f"{estado} {r}")
+        res.comprobar("El error no contiene la URL secreta", "SECRETO" not in detalle and "logic.azure" not in detalle)
+
+        def urlopen_sin_red(peticion, timeout=None):
+            raise urllib.error.URLError("sin red")
+        urllib.request.urlopen = urlopen_sin_red
+        estado, r = pedir("post", f"/encuestas/{eid}/teams/publicar")
+        res.comprobar("Sin red → 502 «No se pudo contactar con Teams»",
+                      estado == 502 and (r or {}).get("detail") == "No se pudo contactar con Teams", f"{estado} {r}")
+    finally:
+        urllib.request.urlopen = urlopen_real
+        for k, v in antes.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
 
 
 def _escalas(c, eid, pedir):
@@ -524,6 +779,7 @@ def main() -> int:
     else:
         os.environ["MODO_DEMO"] = "1"
         os.environ["LLM_API_KEY"] = ""  # siempre sin IA (v2.md 3.6.7); load_dotenv no lo sobrescribe
+        os.environ["TEAMS_WEBHOOK_URL"] = ""  # nunca se envía nada a Teams desde las pruebas
         from backend.datos import almacen
         temporal = Path(tempfile.mkdtemp(prefix="probar_ciclo_"))
         almacen.BASE = temporal / "almacen"

@@ -1,6 +1,7 @@
 """Textos que escribe el backend, en es / ca / en (v4.md, P0-3).
 
-- nombre(tipo, codigo, idioma): nombres de sectores, turnos, temas y dimensiones. Se leen de
+- nombre(tipo, codigo, idioma): nombres de sectores, turnos, temas, dimensiones y temas prohibidos
+  de los escenarios ("tema_prohibido.salario", v5 P0-1). Se leen de
   frontend/i18n/<idioma>.json (claves "colectivo.planta", "turno.noche", "tema.descansos",
   "dimension.bienestar"), así frontend y backend dicen lo mismo. Si falta una clave, se usa
   la tabla de respaldo de abajo.
@@ -25,6 +26,8 @@ NOMBRES = {
                  "ambiente": "ambiente", "conciliacion": "conciliación", "otros": "otros"},
         "dimension": {"bienestar": "bienestar", "liderazgo": "liderazgo", "desarrollo": "desarrollo",
                       "cultura": "cultura", "entorno": "entorno", "condiciones": "condiciones"},
+        "tema_prohibido": {"salario": "salario", "evaluacion_individual": "evaluación individual",
+                           "salud_personal": "salud personal"},
     },
     "ca": {
         "colectivo": {"planta": "planta", "logistica": "logística", "comercial": "comercial",
@@ -36,6 +39,8 @@ NOMBRES = {
                  "ambiente": "ambient", "conciliacion": "conciliació", "otros": "altres"},
         "dimension": {"bienestar": "benestar", "liderazgo": "lideratge", "desarrollo": "desenvolupament",
                       "cultura": "cultura", "entorno": "entorn", "condiciones": "condicions"},
+        "tema_prohibido": {"salario": "salari", "evaluacion_individual": "avaluació individual",
+                           "salud_personal": "salut personal"},
     },
     "en": {
         "colectivo": {"planta": "production plant", "logistica": "logistics", "comercial": "sales",
@@ -47,6 +52,8 @@ NOMBRES = {
                  "ambiente": "atmosphere", "conciliacion": "work-life balance", "otros": "other"},
         "dimension": {"bienestar": "wellbeing", "liderazgo": "leadership", "desarrollo": "development",
                       "cultura": "culture", "entorno": "environment", "condiciones": "conditions"},
+        "tema_prohibido": {"salario": "salary", "evaluacion_individual": "individual performance review",
+                           "salud_personal": "personal health"},
     },
 }
 
@@ -66,7 +73,7 @@ FRASES = {
         "teams.resumen": "Resumen · {titulo}", "teams.respuestas": "Respuestas",
         "teams.participacion": "Participación", "teams.no_representativos": "No representativos",
         "teams.alertas": "Alertas", "teams.acciones": "Acciones propuestas", "teams.ver_analisis": "Ver análisis",
-        "teams.no_disponible": "La integración con Teams no está disponible en esta versión (N/A).",
+        "teams.no_disponible": "Teams no está configurado en el servidor (falta TEAMS_WEBHOOK_URL en el .env).",
     },
     "ca": {
         "segmento.turno": "el torn de {turno} de {colectivo}",
@@ -83,7 +90,7 @@ FRASES = {
         "teams.resumen": "Resum · {titulo}", "teams.respuestas": "Respostes",
         "teams.participacion": "Participació", "teams.no_representativos": "No representatius",
         "teams.alertas": "Alertes", "teams.acciones": "Accions proposades", "teams.ver_analisis": "Veure l'anàlisi",
-        "teams.no_disponible": "La integració amb Teams no està disponible en aquesta versió (N/A).",
+        "teams.no_disponible": "Teams no està configurat al servidor (falta TEAMS_WEBHOOK_URL al .env).",
     },
     "en": {
         "segmento.turno": "the {turno} shift in {colectivo}",
@@ -100,7 +107,7 @@ FRASES = {
         "teams.resumen": "Summary · {titulo}", "teams.respuestas": "Responses",
         "teams.participacion": "Participation", "teams.no_representativos": "Not representative",
         "teams.alertas": "Alerts", "teams.acciones": "Proposed actions", "teams.ver_analisis": "View analysis",
-        "teams.no_disponible": "The Teams integration is not available in this version (N/A).",
+        "teams.no_disponible": "Teams is not configured on the server (TEAMS_WEBHOOK_URL is missing from .env).",
     },
 }
 
