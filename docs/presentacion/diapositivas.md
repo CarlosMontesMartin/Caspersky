@@ -1,8 +1,8 @@
-# Estructura de diapositivas · v6 · 7 slides · 3:15 min (+15 s de margen)
+# Estructura de diapositivas · 7 slides · 3:15 min (+15 s de margen)
 
-> Dueño: UAB 2 · Guion palabra por palabra en `pitch/guion_pitch.md`.
+> Guion palabra por palabra en [`guion.md`](guion.md).
 > Idea fuerza única: **"Escuchar, actuar y demostrarlo."**
-> Las cifras entre `[corchetes]` salen del ensayo con datos sintéticos y del dato de precisión de UPC 1 (`backend/ia/evaluar.py`). Se rellenan en el ensayo y no se cambian después. No prometáis porcentajes de participación: no hay datos reales de Damm.
+> Las cifras entre `[corchetes]` salen del ensayo con datos sintéticos y del dato de precisión de la clasificación (`backend/ia/evaluar.py`). Se rellenan en el ensayo y no se cambian después. No prometáis porcentajes de participación: no hay datos reales de Damm.
 > Estilo: fondo claro, rojo Damm solo como acento, una idea por slide y cifras grandes. Ninguna captura muestra tokens, `.env`, la URL del webhook de Teams, la terminal ni URLs de la API.
 
 | # | Título en pantalla | Tiempo | Qué se ve | Criterio del jurado |

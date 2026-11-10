@@ -1,4 +1,4 @@
-"""API de escucha activa Damm · UPC 2 (ver modulos.md, sección 3).
+"""API de escucha activa Damm.
 
 Arranque: ./run.sh  ·  Documentación: http://localhost:8000/docs
 """
@@ -21,7 +21,7 @@ from backend.api import compromisos, rutas_encuestas, rutas_publico, teams  # no
 from backend.datos import almacen  # noqa: E402
 
 FRONTEND = RAIZ / "frontend"
-EJEMPLOS = RAIZ / "contratos" / "ejemplos"
+EJEMPLOS = RAIZ / "docs" / "ejemplos"
 
 
 def precalentar_ia() -> None:
@@ -66,7 +66,16 @@ async def arranque(app):
     yield
 
 
-app = FastAPI(title="Damm · Escucha activa", version="0.3.0", lifespan=arranque)
+app = FastAPI(
+    title="Escucha activa · API",
+    version="1.0.0",
+    description=(
+        "Plataforma de escucha activa para RRHH: microencuestas generadas con IA y validadas por "
+        "personas, formulario público multilingüe, análisis agregado con umbral de anonimato y "
+        "compromisos «Dijisteis → Hemos hecho». Todos los datos son sintéticos."
+    ),
+    lifespan=arranque,
+)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.include_router(rutas_encuestas.router)
 app.include_router(rutas_publico.router)
@@ -77,7 +86,7 @@ app.include_router(compromisos.router)
 @app.exception_handler(StarletteHTTPException)
 async def ruta_inexistente(request: Request, exc: StarletteHTTPException):
     """El frontend se sirve con StaticFiles en "/": un POST/PUT/DELETE a una ruta que este servidor
-    no tiene acaba ahí y da 405. Lo convertimos en un 404 que explica la causa más probable (v4 P0-2)."""
+    no tiene acaba ahí y da 405. Lo convertimos en un 404 que explica la causa más probable."""
     if exc.status_code == 405 and request.method != "GET":
         return JSONResponse(status_code=404, content={
             "detail": f"No existe la ruta {request.method} {request.url.path} en este servidor. "

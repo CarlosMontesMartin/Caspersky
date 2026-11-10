@@ -75,7 +75,7 @@ def test_zonas_con_menos_de_5_ocultan_media_y_temas():
     assert noche["media"] is None
 
 
-def test_calcular_metricas_campos_v2():
+def test_calcular_metricas_campos_ampliados():
     resp = [r("manana", 4, "2026-09")] * 6 + [dict(r("manana", 2, "2026-10"), tema_real="turnos")] * 6
     m = metricas.calcular_metricas(resp, PLANTILLA, ENCUESTA)
     assert m["n_respuestas"] == 6 and m["n_anterior"] == 6 and m["n_simuladas"] == 6
@@ -101,7 +101,7 @@ def test_idioma_desconocido_en_castellano():
     assert any("correlación" in x for x in m["limites"])
 
 
-# ---------- v6: supresión complementaria (no se puede deducir restando) ----------
+# ---------- supresión complementaria (no se puede deducir restando) ----------
 
 def _zonas(actual, encuesta=ENCUESTA, anterior=()):
     colectivos = metricas._colectivos(encuesta)

@@ -1,5 +1,5 @@
 /**
- * layout.js — barra lateral común (contratos v2, 4.2; diseño en contratos/diseno.md §5)
+ * layout.js — barra lateral común
  *
  * Va en index, crear, dashboard e informe (nunca en responder). Cada página tiene
  * <aside class="barra-lateral" id="barra-lateral"></aside> y este módulo la rellena:

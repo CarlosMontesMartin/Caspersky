@@ -1,4 +1,4 @@
-"""Rutas para quien responde · UPC 2 (modulos.md sección 3 y v2.md sección 3.3)."""
+"""Rutas para quien responde."""
 import uuid
 from datetime import date
 
@@ -11,7 +11,7 @@ from backend.datos import almacen
 from backend.datos import compromisos as compromisos_datos
 from backend.datos.anonimizar import anonimizar
 
-router = APIRouter(prefix="/publico")
+router = APIRouter(prefix="/publico", tags=["Formulario público"])
 CENTRO_TIPO = {"planta": "fabrica", "logistica": "almacen"}  # resto -> oficina
 
 
@@ -69,7 +69,7 @@ def construir_respuesta(encuesta: dict, entrada: dict, *, colectivo: str | None 
     respuesta = {
         "id": f"r_{uuid.uuid4().hex[:8]}",
         "encuesta_id": encuesta["id"],
-        # Minimización (v6): solo se usa el periodo, así que se guarda el mes, no el día exacto.
+        # Minimización: solo se usa el periodo, así que se guarda el mes, no el día exacto.
         "fecha": fecha.replace(day=1).isoformat(),
         "periodo": fecha.strftime("%Y-%m"),
         "colectivo": colectivo,

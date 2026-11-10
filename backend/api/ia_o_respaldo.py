@@ -1,8 +1,8 @@
-"""Puente con backend/ia/ (UPC 1) · UPC 2.
+"""Puente con backend/ia/.
 
-Cada función llama a la de UPC 1 con la firma de v2.md / modulos.md. Si el
+Cada función llama a su equivalente de backend/ia/ con la firma acordada. Si el
 módulo no está o falla, se usa un respaldo sencillo para que el ciclo
-funcione igual. En el repo completo se usa siempre la de UPC 1, que ya trae
+funcione igual. En el repositorio completo se usa siempre la de backend/ia/, que ya trae
 su propio modo sin IA: estos respaldos son solo la última red.
 """
 import inspect
@@ -18,7 +18,7 @@ def _aviso(funcion: str, error: Exception) -> None:
 
 
 def _con_idioma(funcion, *args, idioma: str = "es"):
-    """Llama a una función de UPC 1 pasándole idioma= solo si ya lo acepta (v4.md P0-2 de UPC 1)."""
+    """Llama a una función de backend/ia/ pasándole idioma= solo si ya lo acepta."""
     try:
         acepta = "idioma" in inspect.signature(funcion).parameters
     except (TypeError, ValueError):
@@ -88,7 +88,7 @@ def _generar_respaldo(necesidad: dict) -> dict:
 
 
 def generar_encuesta(necesidad: dict, reglas: str, idioma: str = "es") -> dict:
-    """Encuesta escrita en `idioma` (v5 §1). Un ValueError de UPC 1 (necesidad imposible, p. ej.
+    """Encuesta escrita en `idioma`. Un ValueError del generador (necesidad imposible, p. ej.
     duración demasiado corta) se deja pasar: la ruta lo convierte en 422."""
     try:
         from backend.ia.generar import generar_encuesta as real
@@ -269,7 +269,7 @@ def _preguntar_respaldo(pregunta: str, analisis: dict, idioma: str = "es") -> di
 
 
 def preguntar(pregunta: str, analisis: dict, recomendaciones: dict, idioma: str = "es") -> dict:
-    if IDENTIFICAR.search(pregunta or ""):  # privacidad primero, también si UPC 1 falla
+    if IDENTIFICAR.search(pregunta or ""):  # privacidad primero, también si el módulo de IA falla
         return _preguntar_respaldo(pregunta, analisis, idioma)
     try:
         from backend.ia.informe import preguntar as real
@@ -291,7 +291,7 @@ def banco_contextual(encuesta: dict, temas: list) -> dict:
 
 
 
-# ---------- v3: sugerencias y traducciones ----------
+# ---------- sugerencias y traducciones ----------
 
 def sugerir_preguntas(analisis: dict, idioma: str = "es") -> dict:
     """{"preguntas": [3 textos], "origen": "ia|pendiente|ninguno"}. Sin IA: lista vacía, sin textos fijos."""
@@ -307,8 +307,8 @@ def sugerir_preguntas(analisis: dict, idioma: str = "es") -> dict:
 
 
 def traducir_encuesta(encuesta: dict, idiomas: list, idioma_origen: str = "es") -> dict:
-    """{"<idioma>": {...}, …} (formato de `traducciones`), traducido DESDE idioma_origen (v5 §1).
-    Lanza la excepción si UPC 1 falla."""
+    """{"<idioma>": {...}, …} (formato de `traducciones`), traducido DESDE idioma_origen.
+    Lanza la excepción si la traducción falla."""
     from backend.ia.traducir import traducir_encuesta as real
     try:
         acepta = "idioma_origen" in inspect.signature(real).parameters
@@ -316,10 +316,10 @@ def traducir_encuesta(encuesta: dict, idiomas: list, idioma_origen: str = "es") 
         acepta = False
     if acepta:
         return real(encuesta, idiomas, idioma_origen=idioma_origen) or {}
-    return real(encuesta, idiomas) or {}  # versión de UPC 1 anterior a v5: solo traduce desde castellano
+    return real(encuesta, idiomas) or {}  # firma antigua: solo traduce desde castellano
 
 
-# ---------- v6: "Dijisteis → Hemos hecho" ----------
+# ---------- "Dijisteis → Hemos hecho" ----------
 
 DIJISTEIS_RESPALDO = {
     "es": {"con_cifra": "{pct} de los comentarios de {colectivos} hablan de {tema} ({n} comentarios, {periodo}).",
@@ -373,7 +373,7 @@ def _redactar_respaldo(tema: str, analisis: dict, accion: dict, colectivos: list
 def redactar_compromiso(tema: str, analisis: dict, accion: dict, colectivos: list, idioma: str = "es") -> dict:
     """{"dijisteis", "hicimos", "origen"}: el borrador del compromiso. La IA propone; RRHH lo firma.
 
-    UPC 1 (backend/ia/compromisos.py) lo redacta con IA, sin comentarios y con cifras agregadas.
+    backend/ia/compromisos.py lo redacta con IA, sin comentarios y con cifras agregadas.
     Si no está, falla o devuelve comillas o textos vacíos, se usa el respaldo con plantillas es/ca/en."""
     from backend.datos import compromisos as comp
     try:
@@ -383,7 +383,7 @@ def redactar_compromiso(tema: str, analisis: dict, accion: dict, colectivos: lis
         if dijisteis and hicimos and not comp.tiene_comillas(dijisteis):
             return {"dijisteis": dijisteis, "hicimos": hicimos,
                     "origen": resultado.get("origen") if resultado.get("origen") in ("ia", "reglas") else "ia"}
-        print("[ia] redactar_compromiso usa respaldo: el texto de UPC 1 no es válido")
+        print("[ia] redactar_compromiso usa respaldo: el texto generado no es válido")
     except Exception as error:
         _aviso("redactar_compromiso", error)
     return _redactar_respaldo(tema, analisis, accion, colectivos, idioma)

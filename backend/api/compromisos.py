@@ -1,4 +1,4 @@
-"""Compromisos "Dijisteis → Hemos hecho" · UPC 2 (v6.md §4.3 P0-2).
+"""Compromisos "Dijisteis → Hemos hecho".
 
   GET  /encuestas/{id}/compromisos/borrador?accion=<i>&idioma=   borrador (la IA propone; NO guarda nada)
   POST /encuestas/{id}/compromisos                               RRHH firma: guarda y traduce en 2º plano
@@ -26,7 +26,7 @@ from backend.datos import compromisos as datos
 from backend.datos.anonimizar import anonimizar
 from backend.reglas import idioma_valido
 
-router = APIRouter()
+router = APIRouter(tags=["Compromisos"])
 
 _pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="compromiso")
 _tareas: list = []

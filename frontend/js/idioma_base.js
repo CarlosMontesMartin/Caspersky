@@ -1,5 +1,5 @@
 /**
- * idioma_base.js — idioma actual y diccionarios (contratos v4, §1 y §4)
+ * idioma_base.js — idioma actual y diccionarios
  *
  * Módulo sin efectos en la página: lo importan api.js (para añadir ?idioma= a las
  * llamadas y traducir códigos) e idioma.js (que pinta el selector y traduce el HTML).
@@ -8,7 +8,7 @@
  * - El idioma se decide al cargar la página (?lang= de la URL, sessionStorage["idioma"],
  *   idioma del navegador). Al cambiarlo se recarga la página, así todo se pide de nuevo.
  * - Diccionario = /i18n/<idioma>.json (nombres comunes con el backend: colectivo.*, turno.*,
- *   tema.*, dimension.*; los mantiene UAB 2) + /i18n/rrhh_<idioma>.json (pantallas de RRHH).
+ *   tema.*, dimension.*) + /i18n/rrhh_<idioma>.json (pantallas de RRHH).
  *   El castellano es el texto por defecto del código y del HTML.
  */
 
@@ -54,7 +54,7 @@ if (typeof window !== 'undefined') {
     leer(`/i18n/${idioma}.json`),
     idioma === 'es' ? Promise.resolve({}) : leer(`/i18n/rrhh_${idioma}.json`),
   ]);
-  // Los nombres comunes (UAB 2, compartidos con el backend) mandan sobre los de RRHH
+  // Los nombres comunes mandan sobre los de RRHH
   diccionario = { ...rrhh, ...comun };
 }
 

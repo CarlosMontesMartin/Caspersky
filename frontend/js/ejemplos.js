@@ -1,6 +1,6 @@
 /**
- * ejemplos_v2.js — datos de ejemplo con el formato de la versión 2 (contratos v2, sección 1)
- * Solo se usan con USAR_EJEMPLOS = true en api.js, mientras el backend v2 no está listo.
+ * ejemplos.js — datos de ejemplo para trabajar sin backend
+ * Solo se usan con USAR_EJEMPLOS = true en api.js, para trabajar sin backend.
  */
 
 export const ENCUESTA_MULTISECTOR = {

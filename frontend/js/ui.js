@@ -1,5 +1,5 @@
 /**
- * ui.js — utilidades de presentación comunes (contratos/diseno.md §7)
+ * ui.js — utilidades de presentación comunes
  * Números con coma decimal, porcentajes con espacio fino, nombres legibles
  * e iconos SVG de línea (sin emojis).
  */
@@ -17,7 +17,7 @@ export function escapar(texto) {
   ));
 }
 
-// Números y fechas en el idioma de la pantalla (Intl), contratos v4 §4
+// Números y fechas en el idioma de la pantalla (Intl)
 /** 2.8 → "2,8" / "2.8" */
 export const decimal = (valor, decimales = 1) => numero(valor, decimales);
 /** 0.228 → "22,8 %" / "22.8%" */

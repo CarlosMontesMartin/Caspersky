@@ -8,7 +8,7 @@
 - `informe.py`: Pregunta a tus datos (castellano, catalán e inglés) y preguntas sugeridas, solo con datos agregados.
 - `traducir.py`: traducción de encuestas al catalán y al inglés, con los mismos ids y opciones.
 - `cache_disco.py`: guarda en `backend/ia/cache/` (fuera de git) lo que la IA ya ha calculado (tema de cada comentario, resúmenes, lectura y acciones, sugerencias, "Pregunta a tus datos" y compromisos) para no repetirlo al reiniciar. Claves con huella sha256: no hay comentarios en el archivo. Caduca a los 30 días. `IA_CACHE=0` la desactiva; borrar la carpeta la vacía.
-- `compromisos.py`: borrador "Dijisteis → Hemos hecho" de un compromiso (v6): `redactar_compromiso(tema, analisis, accion, colectivos, idioma)`. El modelo solo ve cifras agregadas; RRHH firma.
+- `compromisos.py`: borrador "Dijisteis → Hemos hecho" de un compromiso: `redactar_compromiso(tema, analisis, accion, colectivos, idioma)`. El modelo solo ve cifras agregadas; RRHH firma.
 - `plantillas_respaldo.py`: encuestas de respaldo (sin modelo) en castellano, catalán e inglés y temas prohibidos en cualquier idioma.
 - `textos_respaldo.py`: textos de respaldo (sin modelo) en castellano, catalán e inglés; nombres de sectores, turnos y temas.
 - `simulados.py`: comentarios simulados coherentes con cada encuesta para el modo demo.
@@ -20,10 +20,11 @@
 Las reglas de las encuestas (límites de preguntas, segundos por tipo, duración mínima, idiomas) están en `backend/reglas.py`.
 
 ## Variables de entorno
-- `LLM_API_KEY`: clave del equipo.
-- `LLM_API_KEY` basta para activar la IA; `LLM_BASE_URL` y `LLM_MODEL` son opcionales.
-- `LLM_BASE_URL`: por defecto `https://dcc-llm-gw.uab.cat/uabthehack/v1`.
-- `LLM_MODEL`: `ornith` (único modelo disponible en el evento).
+Cualquier proveedor con API compatible con OpenAI (`POST {LLM_BASE_URL}/chat/completions`).
+
+- `LLM_API_KEY`: clave del proveedor. Sin clave, todo funciona con reglas.
+- `LLM_BASE_URL`: URL base **sin** `/chat/completions`. Por defecto, el gateway del hackathon.
+- `LLM_MODEL`: modelo a usar (por ejemplo, `openai/gpt-oss-120b` en Groq).
 
 ## Idioma
 Cada encuesta tiene un idioma original (`es`, `ca` o `en`): el de la pantalla de RRHH al generarla. `generar_encuesta(necesidad, reglas, idioma)` escribe en ese idioma (también el respaldo) y devuelve `idioma_original`; `traducir_encuesta(encuesta, idiomas_destino, idioma_origen)` traduce desde él a los otros dos. Las palabras clave de la clasificación cubren castellano, catalán e inglés.

@@ -1,4 +1,4 @@
-# Datos sintéticos (UPC 1)
+# Datos sintéticos
 
 Datos **100 % ficticios** para desarrollo y demo. Ninguna persona ni dato real de Damm.
 
@@ -9,14 +9,14 @@ python3 datos_sinteticos/generar.py            # busca sola una semilla que cuen
 python3 datos_sinteticos/generar.py --seed 42  # semilla fija
 ```
 
-Solo usa la librería estándar de Python 3. Lee `contenido/plantilla.json` (UAB 2) si existe; si no, usa una plantilla por defecto.
+Solo usa la librería estándar de Python 3. Lee `contenido/plantilla.json` si existe; si no, usa una plantilla por defecto.
 
 ## Qué escribe
 
 - `enc_000.json`: encuesta "Pulso de clima general" (colectivo `todos`, `publicada`, periodo `2026-10`). p1–p5 son `escala_1_5` (bienestar, liderazgo, desarrollo, condiciones, entorno) y p6 es `texto` ("¿Qué cambiarías?").
 - `respuestas.json`: unas 600–700 `Respuesta` de `enc_000` en los periodos `2026-09` y `2026-10`, con `tema_real`. La respuesta a p6 va en `comentario`, no en `valores`.
 
-## La historia que cuentan (MODULOS.md §5)
+## La historia que cuentan
 
 | Qué | Cómo |
 |---|---|

@@ -1,6 +1,6 @@
 /**
  * idioma.js — selector de idioma y traducción del HTML de las pantallas de RRHH
- * (contratos v3 §5.5 y v4 §4)
+ *
  *
  * - Selector arriba a la derecha: ES · CA · EN.
  * - Traduce los elementos con data-i18n (texto), data-i18n-placeholder, data-i18n-title

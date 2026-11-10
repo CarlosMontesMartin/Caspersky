@@ -1,9 +1,9 @@
-"""Métricas agregadas · UPC 2 (modulos.md sección 2 y v2.md secciones 1.3 y 3.4).
+"""Métricas agregadas.
 
 Todo lo que sale de aquí es agregado. Ningún segmento con menos de
 UMBRAL_MINIMO respuestas muestra medias, distribuciones ni temas.
 
-Supresión complementaria (v6 §4.1): ocultar un grupo pequeño no basta si se puede deducir
+Supresión complementaria: ocultar un grupo pequeño no basta si se puede deducir
 RESTANDO. Por eso:
 - si un turno tiene entre 1 y UMBRAL_MINIMO-1 respuestas, se ocultan las medias de TODOS los
   turnos de ese colectivo (la media del colectivo, si tiene n ≥ UMBRAL_MINIMO, se queda);

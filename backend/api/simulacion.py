@@ -1,13 +1,13 @@
-"""Respuestas simuladas para el modo demo · UPC 2 (v2.md sección 3.5).
+"""Respuestas simuladas para el modo demo.
 
 Pasan por el MISMO camino que las reales (construir_respuesta: validación,
-texto libre a comentario y anonimizar). La historia es la de modulos.md:
+texto libre a comentario y anonimizar). La historia de los datos es siempre la misma:
 el turno de noche responde poco, las escalas de condiciones caen y suben
 descansos, turnos y comunicación. ~5 % de comentarios llevan datos personales
 inventados para que se vea anonimizar() en acción.
 
 Con IA, los comentarios se sustituyen (p = 0,75) por frases del banco
-contextual de UPC 1 (ia.banco_contextual), coherentes con esta encuesta y
+contextual del módulo de IA (ia.banco_contextual), coherentes con esta encuesta y
 del mismo tema, así que la historia del demo no cambia.
 """
 import random
@@ -20,7 +20,7 @@ from backend.api.validacion import colectivos_de, preguntas_de, turnos_de
 PESO_TURNO_PLANTA = {"manana": 0.46, "tarde": 0.46, "noche": 0.08}
 PESO_COLECTIVO = {"planta": 0.35, "oficina": 0.25, "comercial": 0.15, "manager": 0.10, "logistica": 0.15}
 
-# Temas de la lista cerrada de modulos.md.
+# Temas de la lista cerrada (backend/ia/analizar.py).
 COMENTARIOS = {
     "descansos": ["el descanso de la noche es muy corto", "no da tiempo ni a comer en la pausa",
                   "las pausas estan mal repartidas", "la pausa del bocadillo se queda corta",

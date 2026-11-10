@@ -1,6 +1,6 @@
 /* ==========================================================================
-   Damm · Escucha activa — estilos comunes
-   Sigue contratos/diseno.md: herramienta profesional, sobria, sin dependencias
+   Escucha activa — estilos comunes
+   Sigue docs/diseno.md: herramienta profesional, sobria, sin dependencias
    externas (fuente del sistema), un solo color de acento.
    ========================================================================== */
 
@@ -658,7 +658,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 
 /* ==========================================================================
-   Versión 2 (contratos v2, sección 4)
+   Barra lateral, crear y dashboard
    ========================================================================== */
 
 .texto-critico { color: var(--critico); }
@@ -720,7 +720,7 @@ fieldset.campo { border: none; padding: 0; min-width: 0; }
 #cartel-imprimir .cartel-sector { font-size: 22px; font-weight: 600; color: #52525B; }
 #cartel-imprimir img { image-rendering: pixelated; }
 
-/* ---------- Dashboard v2 ---------- */
+/* ---------- Dashboard ---------- */
 .lectura p { font-size: var(--t-lg); line-height: 1.55; max-width: 90ch; }
 .lectura h3 { display: flex; align-items: center; gap: var(--e2); }
 .estado-ia { display: flex; align-items: center; gap: var(--e2); font-size: var(--t-xs); color: var(--texto-2); }
@@ -765,7 +765,7 @@ fieldset.campo { border: none; padding: 0; min-width: 0; }
 
 
 /* ==========================================================================
-   Versión 3 (contratos v3, sección 5)
+   Navegación por pasos, IA, Teams e idiomas
    ========================================================================== */
 
 /* ---------- Pasos pulsables en crear.html ---------- */
@@ -881,7 +881,7 @@ fieldset.campo { border: none; padding: 0; min-width: 0; }
 /* Aviso de que falta la pregunta de escala en las comunes */
 .falta-escala { display: flex; align-items: center; justify-content: space-between; gap: var(--e3); flex-wrap: wrap; list-style: none; margin-top: var(--e3); }
 
-/* ---------- v4: reglas visibles en crear.html ---------- */
+/* ---------- Reglas visibles en crear.html ---------- */
 .texto-error { color: var(--critico); }
 .borrar-bloqueado { display: inline-block; cursor: not-allowed; }
 .borrar-bloqueado .btn-texto:disabled { color: var(--texto-3); pointer-events: none; }
@@ -895,7 +895,7 @@ fieldset.campo { border: none; padding: 0; min-width: 0; }
 .idioma-original { margin: calc(-1 * var(--e2)) 0 var(--e3); color: var(--texto-3); }
 .aviso.aviso-amarillo { background: var(--aviso-fondo); border-color: #FDE68A; color: var(--aviso); }
 
-/* ---------- v6: compromisos "Dijisteis → Hemos hecho" ---------- */
+/* ---------- Compromisos "Dijisteis → Hemos hecho" ---------- */
 .recomendacion-cabecera { display: flex; align-items: center; justify-content: space-between; gap: var(--e2); }
 .btn-pequeno { padding: 4px 10px; font-size: var(--t-sm); min-height: 30px; }
 .badge-comprometido { background: var(--aviso-fondo); color: var(--aviso); }
@@ -918,7 +918,7 @@ fieldset.campo { border: none; padding: 0; min-width: 0; }
   .compromiso-textos, .fila-campos { grid-template-columns: 1fr; }
 }
 
-/* ---------- v6: reordenar, condición y pregunta fija en crear.html ---------- */
+/* ---------- Reordenar, condición y pregunta fija en crear.html ---------- */
 .pregunta-acciones { display: inline-flex; align-items: center; gap: 2px; margin-top: 3px; }
 .btn-mover { min-width: 30px; min-height: 30px; font-size: 16px; line-height: 1; color: var(--texto-2); border-radius: var(--radio); }
 .btn-mover:hover:not(:disabled) { background: var(--fondo); color: var(--texto); }

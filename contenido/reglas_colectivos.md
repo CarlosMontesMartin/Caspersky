@@ -1,6 +1,6 @@
 # Reglas por colectivo · contexto para la IA que genera encuestas
 
-> Dueño: UAB 2 · Lo lee `backend/ia/generar.py` con `_extraer_reglas_colectivo(reglas, colectivo)`.
+> Lo lee `backend/ia/generar.py` con `_extraer_reglas_colectivo(reglas, colectivo)`.
 > **Formato obligatorio:** cada colectivo es una sección `## <colectivo>` con el valor cerrado exacto
 > (`planta`, `logistica`, `comercial`, `oficina`, `manager`) y `## varios` para las encuestas multisector.
 > La sección termina en el siguiente `## `. No uséis `## ` para otra cosa que empiece por esas palabras.

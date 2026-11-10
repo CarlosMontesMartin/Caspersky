@@ -60,7 +60,7 @@ def _dias(periodo: str) -> list[str]:
 
 
 def colectivos_de(encuesta: dict[str, Any]) -> list[str]:
-    """Colectivos de la encuesta en orden fijo: colectivos (v2) o colectivo (todos o uno)."""
+    """Colectivos de la encuesta en orden fijo: colectivos o colectivo (todos o uno)."""
     lista = [c for c in base.COLECTIVOS if c in (encuesta.get("colectivos") or [])]
     if lista:
         return lista

@@ -134,7 +134,7 @@
               </div>
             </section>
 
-            <!-- 5b. Compromisos "Dijisteis → Hemos hecho" (v6) -->
+            <!-- 5b. Compromisos "Dijisteis → Hemos hecho" -->
             <section class="tarjeta oculto" id="seccion-compromisos" aria-labelledby="titulo-compromisos">
               <div class="tarjeta-cabecera">
                 <h3 id="titulo-compromisos" data-i18n="comp.titulo">Compromisos</h3>
@@ -243,7 +243,7 @@
     </div>
   </dialog>
 
-  <!-- Comprometer una acción (v6): la IA propone el texto; una persona lo firma -->
+  <!-- Comprometer una acción: la IA propone el texto; una persona lo firma -->
   <dialog class="dialogo dialogo-compromiso" id="dialogo-compromiso" aria-labelledby="titulo-compromiso">
     <form method="dialog" id="form-compromiso" novalidate>
       <div class="tarjeta-cabecera">
@@ -343,7 +343,7 @@
       $('badge-estado').className = `badge badge-${encuesta.estado}`;
       $('badge-estado').textContent = formatearEstado(encuesta.estado);
       $('btn-informe').href = `/informe.html?id=${encodeURIComponent(encuestaId)}`;
-      // informe.html es de UAB 2: el botón aparece solo cuando la página existe
+      // El botón del informe aparece solo cuando la página existe
       fetch('/informe.html', { method: 'HEAD' })
         .then(r => { if (r.ok) $('btn-informe').classList.remove('oculto'); })
         .catch(() => {});
@@ -479,12 +479,12 @@
     }
 
     function valoracionMedia() {
-      // v2: media de las zonas ponderada por respuestas; si no, la de las medias por pregunta
+      // Media de las zonas ponderada por respuestas; si no, la de las medias por pregunta
       if (analisis.zonas?.length) {
         const actual = mediaPonderada(analisis.zonas.map(z => ({ media: z.media, n: z.respuestas })));
         // La media anterior se pondera con las respuestas del periodo anterior si el servidor las da
         const anterior = mediaPonderada(analisis.zonas.map(z => ({ media: z.media_anterior, n: z.n_anterior ?? z.respuestas_anterior ?? z.respuestas })));
-        // Corregida por plantilla (v6): cada zona pesa por las personas que tiene, no por quién ha respondido más
+        // Corregida por plantilla: cada zona pesa por las personas que tiene, no por quién ha respondido más
         const corregida = analisis.valoracion?.corregida
           ?? mediaPonderada(analisis.zonas.map(z => ({ media: z.media, n: z.personas })));
         return { actual: analisis.valoracion?.bruta ?? actual, anterior, corregida };
@@ -660,7 +660,7 @@
       }
       sinDatos('caja-temas', '');
       $('tema-detalle').classList.remove('oculto');
-      // pct: v2; si no viene, se calcula con el total de comentarios clasificados
+      // pct: si no viene, se calcula con el total de comentarios clasificados
       const total = temas.reduce((s, t) => s + (t.n || 0), 0) || 1;
       const pct = t => (t.pct ?? (t.n || 0) / total);
       const hayAnterior = temas.some(t => t.pct_anterior !== null && t.pct_anterior !== undefined);
@@ -797,7 +797,7 @@
       const cols = sectores();
       const act = indice(analisis.medias);
       const ant = indice(analisis.medias_anterior);
-      // Preguntas: v2 trae "preguntas" con ámbito; si no, todas las de la encuesta son comunes
+      // Preguntas: el análisis trae "preguntas" con ámbito; si no, todas las de la encuesta son comunes
       const preguntas = (analisis.preguntas?.length ? analisis.preguntas : (encuesta?.preguntas || []).map(p => ({ ...p, ambito: 'comun' })))
         .filter(p => p.tipo === 'escala_1_5');
       const comunes = preguntas.filter(p => p.ambito === 'comun');
@@ -884,7 +884,7 @@
       }
     }
     $('form-preguntar').addEventListener('submit', e => { e.preventDefault(); preguntar($('input-pregunta').value); });
-    // Sugerencias propuestas por la IA (v3): pendiente → chips en esqueleto; ninguno → sin chips
+    // Sugerencias propuestas por la IA: pendiente → chips en esqueleto; ninguno → sin chips
     let sugerenciasListas = false;
     async function cargarSugerencias() {
       if (sugerenciasListas) return;
@@ -966,7 +966,7 @@
       window.location.href = '/crear.html';
     });
 
-    // ---------------- 5b. Compromisos "Dijisteis → Hemos hecho" (v6) ----------------
+    // ---------------- 5b. Compromisos "Dijisteis → Hemos hecho" ----------------
     let compromisos = [];
     let hayCompromisos = true; // false si el servidor aún no tiene las rutas de compromisos
 
@@ -975,7 +975,7 @@
       try {
         return await listarCompromisos(encuestaId);
       } catch (err) {
-        if (err.status === 404 || err.status === 405) hayCompromisos = false; // servidor sin v6
+        if (err.status === 404 || err.status === 405) hayCompromisos = false; // servidor sin compromisos
         return compromisos;
       }
     }
@@ -1087,7 +1087,7 @@
     }
 
     /**
-     * Análisis para la maqueta con zonas[].compromisos. Si el servidor ya lo trae (v6 UPC 2), se usa;
+     * Análisis para la maqueta con zonas[].compromisos. Si el servidor ya lo trae, se usa;
      * si no, se monta con la lista de compromisos: { tema, estado, antes, despues }.
      */
     function analisisParaMaqueta() {
@@ -1205,7 +1205,7 @@
       try {
         const { iniciarVista3D } = await import('/js/vista3d.js');
         const contenedor = $('contenedor-3d');
-        // Contrato v2 (sección 3.7): iniciarVista3D(contenedor, analisis, opciones)
+        // Contrato: iniciarVista3D(contenedor, analisis, opciones)
         vista3d = iniciarVista3D(contenedor, analisisParaMaqueta(), {
           mapaPreguntas,
           capa,
@@ -1320,7 +1320,7 @@
         b.disabled = true;
         b.textContent = tr('dash.simulando', 'Simulando…');
         try {
-          // Demo de compromisos (v6): si esta encuesta es un seguimiento, su pregunta fija mejora
+          // Demo de compromisos: si esta encuesta es un seguimiento, su pregunta fija mejora
           const esSeguimiento = !!(encuesta?.compromiso_id || encuesta?.necesidad?.compromiso_id
             || [encuesta?.preguntas || [], ...Object.values(encuesta?.preguntas_por_colectivo || {})].flat().some(q => q.fija));
           const res = await simularRespuestas(encuestaId, esSeguimiento ? { n: 150, mejora: { pregunta_fija: 1.2 } } : { n: 150 });

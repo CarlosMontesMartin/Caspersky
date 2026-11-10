@@ -67,7 +67,7 @@ def _i18n(idioma: str) -> dict:
 def nombre(tipo: str, codigo: str, idioma: str = "es") -> str:
     """Nombre de un sector, turno, tema o dimensión, en minúscula para ir dentro de una frase.
 
-    Orden: backend/textos.py (UPC 2) → frontend/i18n/<idioma>.json → tabla de este archivo.
+    Orden: backend/textos.py → frontend/i18n/<idioma>.json → tabla de este archivo.
     """
     idioma = idioma_valido(idioma)
     if not codigo:
@@ -384,7 +384,7 @@ def quien(colectivo: str, turno: str | None, idioma: str = "es") -> str:
     return f"{grupo} de {franja}"
 
 
-# ---- Compromisos "Dijisteis → Hemos hecho" (v6) ----
+# ---- Compromisos "Dijisteis → Hemos hecho" ----
 MESES = {
     "es": ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
            "septiembre", "octubre", "noviembre", "diciembre"],

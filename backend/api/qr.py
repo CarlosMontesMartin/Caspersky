@@ -1,4 +1,4 @@
-"""QR · UPC 2."""
+"""QR."""
 import base64
 import io
 

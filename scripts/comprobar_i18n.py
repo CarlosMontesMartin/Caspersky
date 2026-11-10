@@ -1,7 +1,7 @@
 """Comprueba que todas las claves t()/tr()/data-i18n del frontend existen en los JSON de idioma.
 
 Uso (desde la raíz del repo):  python scripts/comprobar_i18n.py   → sale con 1 si falta algo.
-Solo lee JSON y código fuente: no ejecuta nada del proyecto. (v6, anexo A · UAB 2)
+Solo lee JSON y código fuente: no ejecuta nada del proyecto.
 """
 import json
 import re

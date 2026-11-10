@@ -9,6 +9,6 @@ build/
 *.db
 *.sqlite
 .DS_Store
-.venv/
 backend/datos/almacen/
 backend/ia/cache/
+.pytest_cache/

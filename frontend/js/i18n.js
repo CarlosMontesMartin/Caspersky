@@ -1,5 +1,5 @@
 /**
- * i18n.js — textos fijos en castellano, catalán e inglés (contratos v3 6.1 y v4) · UAB 2
+ * i18n.js — textos fijos en castellano, catalán e inglés
  *
  *   await cargarIdioma('ca');          // carga /i18n/ca.json (y es.json como respaldo)
  *   t('responder.enviar');             // "Envia"
@@ -18,7 +18,7 @@ export function mayuscula(texto) {
   return s.charAt(0).toLocaleUpperCase() + s.slice(1);
 }
 
-export const IDIOMAS = ['es', 'ca', 'en'];   // v4: solo estos tres (los mismos que backend/reglas.py)
+export const IDIOMAS = ['es', 'ca', 'en'];   // los mismos que backend/reglas.py
 /** Etiqueta del selector de cada idioma */
 export const ETIQUETAS_IDIOMA = { es: 'ES', ca: 'CA', en: 'EN' };
 const POR_DEFECTO = 'es';

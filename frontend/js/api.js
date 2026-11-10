@@ -1,14 +1,14 @@
 /**
- * Damm · Escucha activa
- * Cliente API del Frontend (UAB 1)
+ * Escucha activa
+ * Cliente API del Frontend
  *
- * Contrato estricto: contratos/modulos.md sección 6 y contratos/api.md.
+ * Contrato: docs/api.md y docs/ejemplos/.
  * Ninguna página llama a fetch directamente: todo pasa por este módulo.
  */
 
 export const USAR_EJEMPLOS = false;
 
-// Idioma de la pantalla (contratos v4 §4): se añade a las llamadas y traduce los códigos
+// Idioma de la pantalla: se añade a las llamadas y traduce los códigos
 import {
   IDIOMAS, idioma as IDIOMA_ACTUAL, t as tr, nombre, porcentaje, numero
 } from "/js/idioma_base.js";
@@ -16,7 +16,7 @@ export { IDIOMAS };
 
 import {
   ENCUESTA_MULTISECTOR, ANALISIS_MULTISECTOR, RECOMENDACIONES_MULTISECTOR, respuestaPreguntaEjemplo
-} from "/js/ejemplos_v2.js";
+} from "/js/ejemplos.js";
 
 /**
  * Generador SVG de código QR estético para modo mock
@@ -277,7 +277,7 @@ export async function listarEncuestas() {
   return peticion("/encuestas");
 }
 
-// Preguntas propias por sector para el modo de ejemplo (como el respaldo de UPC 1)
+// Preguntas propias por sector para el modo de ejemplo
 const _PREGUNTAS_SECTOR_EJEMPLO = {
   planta: [
     { texto: "¿Te da tiempo a hacer la pausa completa en tu turno?", tipo: "si_no", dimension: "bienestar" },
@@ -351,7 +351,7 @@ function _encuestaMultisectorSimulada(id, necesidad, colectivos) {
 /**
  * POST /encuestas/generar
  * Recibe Necesidad: { objetivo, colectivos: [...], contexto, duracion_max_seg, temas_prohibidos }
- * (v2: "colectivos" sustituye a "colectivo", que se sigue aceptando)
+ *
  * Devuelve Encuesta en borrador
  */
 export async function generarEncuesta(necesidad) {
@@ -417,7 +417,7 @@ export async function guardarEncuesta(encuesta) {
     const actualizada = {
       ...encuesta,
       id: actual.id,
-      estado: "borrador", // si estaba aprobada, vuelve a borrador según modulos.md
+      estado: "borrador", // si estaba aprobada, vuelve a borrador
       url: actual.url,
       qr: actual.qr
     };
@@ -492,7 +492,7 @@ export async function publicarEncuesta(id) {
  */
 export async function obtenerAnalisis(id) {
   if (USAR_EJEMPLOS) {
-    // v2: los ejemplos tienen todos los campos nuevos (zonas, distribuciones, lectura, estado_ia…)
+    // Los ejemplos tienen todos los campos (zonas, distribuciones, lectura, estado_ia…)
     return JSON.parse(JSON.stringify({ ...ANALISIS_MULTISECTOR, encuesta_id: id }));
     // eslint-disable-next-line no-unreachable
     return {
@@ -704,7 +704,7 @@ export async function simularRespuestas(id, opciones = {}) {
 }
 
 // ============================================================================
-// Versión 3 (contratos v3): volver atrás, sugerencias de la IA, Teams e idiomas
+// Volver atrás, sugerencias de la IA, Teams e idiomas
 // ============================================================================
 
 /** Idiomas de la aplicación: código, nombre en su propio idioma y etiqueta corta */
@@ -845,7 +845,7 @@ function _tarjetaTeamsEjemplo(id, tipo) {
 }
 
 // ============================================================================
-// Versión 2 (contratos v2): pregunta a tus datos, encuestas activas y sectores
+// Pregunta a tus datos, encuestas activas y sectores
 // ============================================================================
 
 /**
@@ -870,7 +870,7 @@ export async function listarEncuestasActivas() {
   return (todas || []).filter(e => e.estado === "publicada");
 }
 
-/** Orden fijo de los sectores (contratos v2, 1.1) */
+/** Orden fijo de los sectores */
 export const ORDEN_COLECTIVOS = ["planta", "logistica", "comercial", "oficina", "manager"];
 
 /**
@@ -907,7 +907,7 @@ export function formatearMedia(media, decimales = 1) {
 }
 
 // ============================================================================
-// Diccionarios y formateadores para etiquetas legibles (contratos/modulos.md)
+// Diccionarios y formateadores para etiquetas legibles
 // ============================================================================
 
 // Los nombres salen de los diccionarios (claves colectivo.*, tema.*, turno.*, estado.*):
@@ -974,7 +974,7 @@ export function formatearEstado(estado) {
 }
 
 // ============================================================================
-// Compromisos "Dijisteis → Hemos hecho" (contratos v6 §4.2, contratos/ejemplos/compromiso.json)
+// Compromisos "Dijisteis → Hemos hecho"
 // La IA redacta el borrador; una persona de RRHH lo firma. Solo se guarda al firmar.
 // ============================================================================
 

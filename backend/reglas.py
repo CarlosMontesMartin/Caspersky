@@ -1,6 +1,6 @@
-"""Reglas de las encuestas: ÚNICO sitio con estos números (v4.md, P0-1).
+"""Reglas de las encuestas: ÚNICO sitio con estos números.
 
-Lo importan backend/api/validacion.py (UPC 2) y backend/ia/generar.py (UPC 1).
+Lo importan backend/api/validacion.py y backend/ia/generar.py.
 Nadie copia estos valores: si hay que cambiar una regla, se cambia aquí.
 """
 SEG_POR_TIPO = {"escala_1_5": 15, "si_no": 15, "opcion": 15, "texto": 30}

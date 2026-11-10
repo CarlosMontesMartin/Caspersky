@@ -6,7 +6,7 @@
   <title>Informe ejecutivo · Damm</title>
   <link rel="stylesheet" href="/css/estilos.css">
   <style>
-    /* Informe ejecutivo (contratos v2, 5.2): una hoja A4 para dirección */
+    /* Informe ejecutivo: una hoja A4 para dirección */
     .hoja { max-width: 820px; }
     .sello {
       display: inline-block; margin-bottom: var(--e2);
@@ -144,7 +144,7 @@
   <script type="module" src="/js/layout.js"></script>
   <script type="module">
     // Textos fijos: t() de idioma.js (claves informe.* en rrhh_ca.json y rrhh_en.json; el castellano va aquí).
-    // Nombres de sectores, turnos y temas: frontend/i18n/<idioma>.json, el mismo sitio que usa el backend (v4, regla 4).
+    // Nombres de sectores, turnos y temas: frontend/i18n/<idioma>.json, el mismo sitio que usa el backend.
     // Lectura, alertas, límites y acciones llegan ya traducidos del backend (api.js añade ?idioma=).
     import { obtenerAnalisis, obtenerRecomendaciones, colectivosDe } from '/js/api.js';
     import { escapar } from '/js/ui.js';

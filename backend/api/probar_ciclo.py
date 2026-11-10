@@ -1,4 +1,4 @@
-"""Recorre el ciclo completo por la API y dice OK o FALLO en cada comprobación · UPC 2 (v2 3.6, v3 3.5, v4 P1, v5).
+"""Recorre el ciclo completo por la API y dice OK o FALLO en cada comprobación.
 
     python -m backend.api.probar_ciclo                       # sin servidor, datos temporales
     python -m backend.api.probar_ciclo --url http://localhost:8000   # contra un servidor arrancado
@@ -167,7 +167,7 @@ def recorrer(c, res: Resultado, almacen=None, local: bool = False) -> None:
     if not res.comprobar("GET analisis", estado == 200, f"{estado} {a}"):
         return
     faltan = CAMPOS_ANALISIS_V2 - set(a)
-    res.comprobar("El análisis trae todos los campos v2", not faltan, f"faltan {sorted(faltan)}")
+    res.comprobar("El análisis trae todos los campos", not faltan, f"faltan {sorted(faltan)}")
     res.comprobar("Cuenta las respuestas del periodo actual", a["n_respuestas"] >= 40, f"n={a['n_respuestas']}")
     res.comprobar("Hay periodo anterior para comparar", a.get("periodo_anterior") is not None)
     noche = next((f for f in a["participacion"] if f["colectivo"] == "planta" and f["turno"] == "noche"), None)
@@ -225,7 +225,7 @@ def recorrer(c, res: Resultado, almacen=None, local: bool = False) -> None:
         estado, a0 = pedir("get", "/encuestas/enc_000/analisis")
         res.comprobar("Análisis de enc_000", estado == 200 and a0.get("n_respuestas", 0) > 0, f"{estado}")
     else:
-        res.omitir("Análisis de enc_000", "UPC 1 aún no ha subido datos_sinteticos/enc_000.json")
+        res.omitir("Análisis de enc_000", "falta datos_sinteticos/enc_000.json")
 
 
 def recorrer_multisector(c, res: Resultado, pedir) -> None:
@@ -282,7 +282,7 @@ def recorrer_multisector(c, res: Resultado, pedir) -> None:
     if not res.comprobar("GET analisis", estado == 200, f"{estado}"):
         return
     faltan = CAMPOS_ANALISIS_V2 - set(a)
-    res.comprobar("El análisis trae todos los campos v2", not faltan, f"faltan {sorted(faltan)}")
+    res.comprobar("El análisis trae todos los campos", not faltan, f"faltan {sorted(faltan)}")
     zonas = a.get("zonas", [])
     res.comprobar("Una zona por sector (2)", [z["colectivo"] for z in zonas] == ["planta", "logistica"],
                   str([z.get("colectivo") for z in zonas]))
@@ -401,7 +401,7 @@ def recorrer_v3(c, res: Resultado, pedir, almacen=None, local: bool = False) -> 
 
 def recorrer_v4(c, res: Resultado, pedir, eid: str, local: bool = False) -> None:
     import random
-    res.seccion("11. Estabilidad (v4): reglas, rutas e idiomas")
+    res.seccion("11. Estabilidad: reglas, rutas e idiomas")
     corta = dict(NECESIDAD_MULTI, duracion_max_seg=30)
     estado, err = pedir("post", "/encuestas/generar", json=corta)
     res.comprobar("30 s con 2 sectores → 422 con mensaje claro",
@@ -431,7 +431,7 @@ def recorrer_v4(c, res: Resultado, pedir, eid: str, local: bool = False) -> None
     if any(e.get("nombre") != f.get("nombre") for e, f in zip(es, en)):
         res.comprobar("Escenarios: los nombres cambian con el idioma", True)
     else:
-        res.omitir("Escenarios en inglés", "contenido/escenarios.json aún no tiene {es, ca, en} (UAB 2)")
+        res.omitir("Escenarios en inglés", "contenido/escenarios.json aún no tiene {es, ca, en}")
 
     estado, pub = pedir("get", f"/encuestas/{eid}")
     res.comprobar("La encuesta guarda estado_traduccion", pub.get("estado_traduccion") in ("pendiente", "lista", "error"))
@@ -497,7 +497,7 @@ def _pregunta_prueba(pid, texto, tipo="escala_1_5", opciones=None):
 
 
 def recorrer_v5(c, res: Resultado, pedir, eid: str, almacen=None, local: bool = False) -> None:
-    res.seccion("14. Idioma original (v5)")
+    res.seccion("14. Idioma original")
     estado, enc = pedir("post", "/encuestas/generar", json=dict(NECESIDAD_A, idioma="ca"))
     res.comprobar("Necesidad con idioma ca → idioma_original ca",
                   estado == 200 and enc.get("idioma_original") == "ca" and enc["necesidad"].get("idioma") == "ca",
@@ -530,7 +530,7 @@ def recorrer_v5(c, res: Resultado, pedir, eid: str, almacen=None, local: bool = 
     if any(a.get("objetivo") != b.get("objetivo") for a, b in zip(nec_es, nec_ca)):
         res.comprobar("Escenarios: el objetivo cambia con el idioma", True)
     else:
-        res.omitir("Escenarios: objetivo y contexto traducidos", "contenido/escenarios.json aún no tiene {es, ca, en} (UAB 2)")
+        res.omitir("Escenarios: objetivo y contexto traducidos", "contenido/escenarios.json aún no tiene {es, ca, en}")
     if nec_ca:
         estado, gen = pedir("post", "/encuestas/generar", json=nec_ca[0])
         res.comprobar("El escenario en catalán se puede generar (idioma_original ca)",
@@ -651,7 +651,7 @@ class _RespuestaFalsa:
 def _comprobar_teams_local(res: Resultado, pedir, almacen, eid: str) -> None:
     import urllib.error
     import urllib.request
-    res.seccion("15. Teams listo para conectar (v5, sin red)")
+    res.seccion("15. Teams listo para conectar")
     secreto = "https://prod-00.westeurope.logic.azure.com:443/workflows/abc/triggers/manual/paths/invoke?sig=SECRETO"
     antes = {k: os.environ.get(k) for k in ("TEAMS_WEBHOOK_URL", "BASE_URL")}
     urlopen_real = urllib.request.urlopen
@@ -747,9 +747,9 @@ def _escala(enc: dict) -> str | None:
 
 
 def recorrer_v6(c, res: Resultado, pedir, eid: str, almacen=None, local: bool = False) -> None:
-    """v6 (UPC 2): anonimato a prueba de restas, compromisos, minimización, canal y valoración."""
+    """Anonimato a prueba de restas, compromisos, minimización, canal y valoración."""
     # ---------------------------------------------------------------- 16
-    res.seccion("16. Anonimato: no se puede deducir restando (v6)")
+    res.seccion("16. Anonimato: no se puede deducir restando")
     planta = _publicar(pedir, dict(NECESIDAD_A))
     if res.comprobar("Encuesta de planta publicada", planta is not None):
         escala = _escala(planta)
@@ -793,7 +793,7 @@ def recorrer_v6(c, res: Resultado, pedir, eid: str, almacen=None, local: bool = 
                       logistica["media"] is None and logistica["temas"] == [] and logistica["respuestas"] == 2)
 
     # ---------------------------------------------------------------- 17
-    res.seccion("17. Compromisos «Dijisteis → Hemos hecho» (v6)")
+    res.seccion("17. Compromisos «Dijisteis → Hemos hecho»")
     destino = _publicar(pedir, dict(NECESIDAD_A))
     if not res.comprobar("Encuesta de planta para el compromiso", destino is not None):
         return
@@ -933,7 +933,7 @@ def recorrer_v6(c, res: Resultado, pedir, eid: str, almacen=None, local: bool = 
     res.comprobar("Quien responde ve el compromiso ya «hecho»", any(v["estado"] == "hecho" for v in pu.get("compromisos", [])))
 
     # ---------------------------------------------------------------- 18
-    res.seccion("18. Minimización, canal, valoración y anonimizar (v6)")
+    res.seccion("18. Minimización, canal, valoración y anonimizar")
     escala = _escala(otra)
     estado, _ = pedir("post", f"/publico/encuestas/{otra['id']}/respuestas",
                       json={"turno": "noche", "canal": "teams", "valores": {escala: 3}, "comentario": "My supervisor Mike never listens"})
@@ -962,7 +962,7 @@ def recorrer_v6(c, res: Resultado, pedir, eid: str, almacen=None, local: bool = 
         res.comprobar("enc_000: sin respuestas de grupos pequeños en las distribuciones",
                       all(d["n"] >= 5 for d in a0["distribuciones"]))
     else:
-        res.omitir("Valoración corregida en enc_000", "no hay datos sintéticos (UPC 1)")
+        res.omitir("Valoración corregida en enc_000", "no hay datos sintéticos")
 
 
 def _comprobar_traduccion_local(res: Resultado, pedir, almacen) -> None:
@@ -1012,7 +1012,7 @@ def main() -> int:
             recorrer(c, res)
     else:
         os.environ["MODO_DEMO"] = "1"
-        os.environ["LLM_API_KEY"] = ""  # siempre sin IA (v2.md 3.6.7); load_dotenv no lo sobrescribe
+        os.environ["LLM_API_KEY"] = ""  # siempre sin IA; load_dotenv no lo sobrescribe
         os.environ["TEAMS_WEBHOOK_URL"] = ""  # nunca se envía nada a Teams desde las pruebas
         from backend.datos import almacen
         temporal = Path(tempfile.mkdtemp(prefix="probar_ciclo_"))

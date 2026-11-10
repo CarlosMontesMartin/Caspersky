@@ -17,7 +17,7 @@ from backend.ia.recomendar import recomendar
 RAIZ = Path(__file__).resolve().parents[2]
 
 
-# 3 frases en inglés y 3 en catalán por tema: sin IA deben acertarse al menos el 85 % (v5, P0-3)
+# 3 frases en inglés y 3 en catalán por tema: sin IA deben acertarse al menos el 85 %
 MINIMO_SIN_IA = 0.85
 FRASES_EN_CA = {
     "descansos": [
@@ -131,7 +131,7 @@ def precision_sin_ia() -> float:
 
 
 def probar_compromiso(analisis: dict, accion: dict) -> bool:
-    """Sin IA, redactar_compromiso devuelve Dijisteis y Hemos hecho en es, ca y en, sin comillas (v6)."""
+    """Sin IA, redactar_compromiso devuelve Dijisteis y Hemos hecho en es, ca y en, sin comillas."""
     import re
     from unittest import mock
     from backend.ia import compromisos

@@ -79,7 +79,7 @@ PALABRAS_CLAVE: dict[str, list[str]] = {
               "vestuario", "nada especial", "res a dir", "todo bien", "tot be", "frio", "calor"],
 }
 
-# Inglés (v5): mismas reglas; las palabras cortas, con límite de palabra para no confundirse
+# Inglés: mismas reglas; las palabras cortas, con límite de palabra para no confundirse
 PALABRAS_CLAVE_EN: dict[str, list[str]] = {
     "descansos": ["\\brest\\b", "\\bresting", "\\bbreaks?\\b", "tired", "exhaust", "worn out",
                   "\\blunch", "switch off", "sit down", "recover"],

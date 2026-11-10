@@ -1,7 +1,7 @@
-"""Textos que escribe el backend, en es / ca / en (v4.md, P0-3).
+"""Textos que escribe el backend, en es / ca / en.
 
 - nombre(tipo, codigo, idioma): nombres de sectores, turnos, temas, dimensiones y temas prohibidos
-  de los escenarios ("tema_prohibido.salario", v5 P0-1). Se leen de
+  de los escenarios. Se leen de
   frontend/i18n/<idioma>.json (claves "colectivo.planta", "turno.noche", "tema.descansos",
   "dimension.bienestar"), así frontend y backend dicen lo mismo. Si falta una clave, se usa
   la tabla de respaldo de abajo.

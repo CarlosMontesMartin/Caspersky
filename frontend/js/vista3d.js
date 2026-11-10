@@ -1,5 +1,5 @@
 /**
- * vista3d.js — Maqueta 3D de Damm como centro de mando · UPC 2 (v2.md sección 3.7)
+ * vista3d.js — Maqueta 3D de Damm como centro de mando
  * Módulo ES · Three.js 0.160.0 (vendor local, sin CDN)
  *
  * Exporta: iniciarVista3D(contenedor, analisis, opciones?)
@@ -8,13 +8,13 @@
  * La carga es la misma que la versión anterior: imports 'three' / 'three/addons/…',
  * modelo en /public/fabrica.fbx, maqueta normalizada a ~6 unidades y zonas por fx/fz.
  *
- * opciones (todas opcionales) · CONTRATO FIJO (v5 §4), mismos nombres en dashboard.html:
+ * opciones (todas opcionales) · CONTRATO FIJO, mismos nombres en dashboard.html:
  *   capa: "participacion" | "valoracion" | "alertas"   noche: bool
  *   onVerEnAnalisis(colectivo)        → botón "Ver en el análisis" del panel de una zona
  *   onNuevasRespuestas(colectivo, n)  → han llegado n respuestas nuevas de ese sector.
  *                                       Si se pasa, el aviso lo pinta quien llama (no hay dos avisos).
  *   urlCrear: "crear.html"   modeloUrl: "/public/fabrica.fbx"
- * Compromisos (v6): analisis.zonas[].compromisos = [{ tema, estado, antes, despues }] → banderín
+ * Compromisos: analisis.zonas[].compromisos = [{ tema, estado, antes, despues }] → banderín
  * sobre el edificio (ámbar: comprometido · verde: la medida ha mejorado) y línea en el panel.
  * Además emite en document "vista3d:ver-en-analisis" (detail = { colectivo }) y, si el modelo
  * no carga, "vista3d-error" en el contenedor (como antes).
@@ -23,7 +23,7 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-// Textos en el idioma de la pantalla (contratos v4 §4, UAB 1)
+// Textos en el idioma de la pantalla
 import { t, nombre as nombreCodigo, porcentaje, numero } from '/js/idioma_base.js';
 
 // =========================================================================
@@ -382,7 +382,7 @@ export function iniciarVista3D(contenedor, analisis, opciones = {}) {
     if (seleccionada) mostrarPanel(seleccionada);
   }
 
-  // --- Banderines de compromisos (v6) ---
+  // --- Banderines de compromisos ---
   const COLOR_BANDERA = { comprometido: 0xD97706, mejora: 0x15803D };
   const mejoro = (c) => c.antes != null && c.despues != null && c.despues > c.antes;
   function pintarBanderas() {

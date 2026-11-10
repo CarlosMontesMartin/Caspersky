@@ -1,4 +1,4 @@
-"""Rutas de las pantallas de RRHH · UPC 2 (modulos.md sección 3 y v2.md secciones 1.5 y 3.3)."""
+"""Rutas de las pantallas de RRHH."""
 import copy
 import json
 import os
@@ -16,7 +16,7 @@ from backend.datos import almacen, metricas
 from backend.datos import compromisos as compromisos_datos
 from backend.reglas import IDIOMAS, idioma_valido
 
-router = APIRouter()
+router = APIRouter(tags=["Encuestas y análisis"])
 
 
 def base_url() -> str:
@@ -34,10 +34,10 @@ def obtener(encuesta_id: str) -> dict:
     return encuesta
 
 
-# ---------- análisis (rápido: lo lento de la IA va en segundo plano en UPC 1) ----------
+# ---------- análisis ----------
 
 def _completar_temas(temas: list, actual: list, anterior: list) -> list:
-    """Garantiza n_anterior, pct y pct_anterior aunque la versión de UPC 1 aún no los traiga."""
+    """Garantiza n_anterior, pct y pct_anterior aunque el módulo de IA aún no los traiga."""
     total = sum(1 for r in actual if r.get("comentario"))
     total_antes = sum(1 for r in anterior if r.get("comentario"))
     origen_defecto = "ia" if ia.hay_llm() else "reglas"
@@ -52,7 +52,7 @@ def _completar_temas(temas: list, actual: list, anterior: list) -> list:
 def analisis_y_recomendaciones(encuesta: dict, idioma: str = "es") -> tuple[dict, dict]:
     """Análisis y recomendaciones con las frases del backend y de la IA en `idioma`.
     Los textos de RRHH (título y preguntas) salen en `idioma` si existe la traducción y, si no,
-    en el idioma original de la encuesta (v5 §1)."""
+    en el idioma original de la encuesta."""
     idioma = idioma_valido(idioma)
     vista = traducciones.aplicar(encuesta, idioma)  # mismos ids; textos en el idioma o en el original
     respuestas = almacen.leer_respuestas(encuesta["id"])
@@ -111,8 +111,8 @@ def _en_idioma(valor, idioma: str):
 
 
 def _necesidad_en_idioma(necesidad: dict | None, idioma: str) -> dict | None:
-    """Necesidad de un escenario en `idioma` (v5 P0-1): objetivo y contexto ({es, ca, en} o texto),
-    temas_prohibidos con su nombre en el idioma (códigos de UAB 2 → textos) e "idioma"."""
+    """Necesidad de un escenario en `idioma`: objetivo y contexto ({es, ca, en} o texto),
+    temas_prohibidos con su nombre en el idioma e "idioma"."""
     if not isinstance(necesidad, dict):
         return necesidad
     resultado = copy.deepcopy(necesidad)
@@ -128,7 +128,7 @@ def _necesidad_en_idioma(necesidad: dict | None, idioma: str) -> dict | None:
 
 @router.get("/escenarios")
 def escenarios(idioma: str = "es"):
-    """contenido/escenarios.json (UAB 2) en el idioma pedido; si no existe, los de backend/api/escenarios.py."""
+    """contenido/escenarios.json en el idioma pedido; si no existe, los de backend/api/escenarios.py."""
     idioma = idioma_valido(idioma)
     archivo = almacen.CONTENIDO / "escenarios.json"
     if archivo.exists():
@@ -161,7 +161,7 @@ def _idioma_de_necesidad(necesidad: dict, idioma_ruta: str | None) -> str:
 
 def _asegurar_pregunta_fija(encuesta: dict, necesidad: dict) -> None:
     """Seguimiento de un compromiso: la pregunta que se midió antes va PRIMERA, con "fija": true y su
-    texto tal cual (v6 UPC 1 P0-3). UPC 1 la inserta al generar; si su versión aún no lo hace, la
+    texto tal cual. El generador la inserta; si no lo hace, la
     insertamos aquí. Si no cabe (límites de preguntas), sustituye a la primera escala_1_5."""
     fija = necesidad.get("pregunta_fija")
     if not isinstance(fija, dict) or not str(fija.get("texto") or "").strip():
@@ -191,11 +191,11 @@ def _asegurar_pregunta_fija(encuesta: dict, necesidad: dict) -> None:
 
 def _desde_necesidad(necesidad: dict, encuesta_id: str, periodo: str, idioma: str = "es") -> dict:
     """Genera una Encuesta en borrador a partir de una Necesidad ya validada (generar y regenerar).
-    La encuesta se escribe en `idioma`, que queda como su idioma original (v5 §1)."""
+    La encuesta se escribe en `idioma`, que queda como su idioma original."""
     necesidad = dict(necesidad, idioma=idioma)
     try:
         encuesta = ia.generar_encuesta(necesidad, almacen.leer_reglas(), idioma)
-    except ValueError as error:  # UPC 1: la necesidad no permite una encuesta válida
+    except ValueError as error:  # la necesidad no permite una encuesta válida
         raise HTTPException(422, str(error))
     colectivos = colectivos_de(encuesta) or colectivos_de(necesidad)
     encuesta.setdefault("origen", "ia")
@@ -205,7 +205,7 @@ def _desde_necesidad(necesidad: dict, encuesta_id: str, periodo: str, idioma: st
                     idioma_original=idioma_valido(encuesta.get("idioma_original") or idioma),
                     necesidad=copy.deepcopy(necesidad))  # para volver al paso 1 con sus datos
     if necesidad.get("compromiso_id"):
-        encuesta["compromiso_id"] = necesidad["compromiso_id"]  # seguimiento de un compromiso (v6)
+        encuesta["compromiso_id"] = necesidad["compromiso_id"]  # seguimiento de un compromiso
     else:
         encuesta.pop("compromiso_id", None)
     _asegurar_pregunta_fija(encuesta, necesidad)
@@ -251,7 +251,7 @@ def duplicar(encuesta_id: str):
 
 @router.get("/encuestas/{encuesta_id}")
 def ver(encuesta_id: str, idioma: str = "es"):
-    """La encuesta para RRHH, con "idioma_original" e "idioma_vista" (v5 §1).
+    """La encuesta para RRHH, con "idioma_original" e "idioma_vista".
 
     - Publicada (ya no se edita): título, intro y preguntas en `idioma` si hay traducción y,
       si no, en el original.
@@ -314,9 +314,9 @@ def publicar(encuesta_id: str):
         url = f"{base_url()}/responder/{encuesta_id}"
         encuesta.update(estado="publicada", url=url, qr=generar_qr(url))
         encuesta.setdefault("traducciones", {})
-        encuesta.setdefault("estado_traduccion", "pendiente")  # se publica aunque siga pendiente (v4 P1)
+        encuesta.setdefault("estado_traduccion", "pendiente")  # se publica aunque siga pendiente
         guardada = almacen.guardar_encuesta(encuesta)
-    if guardada.get("compromiso_id"):  # seguimiento de un compromiso: ya se puede medir (v6)
+    if guardada.get("compromiso_id"):  # seguimiento de un compromiso: ya se puede medir
         compromisos_datos.vincular_seguimiento(guardada["compromiso_id"], guardada["id"])
     if guardada.get("estado_traduccion") != "lista":
         traducciones.lanzar(guardada)  # por si la de aprobar falló o no llegó a lanzarse

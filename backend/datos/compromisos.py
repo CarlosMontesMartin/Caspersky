@@ -1,4 +1,4 @@
-"""Compromisos "Dijisteis → Hemos hecho" · UPC 2 (v6.md §4.1, §4.2 y §4.3 P0-2).
+"""Compromisos "Dijisteis → Hemos hecho".
 
 Lógica sin FastAPI (la usan las rutas de compromisos, la encuesta pública, la maqueta y Teams).
 

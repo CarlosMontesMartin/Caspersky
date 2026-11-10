@@ -1,6 +1,6 @@
 # Guía de diseño · herramienta profesional
 
-Documento del Tech Lead para `frontend/`. Pegadlo junto a `CONTEXT.md` en cada prompt de diseño.
+Guía visual del frontend: principios, tokens y estructura de cada pantalla.
 Objetivo: que parezca una herramienta de People Analytics que una empresa usaría, no una web de presentación.
 
 ## 1. Principios

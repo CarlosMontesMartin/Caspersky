@@ -45,14 +45,14 @@ REGLAS_POR_DEFECTO = {
 TIMEOUT_GENERAR_SEG = 20
 TIMEOUT_GENERAR_SECTORES_SEG = 30
 
-# Tiempo máximo por colectivo (contenido/reglas_colectivos.md, sección 3)
+# Tiempo máximo por colectivo
 TIEMPO_MAX_COLECTIVO = {"planta": 90, "logistica": 60, "comercial": 120, "oficina": 180,
                         "manager": 120}
 
 log = logging.getLogger(__name__)
 
 # Sin IA, en estos colectivos la pregunta abierta solo sale a quien puntúa 1-2 la primera escala:
-# menos texto para quien va justo de tiempo (v6, P1-1)
+# menos texto para quien va justo de tiempo
 COLECTIVOS_CONDICIONAL = {"planta", "logistica"}
 MAX_PREGUNTAS = {"planta": 4, "logistica": 4, "comercial": 5, "oficina": 6, "manager": 5}
 
@@ -206,7 +206,7 @@ def _condicion_bruta(condicion: Any) -> dict[str, Any] | None:
 
 
 def _pregunta_fija(necesidad: dict[str, Any]) -> dict[str, Any] | None:
-    """La pregunta del indicador de un compromiso (v6): va la primera, tal cual y sin recortes."""
+    """La pregunta del indicador de un compromiso: va la primera, tal cual y sin recortes."""
     fija = necesidad.get("pregunta_fija")
     if not isinstance(fija, dict) or not str(fija.get("texto") or "").strip():
         return None

@@ -1,8 +1,8 @@
-"""Traducciones de encuestas · UPC 2 (v3.md sección 3.3 y v5.md §1).
+"""Traducciones de encuestas.
 
-- Cada encuesta tiene un idioma original (v5): el de la pantalla de RRHH al generarla
+- Cada encuesta tiene un idioma original: el de la pantalla de RRHH al generarla
   (encuesta["idioma_original"]; las antiguas sin el campo cuentan como "es").
-- Al aprobar, se traduce en segundo plano con ia.traducir_encuesta (UPC 1) DESDE el idioma
+- Al aprobar, se traduce en segundo plano con ia.traducir_encuesta DESDE el idioma
   original a los otros dos, y se guarda en encuesta["traducciones"] con
   estado_traduccion = "lista" | "error".
 - Si la encuesta cambia mientras se traduce (editar, regenerar), el resultado se descarta.

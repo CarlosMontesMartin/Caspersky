@@ -1,4 +1,4 @@
-"""Borrador de un compromiso "Dijisteis → Hemos hecho" a partir de una acción recomendada (v6).
+"""Borrador de un compromiso "Dijisteis → Hemos hecho" a partir de una acción recomendada.
 
 La IA redacta el borrador y RRHH lo firma. El modelo solo ve cifras agregadas (sin ningún
 comentario): el "Dijisteis" lleva la cifra del tema y el "Hemos hecho" es un borrador con [fecha]

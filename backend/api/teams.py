@@ -1,4 +1,4 @@
-"""Teams · UPC 2 (v3.md 3.4, v4.md P0-2 y v5.md P0-3) — listo para conectar.
+"""Teams — listo para conectar.
 
 El backend es la ÚNICA fuente de las tarjetas: el frontend (js/teams.js) solo dibuja lo que
 devuelve /teams/vista_previa.
@@ -31,7 +31,7 @@ from backend.datos import almacen
 from backend.datos import compromisos as compromisos_datos
 from backend.reglas import idioma_valido
 
-router = APIRouter()
+router = APIRouter(tags=["Microsoft Teams"])
 
 TIMEOUT_SEG = 10
 DOMINIOS_TEAMS = ("logic.azure.com", "powerplatform.com", "powerautomate.com", "office.com")
@@ -70,7 +70,7 @@ def _base_url_local() -> bool:
 
 def aviso() -> tuple[str | None, str | None]:
     """(código, texto) del aviso para la pantalla de Teams, o (None, None).
-    El código coincide con la clave de i18n de UAB 2: teams.aviso_<código>."""
+    El código coincide con la clave de i18n teams.aviso_<código>."""
     if _url_webhook() and not configurado():
         return "url_no_valida", AVISO_URL_NO_VALIDA
     if configurado() and _base_url_local():

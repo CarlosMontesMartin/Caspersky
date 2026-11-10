@@ -316,7 +316,7 @@
       revisarCambiosNecesidad();
     });
 
-    // ---------- Reglas (las mismas que backend/reglas.py, contratos v4) ----------
+    // ---------- Reglas ----------
     const REGLAS = {
       duracionMinUno: 45, duracionMinVarios: 60, duracionMax: 300,
       nucleoMin: 1, nucleoMax: 3, propiasMin: 1, propiasMax: 3, totalMin: 3, totalMax: 6,
@@ -352,14 +352,14 @@
         contexto: $('input-contexto').value.trim(),
         duracion_max_seg: Number($('input-duracion').value) || 120,
         temas_prohibidos: $('input-temas').value.split(',').map(x => x.trim()).filter(Boolean),
-        // Idioma original de la encuesta (v5 §1): la IA la escribe en el idioma de la pantalla
+        // Idioma original de la encuesta: la IA la escribe en el idioma de la pantalla
         idioma: idiomaActual(),
-        // Seguimiento de un compromiso (v6): se conserva al generar y al regenerar
+        // Seguimiento de un compromiso: se conserva al generar y al regenerar
         ...extrasNecesidad(),
       };
     }
 
-    // ---------- Seguimiento de un compromiso (v6 §4.3): compromiso_id + pregunta_fija ----------
+    // ---------- Seguimiento de un compromiso: compromiso_id + pregunta_fija ----------
     let seguimientoDe = null; // { compromiso_id, pregunta_fija }
     function extrasNecesidad() {
       const base = seguimientoDe || (encuesta?.necesidad?.compromiso_id || encuesta?.compromiso_id
@@ -394,7 +394,7 @@
       pintarNotaSeguimiento();
     }
 
-    /** La Necesidad guardada en la encuesta (v3); con encuestas antiguas, lo que se puede deducir */
+    /** La Necesidad guardada en la encuesta; con encuestas antiguas, lo que se puede deducir */
     function necesidadDeEncuesta() {
       return encuesta.necesidad || {
         objetivo: encuesta.titulo || '',
@@ -674,7 +674,7 @@
     }
 
     /**
-     * Condición (v6 P1-2): en las preguntas de texto, "Mostrar solo si en <escala> responde 1–2".
+     * Condición: en las preguntas de texto, "Mostrar solo si en <escala> responde 1–2".
      * Solo se puede depender de una pregunta de escala que vaya antes.
      */
     function controlCondicion(p, lista, editable) {

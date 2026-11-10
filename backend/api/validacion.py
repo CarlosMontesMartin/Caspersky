@@ -1,4 +1,4 @@
-"""Validaciones y utilidades de colectivos · UPC 2 (v2.md, secciones 1.1 y 3.2).
+"""Validaciones y utilidades de colectivos.
 
 Lanzan HTTPException 422 con un mensaje claro.
 """
@@ -8,7 +8,7 @@ from fastapi import HTTPException
 
 from backend import reglas
 
-# Todo sale de backend/reglas.py (único sitio con las reglas, v4.md P0-1)
+# Todo sale de backend/reglas.py
 ORDEN_COLECTIVOS = list(reglas.COLECTIVOS)
 COLECTIVOS = set(ORDEN_COLECTIVOS)
 TIPOS = set(reglas.TIPOS)
@@ -90,7 +90,7 @@ def validar_necesidad(necesidad: dict) -> None:
     if not isinstance(necesidad.get("temas_prohibidos", []), list):
         error("temas_prohibidos debe ser una lista")
     fija = necesidad.get("pregunta_fija")
-    if fija is not None:  # seguimiento de un compromiso: la misma pregunta que se midió antes (v6)
+    if fija is not None:  # seguimiento de un compromiso: la misma pregunta que se midió antes
         if not isinstance(fija, dict) or not str(fija.get("texto") or "").strip() or len(str(fija["texto"])) > 300:
             error("pregunta_fija debe ser {texto, tipo, dimension} con un texto de hasta 300 caracteres")
         if fija.get("tipo", "escala_1_5") != "escala_1_5":

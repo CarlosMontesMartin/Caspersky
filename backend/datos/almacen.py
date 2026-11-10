@@ -1,4 +1,4 @@
-"""Almacenamiento en JSON · UPC 2 (ver modulos.md, sección 2).
+"""Almacenamiento en JSON.
 
 Único módulo que lee y escribe archivos.
 
@@ -100,7 +100,7 @@ def cargar_sinteticos() -> int:
     encuesta = _leer_json(SINTETICOS / "enc_000.json", None)
     respuestas = _leer_json(SINTETICOS / "respuestas.json", [])
     if encuesta is None:
-        print("[almacen] Aviso: no existe datos_sinteticos/enc_000.json (lo genera UPC 1).")
+        print("[almacen] Aviso: no existe datos_sinteticos/enc_000.json.")
     else:
         guardar_encuesta(encuesta)
     if not respuestas:
@@ -110,7 +110,7 @@ def cargar_sinteticos() -> int:
     por_encuesta: dict[str, list[dict]] = {}
     for r in respuestas:
         r = _anonimizar_textos(r, tipos)
-        if r.get("periodo"):  # minimización (v6): solo el mes, no el día
+        if r.get("periodo"):  # minimización: solo el mes, no el día
             r["fecha"] = f"{r['periodo']}-01"
         por_encuesta.setdefault(r["encuesta_id"], []).append(r)
     with _bloqueo:
@@ -172,7 +172,7 @@ def leer_respuestas(encuesta_id: str) -> list[dict]:
     return _leer_json(_ruta("respuestas", encuesta_id), [])
 
 
-# ---------- compromisos ("Dijisteis → Hemos hecho", v6) ----------
+# ---------- compromisos ----------
 # Un solo archivo con la lista: almacen/compromisos.json. Todas las operaciones van bajo _bloqueo.
 
 def _ruta_compromisos() -> Path:
@@ -226,7 +226,7 @@ def actualizar_compromiso(compromiso_id: str, cambios: dict) -> dict | None:
         return guardar_compromiso(dict(actual, **cambios))
 
 
-# ---------- contenido de UAB 2 ----------
+# ---------- contenido editable (contenido/) ----------
 
 def leer_plantilla() -> list[dict]:
     return _leer_json(CONTENIDO / "plantilla.json", [])

@@ -43,7 +43,7 @@ def test_vacios():
     assert anonimizar("") == ""
 
 
-# ---------- v6: inglés y catalán ----------
+# ---------- inglés y catalán ----------
 
 def test_nombre_en_ingles_tras_pista():
     assert "[nombre]" in anonimizar("My supervisor Mike never listens")

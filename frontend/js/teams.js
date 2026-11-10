@@ -1,5 +1,5 @@
 /**
- * teams.js — "Publicar en Teams" y "Enviar resumen a Teams" (contratos v3 §5.4 y v5 §4)
+ * teams.js — "Publicar en Teams" y "Enviar resumen a Teams"
  *
  * La tarjeta la construye SOLO el backend (GET /encuestas/{id}/teams/vista_previa):
  * aquí solo se dibuja. GET /integraciones → { teams: bool, aviso: str | null }.
@@ -30,7 +30,7 @@ export async function integracionesDisponibles() {
 
 /** Avisos fijos del backend, en el idioma de la pantalla */
 function textoAviso(aviso, codigo) {
-  // v6 P2: si el backend manda aviso_codigo, se usa; si no, se reconoce el texto
+  // Si el backend manda aviso_codigo, se usa; si no, se reconoce el texto
   // Claves teams.aviso_<código>: teams.aviso_localhost y teams.aviso_url_no_valida
   if (codigo) return t(`teams.aviso_${codigo}`, aviso || codigo);
   if (!aviso) return '';
@@ -113,7 +113,7 @@ export function abrirVistaPrevia(tarjeta, notas = []) {
 
 /**
  * Acción del botón de Teams.
- * tipo: "publicar" (encuesta), "resumen" (análisis) o "compromiso" (v6: el id es el del compromiso).
+ * tipo: "publicar" (encuesta), "resumen" (análisis) o "compromiso".
  * Devuelve { ok, mensaje } para mostrarlo junto al botón.
  */
 export async function accionTeams(encuestaId, tipo, boton) {

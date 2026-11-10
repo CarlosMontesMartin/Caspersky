@@ -1,8 +1,8 @@
-"""Escenarios de la demo · UPC 2.
+"""Escenarios de la demo.
 
 Los tres escenarios de la guía de Damm, listos para que el frontend rellene
 la pantalla de crear con un clic y para que probar_ciclo.py los use.
-El texto para ensayar está en contenido/escenarios_demo.md (UAB 2): si cambia
+El texto para ensayar está en docs/presentacion/escenarios_demo.md: si cambia
 allí una necesidad, hay que cambiarla también aquí.
 """
 ESCENARIOS = [

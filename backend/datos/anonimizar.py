@@ -1,4 +1,4 @@
-"""Anonimización de comentarios · UPC 2.
+"""Anonimización de comentarios.
 
 anonimizar(texto) quita correos, teléfonos, DNI/NIE y nombres de persona.
 Se aplica a todo texto libre antes de guardarlo: comentarios y valores de

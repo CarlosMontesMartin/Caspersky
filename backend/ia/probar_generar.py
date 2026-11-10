@@ -298,7 +298,7 @@ def probar_robustez() -> bool:
 
 
 def probar_idiomas() -> bool:
-    """Sin IA, una encuesta en catalán o en inglés sale entera en ese idioma (v5, P0-1)."""
+    """Sin IA, una encuesta en catalán o en inglés sale entera en ese idioma."""
     print(f"\n{'=' * 70}\n  Caso 6: idioma original (es, ca, en) y temas prohibidos en cualquier idioma\n{'=' * 70}")
     from backend.api.validacion import validar_preguntas
     marcas = {"es": ("¿", "turnos"), "ca": ("torns", "Com "), "en": ("shift", "How ")}
@@ -330,7 +330,7 @@ def probar_idiomas() -> bool:
 
 
 def probar_fija_y_condicional() -> bool:
-    """v6: pregunta fija la primera (con y sin IA) y una condicional en el respaldo de planta."""
+    """Pregunta fija la primera (con y sin IA) y una condicional en el respaldo de planta."""
     print(f"\n{'=' * 70}\n  Caso 7: pregunta fija del compromiso y lógica condicional\n{'=' * 70}")
     from unittest import mock
     from backend.ia import generar

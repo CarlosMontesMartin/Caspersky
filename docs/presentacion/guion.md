@@ -1,8 +1,8 @@
-# Guion del pitch · v6 · 3:15 min · palabra por palabra
+# Guion del pitch · 3:15 min · palabra por palabra
 
-> Dueño: UAB 2 · Slides en `pitch/estructura_slides.md`.
+> Diapositivas en [`diapositivas.md`](diapositivas.md).
 > Unas 400 palabras habladas; el resto del tiempo son las pausas del demo. Margen de 15 s hasta los 3:30 y de 45 s hasta los 4 min.
-> **Ponente 1** narra (UAB 2). **Ponente 2** maneja el demo (UAB 1). Lo que va entre [corchetes] son acotaciones o cifras que se rellenan en el ensayo.
+> **Ponente 1** narra. **Ponente 2** maneja el demo. Lo que va entre [corchetes] son acotaciones o cifras que se rellenan en el ensayo.
 > Antes de empezar: almacén limpio; escenario D generado, aprobado (traducciones listas) y publicado; un compromiso preparado en `enc_000` con su encuesta de seguimiento publicada y su QR en pantalla; dashboard abierto en Resumen; Teams abierto en el canal si está conectado.
 
 ---
@@ -78,7 +78,7 @@
 ## Ensayo
 
 - 3 ensayos cronometrados. Objetivo: **3:05–3:20**. Si pasa de 3:30, recortar primero la frase del informe (slide 5).
-- Rellenar las cifras entre corchetes con las del ensayo y el dato de precisión de UPC 1. No prometer porcentajes de participación reales.
+- Rellenar las cifras entre corchetes con las del ensayo y el dato de precisión de la clasificación. No prometer porcentajes de participación reales.
 - Antes de salir: cerrar terminales, `.env` y cualquier pestaña con la URL del webhook de Teams. Recargar el navegador con Ctrl+Shift+R.
 
 ## Respuestas para el jurado (≤ 20 s cada una)
