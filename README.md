@@ -125,7 +125,7 @@ Built by a four-person team combining computer engineering and business & techno
 
 | Name | Background | Focus |
 |---|---|---|
-| [Carlos Montes Martín](www.linkedin.com/in/carlos-montes-martín-54aa35380) | Computer Engineering, UPC |AI pipeline: LLM client, survey generation, hybrid comment classification, fallback rules|
+| [Carlos Montes Martín](https://www.linkedin.com/in/carlos-montes-martín-54aa35380) | Computer Engineering, UPC |AI pipeline: LLM client, survey generation, hybrid comment classification, fallback rules|
 | [Norman Castro Vega](https://www.linkedin.com/in/) | Computer Engineering, UPC |Backend API, Microsoft Teams and QR integrations, mobile access, end-to-end tests|
 | [Aroa Busto Martín](https://www.linkedin.com/in/) | Business & Technology, UAB |Frontend & UX: HR screens, dashboard, 3D plant view, multilingual interface|
 | [Eric Montes Martín](https://www.linkedin.com/in/) | Business & Technology, UAB | Synthetic data, per-sector survey guidelines, privacy and analytics design |
