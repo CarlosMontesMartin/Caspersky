@@ -77,6 +77,18 @@ app = FastAPI(
     lifespan=arranque,
 )
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+@app.middleware("http")
+async def sin_cache_vieja(request: Request, call_next):
+    """Que el navegador pregunte siempre si el HTML/JS/CSS ha cambiado (responde 304 si no):
+    así, después de un git pull, nunca mezcla un dashboard nuevo con un api.js viejo."""
+    respuesta = await call_next(request)
+    if request.method == "GET" and request.url.path.endswith((".html", ".js", ".css", ".json", "/")):
+        respuesta.headers["Cache-Control"] = "no-cache"
+    return respuesta
+
+
 app.include_router(rutas_encuestas.router)
 app.include_router(rutas_publico.router)
 app.include_router(teams.router)
