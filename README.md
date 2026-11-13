@@ -1,4 +1,4 @@
-# Escucha activa — AI-assisted employee listening
+# RessoDAMM — AI-assisted employee listening
 
 [![CI](https://github.com/CarlosMontesMartin/caspersky/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosMontesMartin/caspersky/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)
@@ -6,7 +6,7 @@
 ![No build step](https://img.shields.io/badge/frontend-vanilla%20JS-F7DF1E?logo=javascript&logoColor=black)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**HR teams ask too much, hear too little, and rarely show what changed.** Escucha activa is a full-stack platform that turns an HR need into a short, sector-specific survey, collects answers from shop-floor staff without a corporate account, and turns the results into actions that are reported back to the workforce: *"You said → We did"*.
+**HR teams ask too much, hear too little, and rarely show what changed.** RessoDAMM is a full-stack platform that turns an HR need into a short, sector-specific survey, collects answers from shop-floor staff without a corporate account, and turns the results into actions that are reported back to the workforce: *"You said → We did"*.
 
 Built in 24 hours at **UAB The Hack 2026** for the Damm challenge, then polished into a reference implementation. Español: [README.es.md](README.es.md).
 
